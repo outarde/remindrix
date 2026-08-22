@@ -228,7 +228,7 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
                 .map_err(|err| tokio_rusqlite::rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
 
             // Timezone
-            let tz = match parse_tz(&room_tz_str) {
+            let tz = match super::settings::parse_tz(&room_tz_str) {
                 Ok(tz) => tz,
                 Err(err) => {
                     super::config::DEFAULT_TZ.parse::<Tz>().unwrap()
@@ -377,9 +377,4 @@ pub async fn save_reminder_to_db_utc(
 /// Check if reminder time as string can be parsed to NaiveTime
 pub fn is_time_valid(time_str: &str, time_format: &str) -> bool {
     NaiveTime::parse_from_str(time_str, time_format).is_ok()
-}
-
-/// User Input like Europe/Paris -> Tz
-pub fn parse_tz(tz_str: &str) -> Result<Tz> {
-    tz_str.parse().with_context(|| format!("Invalid user timezone: {tz_str:?}"))
 }

@@ -189,13 +189,15 @@ impl BotManager {
     }
 
     fn register_handlers(&self) {
-        // let ctx = self.context.clone();
         let ctx: SharedState = self.context.clone();
+        let ctx_2: SharedState = self.context.clone();
 
         self.context.client.add_event_handler(move |event, room| {
             handlers::on_room_message(event, room, ctx.clone())
         });
-        self.context.client.add_event_handler(handlers::on_stripped_state_member);
+        self.context.client.add_event_handler(move |room_member, room| {
+            handlers::on_stripped_state_member(room_member, room, ctx_2.clone())
+        });
     }
 }
 
