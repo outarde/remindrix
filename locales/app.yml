@@ -519,14 +519,62 @@ reminder.error.summer-time:
   uk: Цей час не існує у вашому часовому поясі через зміну сезону, будь ласка, виберіть інше.
 tz.current:
   en: Room time zone is **%{tz}**.
+  de: Die Zeitzone des Raumes ist **%{tz}**.
+  fr: Le fuseau horaire de la chambre est **%{tz}**.
+  it: Il fuso orario della stanza è **%{tz}**.
+  es: La zona horaria de la habitación es **%{tz}**.
+  sv: Rummets tidszon är **%{tz}**.
+  pl: Strefa czasowa pokoju to **%{tz}**.
+  cs: Časové pásmo místnosti je **%{tz}**.
+  fi: Huoneen aikavyöhyke on **%{tz}**.
+  ja: 部屋のタイムゾーンは**%{tz}**です。
+  zh: 房间时区为**%{tz}**。
   ru: >
     Часовой пояс комнаты: **%{tz}**.
+  uk: >
+    Часовий пояс кімнати: **%{tz}**.
 tz.set:
   en: Room time zone is now set to **%{tz}**.
+  de: Die Zeitzone des Raums ist jetzt auf **%{tz}** eingestellt.
+  fr: Le fuseau horaire de la chambre est maintenant réglé sur **%{tz}**.
+  it: Il fuso orario della stanza è ora impostato su **%{tz}**.
+  es: La zona horaria de la habitación ahora está configurada en **%{tz}**.
+  sv: Rummets tidszon är nu inställd på **%{tz}**.
+  pl: Strefa czasowa pokoju jest teraz ustawiona na **%{tz}**.
+  cs: Časové pásmo místnosti je nyní nastaveno na **%{tz}**.
+  fi: Huoneen aikavyöhykkeeksi on nyt asetettu **%{tz}**.
+  ja: 部屋のタイムゾーンは**%{tz}**に設定されました。
+  zh: 房间时区现已设置为 **%{tz}**。
+  ru: Часовой пояс комнаты обновлен на **%{tz}**.
+  uk: Часовий пояс кімнати тепер встановлено на **%{tz}**.
 tz.not-set:
-  en: Room time zone is default **%{tz}** zone.
+  en: This time zone is already set.
+  de: Diese Zeitzone ist bereits eingestellt.
+  fr: Ce fuseau horaire est déjà défini.
+  it: Questo fuso orario è già impostato.
+  es: Esta zona horaria ya está configurada.
+  sv: Den här tidszonen är redan inställd.
+  pl: Ta strefa czasowa jest już ustawiona.
+  cs: Toto časové pásmo je již nastaveno.
+  fi: Tämä aikavyöhyke on jo asetettu.
+  ja: このタイムゾーンは既に設定済みです。
+  zh: 此时区已设置。
+  ru: Этот часовой пояс уже установлен.
+  uk: Цей часовий пояс уже встановлено.
 tz.invalid-format:
-  en: Invalid time zone format, use IANA Time Zone Database, like Europe/Paris.
+  en: Invalid time zone format. Use values from the IANA Time Zone Database, such as **Europe/Paris**.
+  de: Ungültiges Zeitzonenformat. Verwenden Sie Werte aus der IANA-Zeitzonendatenbank, z. B. **Europe/Paris**.
+  fr: Format de fuseau horaire invalide. Veuillez utiliser les valeurs de la base de données de fuseaux horaires IANA, telles que **Europe/Paris**.
+  it: Formato del fuso orario non valido. Utilizzare i valori del database dei fusi orari IANA, come **Europe/Paris**.
+  es: Formato de zona horaria no válido. Utilice valores de la base de datos de zonas horarias de la IANA, como **Europe/Paris**.
+  sv: Ogiltigt tidszonsformat. Använd värden från IANA:s tidszonsdatabas, till exempel **Europa/Paris**.
+  pl: Nieprawidłowy format strefy czasowej. Użyj wartości z bazy danych stref czasowych IANA, takich jak **Europa/Paryż**.
+  cs: Neplatný formát časového pásma. Použijte hodnoty z databáze časových pásem IANA, například **Evropa/Paříž**.
+  fi: Virheellinen aikavyöhykkeen muoto. Käytä IANA:n aikavyöhyketietokannan arvoja, kuten **Eurooppa/Pariisi**.
+  ja: 無効なタイムゾーン形式です。IANAタイムゾーンデータベースの値（例：**Europe/Paris**）を使用してください。
+  zh: 时区格式无效。请使用 IANA 时区数据库中的值，例如 **Europe/Paris**。
+  ru: Неправильный формат часового пояса. Используйте значения из IANA Time Zone Database, например **Europe/Paris**.
+  uk: Неправильний формат часового поясу. Використовуйте значення з IANA Time Zone Database, як **Europe/Paris**.
 dates.today:
   en: today
   de: heute
