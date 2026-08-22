@@ -22,7 +22,7 @@ use rust_i18n::t;
 // app crates
 use crate::config::BotConfig;
 use crate::reminder::{Reminder, ReminderStatus};
-use crate::settings::RoomTimezoneContent;
+use crate::settings::{RoomTimezoneContent, SettingsManager};
 
 // Compile regex only once
 static REMINDER_REGEX: OnceLock<Regex> = OnceLock::new();
@@ -207,6 +207,24 @@ impl I18nManager {
     }
 }
 
+pub struct CommandContext {
+    pub room: Room,
+    pub ctx: Arc<super::BotContext>,
+    pub room_tz: Tz,
+    pub settings: SettingsManager,
+    pub i18n: Arc<I18nManager>,
+}
+
+impl CommandContext {
+    pub async fn new(room: Room, ctx: Arc<super::BotContext>) -> Self { 
+        let room_tz = super::settings::get_room_tz(room.clone(), &ctx).await;
+        let settings = SettingsManager::new(&room, &ctx).await;
+        let i18n = ctx.get_i18n_manager(&settings.room_lang).await;
+
+        Self { room, ctx, room_tz, settings, i18n } 
+    }
+}
+
 /// Parsed data of user message for newly reminder
 #[derive(Debug)]
 struct ParsedReminder {
@@ -255,16 +273,19 @@ pub async fn on_room_message(
         return;
     };
 
+    // Command Context
+    let cmd_ctx = CommandContext::new(room.clone(), ctx.clone()).await;
+
     match command {
         BotCommand::Remind => {
-            handle_remind(&args, room, ctx.clone()).await;
+            handle_remind(&args, cmd_ctx).await;
         }
         BotCommand::List => {
             // handle_list(&room, &db).await;
             return;
         }
         BotCommand::Tz => {
-            handle_tz(&args, event.clone(), room, ctx.clone()).await;
+            handle_tz(&args, event.clone(), cmd_ctx).await;
             return;
         }
     }
@@ -274,77 +295,54 @@ pub async fn on_room_message(
 pub async fn handle_tz(
     body: &str,
     ev: OriginalSyncRoomMessageEvent,
-    room: Room,
-    ctx: Arc<super::BotContext>,
+    cmd_ctx: CommandContext,
 ) {
     // Update timezone if we have one in the input.
     if !body.is_empty() {
-        // Parse TZ
-        let user_tz = match super::reminder::parse_tz(&body) {
+        // Parse user's input timezone code
+        let input_tz = match super::settings::parse_tz(&body) {
             Ok(tz) => tz,
             Err(err) => {
                 let err_msg = t!("tz.invalid-format"); 
-                let _ = room.send(RoomMessageEventContent::text_markdown(err_msg)).await;
+                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(err_msg)).await;
                 
                 tracing::error!("Invalid user timezone: {err:?}");
                 return;
             }
         };
 
-        // TODO: check current timezone by get_room_tz() and update only user changes it
-        // may be via result from room.send_state_event(content).await ?
-        let _ = super::settings::set_room_tz(room.clone(), ctx.clone(), user_tz).await;
-
-        let msg = t!("tz.set", tz = user_tz); 
-        let _ = room.send(RoomMessageEventContent::text_markdown(msg)).await;
-
-        return;
-    }
-
-    // Reply with current timezone.
-    // Raw JSON: Option<Raw<StateEvent<C>>>
-    if let Ok(Some(raw)) = room.get_state_event_static::<RoomTimezoneContent>().await {
-        // Pattern matching to Sync variant, not Stripped
-        // https://docs.rs/matrix-sdk/latest/matrix_sdk/deserialized_responses/enum.SyncOrStrippedState.html
-        // Instead of pattern matching we can use as_sync() 
-        // on et Ok(state) = raw.deserialize() with type SyncOrStrippedState<RoomTimezoneContent>.
-        if let Ok(SyncOrStrippedState::Sync(sync_event)) = raw.deserialize() {
-            // Check if it is not Redacted
-            // https://docs.rs/ruma-events/0.34.0/ruma_events/enum.SyncStateEvent.html
-            if let Some(original) = sync_event.as_original() {
-                // println!("Timezone: {}", original.content.timezone);
-                let msg = t!("tz.current", tz = &original.content.timezone);
-                let _ = room.send(RoomMessageEventContent::text_markdown(msg)).await;
-            } else {
-                tracing::warn!("Redacted timezone can not be viewed.");
-            }
+        // If user's input timezone is equal to current room timezone
+        if input_tz == cmd_ctx.room_tz {
+            let msg = t!("tz.not-set"); 
+            let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(msg)).await;
         }
-    } else {
-        let msg = t!("tz.not-set", tz = ctx.bot_config.tz); 
-        let _ = room.send(RoomMessageEventContent::text_markdown(msg)).await;
+        else {
+            let _ = cmd_ctx.settings.set_room_tz(&cmd_ctx.room, &cmd_ctx.ctx, input_tz).await;
+
+            let msg = t!("tz.set", tz = input_tz.to_string()); 
+            let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(msg)).await;
+        }
     }
-    
+    // Send current timezone.
+    else {
+        let msg = t!("tz.current", tz = &cmd_ctx.settings.room_tz.to_string());
+        let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(msg)).await;
+    }
 }
 
-/// New reminder
+/// New reminder.
 pub async fn handle_remind(
     body: &str, 
-    room: Room,
-    ctx: Arc<super::BotContext>,
+    cmd_ctx: CommandContext,
 ) {
-    // i18n
-    let i18n = ctx.get_i18n_manager(&ctx.bot_config.lang).await;
-    // TZ
-    // TODO: Move it to structure or smth else
-    let room_tz = match super::reminder::parse_tz(&ctx.bot_config.tz) {
-        Ok(tz) => tz,
-        Err(err) => {
-            super::config::DEFAULT_TZ.parse::<Tz>().unwrap()
-        }
-    };
+    // i18n and timezone
+    // let i18n = ctx.get_i18n_manager(&ctx.bot_config.lang).await;
+    // let room_tz = super::settings::get_room_tz(room.clone(), &ctx).await;
+
+    // let cmd_ctx = CommandContext::new(&room, ctx).await;
 
     // Make regular expression
-    let re = build_reminder_regex(&i18n);
+    let re = build_reminder_regex(&cmd_ctx.i18n);
 
     // If regular expression found some groups
     if let Some(caps) = re.captures(body) {
@@ -352,9 +350,9 @@ pub async fn handle_remind(
         // Parsed Data
         let reminder_data = match parse_reminder_data(
             &caps, 
-            &ctx.bot_config,
-            &room_tz,
-            &i18n
+            &cmd_ctx.ctx.bot_config,
+            &cmd_ctx.settings.room_tz,
+            &cmd_ctx.i18n
         ) {
             Some(data) => data,
             None => {
@@ -364,11 +362,11 @@ pub async fn handle_remind(
         };
 
         // Times
-        let (utc_time, naive_time) = match build_datetime_utc(&reminder_data, room_tz, &i18n) {
+        let (utc_time, naive_time) = match build_datetime_utc(&reminder_data, &cmd_ctx) {
             Ok((ut, nt)) => (ut, nt),
             Err(err) => {
                 let err_msg = t!(err.as_i18n_key()); 
-                let _ = room.send(RoomMessageEventContent::text_plain(err_msg)).await;
+                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
                 
                 tracing::error!("Date and time validation error: {:?} for {:?}", err, reminder_data);
                 return;
@@ -376,14 +374,21 @@ pub async fn handle_remind(
         };
 
         // Save to DB and schedule
-        // TODO: Use &ctx instead of client.clone() + use ReminderUtc?
-        match super::reminder::save_reminder_to_db_utc(&ctx.db, room.room_id(), reminder_data.text, naive_time.clone(), utc_time.clone(), room_tz.clone()).await {
+        // TODO: New structure for parameters
+        match super::reminder::save_reminder_to_db_utc(
+            &cmd_ctx.ctx.db, 
+            cmd_ctx.room.room_id(), 
+            reminder_data.text, 
+            naive_time.clone(), 
+            utc_time.clone(), 
+            cmd_ctx.room_tz.clone()
+        ).await {
             Ok(new_reminder) => {
-                super::reminder::schedule_reminder_utc(ctx.clone(), new_reminder).await;
+                super::reminder::schedule_reminder_utc(cmd_ctx.ctx.clone(), new_reminder).await;
 
                 let date_str = naive_time.format("%d.%m.%Y");
                 let reminder_mes = t!("reminder.saved", date = date_str, hour = reminder_data.hour, min = reminder_data.min);
-                let _ = room.send(RoomMessageEventContent::text_plain(reminder_mes)).await;
+                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(reminder_mes)).await;
             }
             Err(err) => {
                 tracing::error!("SQLite error: {:?}", err);
@@ -392,52 +397,47 @@ pub async fn handle_remind(
     } 
     // Welcome message
     else {
-        send_welcome_message(room.clone(), &ctx, &room_tz, &i18n).await;
+        send_welcome_message(cmd_ctx).await;
     }
 }
 
 /// Send welcome message with help to the room
-async fn send_welcome_message(
-    room: Room, 
-    ctx: &Arc<super::BotContext>, 
-    room_tz: &Tz, 
-    i18n: &Arc<I18nManager>
-) {
-    let tomorrow = Utc::now().with_timezone(room_tz).date_naive() + Days::new(1);
-    let (month_str, month_str_truncated) = i18n.format_month(&tomorrow.month()).unwrap();
+async fn send_welcome_message(cmd_ctx: CommandContext) {
+    let tomorrow = Utc::now().with_timezone(&cmd_ctx.room_tz).date_naive() + Days::new(1);
+    let (month_str, month_str_truncated) = &cmd_ctx.i18n.format_month(&tomorrow.month()).unwrap();
 
-    let welcome_type = if ctx.bot_config.on_command {
+    let welcome_type = if cmd_ctx.ctx.bot_config.on_command {
         "welcome.on_command"
     } else { "welcome.on_command_off" };
 
     let welcome_msg = t!(
         welcome_type, 
-        cmd = i18n.cmd_remind, 
+        cmd = &cmd_ctx.i18n.cmd_remind, 
         date = tomorrow.format("%d.%m.%Y").to_string(),
         date_slash = tomorrow.format("%d/%m/%Y").to_string(),
         date_hyphen = tomorrow.format("%d-%m").to_string(),
         date_d = tomorrow.format("%d").to_string(),
         month = month_str,
         month_truncated = month_str_truncated,
-        today = &i18n.today,
-        tomorrow = &i18n.tomorrow,
-        morning = &i18n.morning,
-        afternoon = &i18n.afternoon,
-        evening = &i18n.evening
+        today = &cmd_ctx.i18n.today,
+        tomorrow = &cmd_ctx.i18n.tomorrow,
+        morning = &cmd_ctx.i18n.morning,
+        afternoon = &cmd_ctx.i18n.afternoon,
+        evening = &cmd_ctx.i18n.evening
     );
     // for markdonw to text_html: use pulldown_cmark::{Parser, html};
     // let welcome_msg_html = markdown_to_html(&welcome_msg).await;
 
-    let _ = room.send(RoomMessageEventContent::text_markdown(welcome_msg)).await.unwrap();
+    let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(welcome_msg)).await.unwrap();
 }
 
 /// Auto-join
 pub async fn on_stripped_state_member(
     room_member: StrippedRoomMemberEvent,
-    client: Client,
     room: Room,
+    ctx: Arc<super::BotContext>,
 ) {
-    if room_member.state_key != client.user_id().unwrap() {
+    if room_member.state_key != ctx.client.user_id().unwrap() {
         return;
     }
 
@@ -460,6 +460,10 @@ pub async fn on_stripped_state_member(
             }
         }
         tracing::info!("Successfully joined room {}", room.room_id());
+        
+        // Send welcome message.
+        let cmd_ctx = CommandContext::new(room, ctx).await;
+        send_welcome_message(cmd_ctx);
     });
 }
 
@@ -544,11 +548,10 @@ fn parse_reminder_data(
 /// Build final UTC DateTime for DB and validate its time in the future.
 fn build_datetime_utc(
     data: &ParsedReminder, 
-    room_tz: Tz, 
-    i18n: &Arc<I18nManager>
+    cmd_ctx: &CommandContext
 ) -> Result<(DateTime<Utc>, NaiveDateTime), ReminderDateError> {
     // Parse to get month number
-    let month = if let Some(m) = i18n.parse_month(data.month.as_str()) {
+    let month = if let Some(m) = cmd_ctx.i18n.parse_month(data.month.as_str()) {
         m.to_string()
     } else {
         return Err(ReminderDateError::InvalidMonth);
@@ -563,7 +566,7 @@ fn build_datetime_utc(
     // We convert it to DateTime and check that zone mapping has a single result.
     // TODO: parse None
     // let user_dt = room_tz.from_local_datetime(&naive_dt).single().ok_or(ReminderDateError::InvalidTime)?;
-    let user_dt = match room_tz.from_local_datetime(&naive_dt) {
+    let user_dt = match cmd_ctx.room_tz.from_local_datetime(&naive_dt) {
         LocalResult::Single(dt) => dt,
         LocalResult::Ambiguous(dt1, dt2) => {
             // To Winter Time
