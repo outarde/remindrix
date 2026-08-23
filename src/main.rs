@@ -5,13 +5,13 @@ extern crate rust_i18n;
 
 use std::{
     sync::Arc,
-    path::{PathBuf},
+    path::PathBuf,
     collections::HashMap
 };
 use matrix_sdk::{
     Client, 
     config::SyncSettings,
-    ruma::{OwnedUserId}
+    ruma::OwnedUserId
 };
 use anyhow::Result;
 use tracing_subscriber;
@@ -163,7 +163,7 @@ pub struct BotManager {
 
 impl BotManager {
     pub async fn new(runtime: &BotRuntime, config: &AppConfig) -> Result<Self> {
-        let db_conn = Arc::new(reminder::init_db().await?);
+        let db_conn = Arc::new(reminder::init_db(&config.data_dir).await?);
 
         let context = Arc::new(BotContext {
             client: runtime.client.clone(),

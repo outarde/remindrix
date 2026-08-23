@@ -2,7 +2,7 @@ use matrix_sdk::{
     deserialized_responses::SyncOrStrippedState,
     Client, Room, RoomState,
     ruma::{
-        RoomId,
+        RoomId, OwnedRoomId,
         events::room::{
             member::StrippedRoomMemberEvent, 
             message::{MessageType, OriginalSyncRoomMessageEvent, RoomMessageEventContent},
@@ -21,7 +21,7 @@ use rust_i18n::t;
 
 // app crates
 use crate::config::BotConfig;
-use crate::reminder::{Reminder, ReminderStatus};
+use crate::reminder::ReminderStatus;
 use crate::settings::{RoomTimezoneContent, SettingsManager};
 
 // Compile regex only once
@@ -208,9 +208,10 @@ impl I18nManager {
 }
 
 /// Context for current interaction with user.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CommandContext {
     pub room: Room,
+    pub room_id: OwnedRoomId,
     pub ctx: Arc<super::BotContext>,
     pub settings: SettingsManager,
     pub i18n: Arc<I18nManager>,
@@ -220,8 +221,9 @@ impl CommandContext {
     pub async fn new(room: Room, ctx: Arc<super::BotContext>) -> Self { 
         let settings = SettingsManager::new(&room, &ctx).await;
         let i18n = ctx.get_i18n_manager(&settings.room_lang).await;
+        let room_id = room.room_id().to_owned();
 
-        Self { room, ctx, settings, i18n } 
+        Self { room, room_id, ctx, settings, i18n } 
     }
 
     // getter
@@ -322,7 +324,7 @@ pub async fn handle_tz(
             let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(msg)).await;
         }
         else {
-            let _ = cmd_ctx.settings.set_room_tz(&cmd_ctx.room, &cmd_ctx.ctx, input_tz).await;
+            let _ = cmd_ctx.settings.set_room_tz(&cmd_ctx, input_tz).await;
 
             let msg = t!("tz.set", tz = input_tz.to_string()); 
             let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(msg)).await;
@@ -376,15 +378,12 @@ pub async fn handle_remind(
             }
         };
 
-        // Save to DB and schedule
-        // TODO: New structure for parameters
+        // Save to DB and schedule if ok.
         match super::reminder::save_reminder_to_db_utc(
-            &cmd_ctx.ctx.db, 
-            cmd_ctx.room.room_id(), 
+            &cmd_ctx, 
             reminder_data.text, 
             naive_time.clone(), 
-            utc_time.clone(), 
-            cmd_ctx.settings.room_tz.clone()
+            utc_time.clone()
         ).await {
             Ok(new_reminder) => {
                 super::reminder::schedule_reminder_utc(cmd_ctx.ctx.clone(), new_reminder).await;
@@ -414,8 +413,10 @@ async fn send_welcome_message(cmd_ctx: CommandContext) {
     } else { "welcome.on_command_off" };
 
     let welcome_msg = t!(
-        welcome_type, 
-        cmd = &cmd_ctx.i18n.cmd_remind, 
+        welcome_type,
+        cmd_local = &cmd_ctx.i18n.cmd_remind,
+        cmd_list = &cmd_ctx.ctx.bot_config.remind_commands.join("|"),
+        cmd_tz_list = &cmd_ctx.ctx.bot_config.tz_commands.join("|"),
         date = tomorrow.format("%d.%m.%Y").to_string(),
         date_slash = tomorrow.format("%d/%m/%Y").to_string(),
         date_hyphen = tomorrow.format("%d-%m").to_string(),
@@ -467,7 +468,7 @@ pub async fn on_stripped_state_member(
 
         // Send welcome message.
         let cmd_ctx = CommandContext::new(room, ctx).await;
-        send_welcome_message(cmd_ctx);
+        send_welcome_message(cmd_ctx).await;
 
         // let _ = room.send(RoomMessageEventContent::text_plain("/remind")).await.unwrap();
     });
@@ -573,7 +574,7 @@ fn build_datetime_utc(
     // We convert it to DateTime and check that zone mapping has a single result.
     let user_dt = match cmd_ctx.settings.room_tz.from_local_datetime(&naive_dt) {
         LocalResult::Single(dt) => dt,
-        LocalResult::Ambiguous(dt1, dt2) => {
+        LocalResult::Ambiguous(_dt1, dt2) => {
             // To Winter Time
             dt2 
         }
@@ -590,36 +591,6 @@ fn build_datetime_utc(
     }
 
     Ok((utc_dt, naive_dt))
-}
-
-/// Save reminder to DB
-async fn save_reminder_to_db(
-    db: &Connection,
-    room_id: &RoomId,
-    text: String,
-    target_time: NaiveDateTime,
-) -> Result<super::reminder::Reminder, tokio_rusqlite::Error> {
-    let room_id_str = room_id.to_string();
-    let datetime_str = target_time.format("%Y-%m-%d %H:%M:%S").to_string();
-    
-    db.call(move |c| {
-        c.execute(
-            "INSERT INTO reminders (room_id, text, target_time) VALUES (?1, ?2, ?3)",
-            [&room_id_str, &text, &datetime_str],
-        )?;
-        
-        let reminder_id = c.last_insert_rowid();
-        let parsed_room_id = RoomId::parse(&room_id_str)
-            .map_err(|err| tokio_rusqlite::rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
-
-        Ok(Reminder {
-            id: reminder_id,
-            room_id: parsed_room_id,
-            text,
-            target_time,
-            status: ReminderStatus::Pending,
-        })
-    }).await
 }
 
 /*
