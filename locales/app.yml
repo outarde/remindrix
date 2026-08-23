@@ -52,18 +52,22 @@ welcome:
     Я надішлю вам його в загальному або особистому чаті.
 welcome.on_command:
   en: |
-    I am a reminder bot. Send: `/%{cmd}` and the date, time and reminder text on the same line. For example: `/%{cmd} %{date} 20:03 your reminder`
+    I am a reminder bot. Send: `/%{cmd_local}` and the date, time and reminder text on the same line. For example: `/%{cmd_local} %{date} 20:03 your reminder`
 
     ###### 📅 Date 
     - `%{date}`, `%{date_slash}`, `%{date_hyphen}`
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
-    ###### 🕐 Time 
+    ###### 🕐 Time
     - `20:03`, `at 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - if you do not specify the time, the reminder will come at `09:00`.
+    ###### ⚙️ Commands
+    - Put `/` or `!` at the beginning.
+    - `%{cmd_list}|%{cmd_local}` - create a reminder.
+    - `%{cmd_tz_list} Europe/Paris` - set the time zone.
   de: |
-    Ich bin ein Erinnerungs-Bot. Sende: `/%{cmd}` und Datum, Uhrzeit und Erinnerungstext in derselben Zeile. Zum Beispiel: `/%{cmd} %{date} 20:03 deine Erinnerung`
+    Ich bin ein Erinnerungs-Bot. Sende: `/%{cmd_local}` und Datum, Uhrzeit und Erinnerungstext in derselben Zeile. Zum Beispiel: `/%{cmd_local} %{date} 20:03 deine Erinnerung`
 
     ###### 📅 Datum
     - `%{date}`, `%{date_slash}`, `%{date_hyphen}`
@@ -73,8 +77,12 @@ welcome.on_command:
     - `20:03`, `um 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - Wenn du keine Uhrzeit angibst, erfolgt die Erinnerung um 9:00 Uhr.
+    ###### ⚙️ Befehle
+    – Setzen Sie „/“ oder „!“ vor einen Befehl. 
+    - `%{cmd_list}|%{cmd_local}`- eine Erinnerung erstellen. 
+    - „%{cmd_tz_list} Europe/Paris“ – stellt die Zeitzone ein.
   fr: |
-    Je suis un bot de rappel. Envoyez: `/%{cmd}` suivi de la date, de l'heure et du texte du rappel sur la même ligne. Par exemple: `/%{cmd} %{date} 20:03 votre rappel`
+    Je suis un bot de rappel. Envoyez: `/%{cmd_local}` suivi de la date, de l'heure et du texte du rappel sur la même ligne. Par exemple: `/%{cmd_local} %{date} 20:03 votre rappel`
 
     ###### 📅 Date
     - `%{date}`, `%{date_slash}`, `%{date_hyphen}`
@@ -84,8 +92,12 @@ welcome.on_command:
     - `20:03`, `à 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - Si vous ne spécifiez pas l'heure, le rappel sera envoyé à `09:00`.
+    ###### ⚙️ Commandes
+    - Mettez `/` ou `!` avant une commande. 
+    - `%{cmd_list}|%{cmd_local}` - crée un rappel. 
+    - `%{cmd_tz_list} Europe/Paris` - définit le fuseau horaire.
   it: |
-    Sono un bot per i promemoria. Invia: `/%{cmd}` seguito da data, ora e testo del promemoria sulla stessa riga. Ad esempio: `/%{cmd} %{date} 20:03 il tuo promemoria`
+    Sono un bot per i promemoria. Invia: `/%{cmd_local}` seguito da data, ora e testo del promemoria sulla stessa riga. Ad esempio: `/%{cmd_local} %{date} 20:03 il tuo promemoria`
 
     ###### 📅 Data
     - `%{date}`, `%{date_slash}`, `%{date_hyphen}`
@@ -95,8 +107,11 @@ welcome.on_command:
     - `20:03`, `alle 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - Se non specifichi l'ora, il promemoria arriverà alle `09:00`.
+    ###### ⚙️ Comandi: inserisci `/` o `!` prima di un comando. 
+    - `%{cmd_list}|%{cmd_local}` - crea un promemoria. 
+    - `%{cmd_tz_list} Europe/Paris` - imposta il fuso orario.
   es: |
-    Soy un bot de recordatorios. Envía: `/%{cmd}` y la fecha, la hora y el texto del recordatorio en la misma línea. Por ejemplo: `/%{cmd} %{date} 20:03 tu recordatorio`
+    Soy un bot de recordatorios. Envía: `/%{cmd_local}` y la fecha, la hora y el texto del recordatorio en la misma línea. Por ejemplo: `/%{cmd_local} %{date} 20:03 tu recordatorio`
 
     ###### 📅 Fecha
     - `%{date}`, `%{date_slash}`, `%{date_hyphen}`
@@ -106,8 +121,12 @@ welcome.on_command:
     - `20:03`, `a las 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - Si no especificas la hora, el recordatorio llegará a las `09:00`.
+    ###### ⚙️ Comandos
+    - coloque `/` o `!` antes de un comando. 
+    - `%{cmd_list}|%{cmd_local}` - crea un recordatorio. 
+    - `%{cmd_tz_list} Europe/Paris` - establece la zona horaria.
   sv: |
-    Jag är en påminnelsebot. Skicka: `/%{cmd}` och datum, tid och påminnelsetext på samma rad. Till exempel: `/%{cmd} %{date} 20:03 din påminnelse`
+    Jag är en påminnelsebot. Skicka: `/%{cmd_local}` och datum, tid och påminnelsetext på samma rad. Till exempel: `/%{cmd_local} %{date} 20:03 din påminnelse`
 
     ###### 📅 Datum
     - `%{date}`, `%{date_slash}`, `%{date_hyphen}`
@@ -117,8 +136,12 @@ welcome.on_command:
     - `20:03`, `mig 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - om du inte anger tiden kommer påminnelsen klockan `09:00`.
+    ###### ⚙️ Kommandon
+    - Skriv `/` eller `!` i början.
+    - `%{cmd_list}|%{cmd_local}` - skapa en påminnelse.
+    - `%{cmd_tz_list} Europe/Paris` - ställ in tidszonen.
   pl: |
-    Jestem botem przypominającym. Wyślij: `/%{cmd}` oraz datę, godzinę i tekst przypomnienia w jednym wierszu. Na przykład: `/%{cmd} %{date} 20:03 Twoje przypomnienie`
+    Jestem botem przypominającym. Wyślij: `/%{cmd_local}` oraz datę, godzinę i tekst przypomnienia w jednym wierszu. Na przykład: `/%{cmd_local} %{date} 20:03 Twoje przypomnienie`
 
     ###### 📅 Data
     - `%{date}`, `%{date_slash}`, `%{date_hyphen}`
@@ -128,8 +151,12 @@ welcome.on_command:
     - `20:03`, `o 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - jeśli nie podasz godziny, przypomnienie pojawi się o `09:00`.
+    ###### ⚙️ Polecenia
+    - Wpisz `/` lub `!` na początku.
+    - `%{cmd_list}|%{cmd_local}` - utwórz przypomnienie.
+    - `%{cmd_tz_list} Europe/Paris` - ustaw strefę czasową.
   cs: |
-    Jsem bot pro připomenutí. Pošlete: `/%{cmd}` a datum, čas a text připomenutí na stejný řádek. Například: `/%{cmd} %{date} 20:03 vaše připomenutí`
+    Jsem bot pro připomenutí. Pošlete: `/%{cmd_local}` a datum, čas a text připomenutí na stejný řádek. Například: `/%{cmd_local} %{date} 20:03 vaše připomenutí`
 
     ###### 📅 Datum
     - `%{date}`, `%{date_slash}`, `%{date_hyphen}`
@@ -139,8 +166,12 @@ welcome.on_command:
     - `20:03`, `v 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - pokud nezadáte čas, připomenutí se zobrazí v `09:00`.
+    ###### ⚙️ Příkazy
+    - Na začátek vložte `/` nebo `!`.
+    - `%{cmd_list}|%{cmd_local}` - vytvoří připomenutí.
+    - `%{cmd_tz_list} Europe/Paris` - nastaví časové pásmo.
   fi: |
-    Olen muistutusbotti. Lähetä: `/%{cmd}` ja päivämäärä, kellonaika ja muistutuksen teksti samalla rivillä. Esimerkiksi: `/%{cmd} %{date} 20:03 muistutuksesi`
+    Olen muistutusbotti. Lähetä: `/%{cmd_local}` ja päivämäärä, kellonaika ja muistutuksen teksti samalla rivillä. Esimerkiksi: `/%{cmd_local} %{date} 20:03 muistutuksesi`
 
     ###### 📅 Päivämäärä
     - `%{date}`, `%{date_slash}`, `%{date_hyphen}`
@@ -150,8 +181,12 @@ welcome.on_command:
     - `20:03`, `kello 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - jos et määritä aikaa, muistutus tulee klo `09:00`.
+    ###### ⚙️ Komennot
+    - Laita `/` tai `!` komentojen eteen.
+    - `%{cmd_list}|%{cmd_local}` - luo muistutus.
+    - `%{cmd_tz_list} Europe/Paris` - aseta aikavyöhyke.
   ja: |
-    私はリマインダーボットです。`/%{cmd}` と日付、時刻、リマインダーのテキストを同じ行に送信してください。例：`/%{cmd} %{date} 20:03 ゴジラの耳の後ろを掻いて`
+    私はリマインダーボットです。`/%{cmd_local}` と日付、時刻、リマインダーのテキストを同じ行に送信してください。例：`/%{cmd_local} %{date} 20:03 ゴジラの耳の後ろを掻いて`
 
     ###### 📅 日付
     - `%{date}`、`%{date_slash}`、`%{date_hyphen}`
@@ -161,8 +196,12 @@ welcome.on_command:
     - `20:03`
     - `%{morning}`、`%{afternoon}`、`%{evening}`
     - 時間を指定しない場合、リマインダーは`09:00`に送信されます。
+    ###### ⚙️ コマンド
+    - コマンドの前に `/` または `!` を置きます。
+    - `%{cmd_list}|%{cmd_local}` - リマインダーを作成します。
+    - `%{cmd_tz_list} Europe/Paris` - タイムゾーンを設定します。
   zh: |
-    我是一个提醒机器人。发送：`/%{cmd}`，日期、时间和提醒文本写在同一行。例如：`/%{cmd} %{date} 20:03 您的提醒`
+    我是一个提醒机器人。发送：`/%{cmd_local}`，日期、时间和提醒文本写在同一行。例如：`/%{cmd_local} %{date} 20:03 您的提醒`
 
     ###### 📅 日期
     - `%{date}`、`%{date_slash}`、`%{date_hyphen}`
@@ -172,8 +211,12 @@ welcome.on_command:
     - `20:03`
     - `%{morning}`、`%{afternoon}`、`%{evening}`
     - 如果您未指定时间，提醒将在 `09:00` 发送。
+    ###### ⚙️ 命令
+    - 在命令前放置 `/` 或 `!`。
+    - `%{cmd_list}|%{cmd_local}` - 创建提醒。
+    - `%{cmd_tz_list} Europe/Paris` - 设置时区。
   ru: |
-    Я бот-напоминалка. Напишите: `/%{cmd}` и дату, время и текст напоминания в той же строке. Например: `/%{cmd} %{date} 14:00 ваше напоминание` 
+    Я бот-напоминалка. Напишите: `/%{cmd_local}` и дату, время и текст напоминания в той же строке. Например: `/%{cmd_local} %{date} 14:00 ваше напоминание` 
     
     ###### 📅 Дата
       - `%{date}`, `%{date_slash}`, `%{date_hyphen}`
@@ -183,8 +226,12 @@ welcome.on_command:
       - `20:03`, `в 20:03`.
       - `%{morning}`, `%{afternoon}`, `%{evening}`.
       - если вы не укажете время, напоминание придет в `09:00`.
+    ###### ⚙️ Команды
+      - Поставьте `/` или `!` в начале.
+      - `%{cmd_list}|%{cmd_local}` - создать напоминание. 
+      - `%{cmd_tz_list} Europe/Paris` - установить часовой пояс.
   uk: |
-    Я бот-нагадування. Надішліть: `/%{cmd}` та дату, час і текст нагадування в одному рядку. Наприклад: `/%{cmd} %{date} 20:03 ваше нагадування`
+    Я бот-нагадування. Надішліть: `/%{cmd_local}` та дату, час і текст нагадування в одному рядку. Наприклад: `/%{cmd_local} %{date} 20:03 ваше нагадування`
 
     ###### 📅 Дата
     - `%{date}`, `%{date_slash}`, `%{date_hyphen}`
@@ -194,6 +241,10 @@ welcome.on_command:
     - `20:03`, `о 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - якщо не вказати час, нагадування надійде о `09:00`.
+    ###### ⚙️ Команди
+    - ставте `/` або `!` перед командою.
+    - `%{cmd_list}|%{cmd_local}` - створити нагадування.
+    - `%{cmd_tz_list} Europe/Paris` - встановити часовий пояс.
 welcome.on_command_off:
   en: |
     I am a reminder bot. Send the date, time and reminder text on the same line. For example: `%{date} 20:03 your reminder`
@@ -206,6 +257,10 @@ welcome.on_command_off:
     - `20:03`, `at 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - if you do not specify the time, the reminder will come at `09:00`.
+    ###### ⚙️ Commands
+    - Put `/` or `!` at the beginning.
+    - `%{cmd_list}|%{cmd_local}` - create a reminder, too.
+    - `%{cmd_tz_list} Europe/Paris` - set the time zone.
   de: |
     Ich bin ein Erinnerungs-Bot. Sende mir Datum, Uhrzeit und Erinnerungstext in einer Zeile. Zum Beispiel: `%{date} 20:03 deine Erinnerung`
 
@@ -217,6 +272,10 @@ welcome.on_command_off:
     - `20:03`, `um 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - Wenn du keine Uhrzeit angibst, erfolgt die Erinnerung um 9:00 Uhr.
+    ###### ⚙️ Befehle
+    – Setzen Sie „/“ oder „!“ vor einen Befehl. 
+    - `%{cmd_list}|%{cmd_local}`- eine Erinnerung erstellen. 
+    - „%{cmd_tz_list} Europe/Paris“ – stellt die Zeitzone ein.
   fr: |
     Je suis un bot de rappel. Envoyez-moi la date, l'heure et le texte du rappel sur la même ligne. Par exemple : `%{date} 20:03 votre rappel`
 
@@ -228,6 +287,10 @@ welcome.on_command_off:
     - `20:03`, `à 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - Si vous ne précisez pas l'heure, le rappel sera envoyé à `09:00`.
+    ###### ⚙️ Commandes
+    - Mettez `/` ou `!` avant une commande. 
+    - `%{cmd_list}|%{cmd_local}` - crée un rappel. 
+    - `%{cmd_tz_list} Europe/Paris` - définit le fuseau horaire.
   it: |
     Sono un bot per i promemoria. Inviami la data, l'ora e il testo del promemoria sulla stessa riga. Ad esempio: `%{date} 20:03 il tuo promemoria`
 
@@ -239,6 +302,9 @@ welcome.on_command_off:
     - `20:03`, `alle 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - Se non specifichi l'ora, il promemoria arriverà alle `09:00`.
+    ###### ⚙️ Comandi: inserisci `/` o `!` prima di un comando. 
+    - `%{cmd_list}|%{cmd_local}` - crea un promemoria. 
+    - `%{cmd_tz_list} Europe/Paris` - imposta il fuso orario.
   es: |
     Soy un bot de recordatorios. Envíame la fecha, la hora y el texto del recordatorio en la misma línea. Por ejemplo: `%{fecha} 20:03 tu recordatorio`
 
@@ -250,6 +316,10 @@ welcome.on_command_off:
     - `20:03`, `a las 20:03`
     - `%{mañana}`, `%{tarde}`, `%{noche}`
     - Si no especificas la hora, el recordatorio llegará a las `09:00`.
+    ###### ⚙️ Comandos
+    - coloque `/` o `!` antes de un comando. 
+    - `%{cmd_list}|%{cmd_local}` - crea un recordatorio. 
+    - `%{cmd_tz_list} Europe/Paris` - establece la zona horaria.
   sv: |
     Jag är en påminnelsebot. Skicka mig datum, tid och påminnelsetext på samma rad. Till exempel: `%{date} 20:03 din påminnelse`
 
@@ -261,6 +331,10 @@ welcome.on_command_off:
     - `20:03`, `mig 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - om du inte anger tiden kommer påminnelsen klockan `09:00`.
+    ###### ⚙️ Kommandon
+    - Skriv `/` eller `!` i början.
+    - `%{cmd_list}|%{cmd_local}` - skapa en påminnelse.
+    - `%{cmd_tz_list} Europe/Paris` - ställ in tidszonen.
   pl: |
     Jestem botem przypominającym. Wyślij mi datę, godzinę i tekst przypomnienia w jednym wierszu. Na przykład: `%{date} 20:03 twoje przypomnienie`
 
@@ -272,6 +346,10 @@ welcome.on_command_off:
     - `20:03`, `o 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - jeśli nie podasz godziny, przypomnienie pojawi się o `09:00`.
+    ###### ⚙️ Polecenia
+    - Wpisz `/` lub `!` na początku.
+    - `%{cmd_list}|%{cmd_local}` - utwórz przypomnienie.
+    - `%{cmd_tz_list} Europe/Paris` - ustaw strefę czasową.
   cs: |
     Jsem bot pro připomenutí. Pošlete mi datum, čas a text připomenutí na stejném řádku. Například: `%{date} 20:03 vaše připomenutí`
 
@@ -283,6 +361,10 @@ welcome.on_command_off:
     - `20:03`, `v 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - pokud nezadáte čas, připomenutí se zobrazí v `09:00`.
+    ###### ⚙️ Příkazy
+    - Na začátek vložte `/` nebo `!`.
+    - `%{cmd_list}|%{cmd_local}` - vytvoří připomenutí.
+    - `%{cmd_tz_list} Europe/Paris` - nastaví časové pásmo.
   fi: |
     Olen muistutusbotti. Lähetä minulle päivämäärä, aika ja muistutusteksti samalla rivillä. Esimerkiksi: `%{date} 20:03 muistutuksesi`
 
@@ -294,6 +376,10 @@ welcome.on_command_off:
     - `20:03`, `kello 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - jos et määritä aikaa, muistutus tulee klo `09:00`.
+    ###### ⚙️ Komennot
+    - Laita `/` tai `!` komentojen eteen.
+    - `%{cmd_list}|%{cmd_local}` - luo muistutus.
+    - `%{cmd_tz_list} Europe/Paris` - aseta aikavyöhyke.
   ja: |
     私はリマインダーボットです。日付、時刻、リマインダーのテキストを同じ行で送信してください。例：`%{date} 20:03 あなたのリマインダー`
 
@@ -305,6 +391,10 @@ welcome.on_command_off:
     - `20:03`
     - `%{morning}`、`%{afternoon}`、`%{evening}`
     - 時刻を指定しない場合、リマインダーは`09:00`に送信されます。
+    ###### ⚙️ コマンド
+    - コマンドの前に `/` または `!` を置きます。
+    - `%{cmd_list}|%{cmd_local}` - リマインダーを作成します。
+    - `%{cmd_tz_list} Europe/Paris` - タイムゾーンを設定します。
   zh: |
     我是提醒机器人。请将日期、时间和提醒文本写在同一行。例如：`%{date} 20:03 您的提醒`
 
@@ -317,6 +407,10 @@ welcome.on_command_off:
     - `20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - 如果您未指定时间，提醒将在 `09:00` 发送。
+    ###### ⚙️ 命令
+    - 在命令前放置 `/` 或 `!`。
+    - `%{cmd_list}|%{cmd_local}` - 创建提醒。
+    - `%{cmd_tz_list} Europe/Paris` - 设置时区。
   ru: |
     Я бот-напоминалка. Отправьте мне дату, время и текст напоминания в той же строке. Например: `%{date} 14:00 ваше напоминание` 
     
@@ -328,6 +422,10 @@ welcome.on_command_off:
       - `20:03`, `в 20:03`.
       - `%{morning}`, `%{afternoon}`, `%{evening}`.
       - если вы не укажете время, напоминание придет в `09:00`.
+      ###### ⚙️ Команды
+      - Поставьте `/` или `!` в начале.
+      - `%{cmd_list}|%{cmd_local}` - тоже создать напоминание. 
+      - `%{cmd_tz_list} Europe/Paris` - установить часовой пояс.
   uk: |
     Я бот-нагадування. Надішліть: дату, час і текст нагадування в одному рядку. Наприклад: `%{date} 20:03 ваше нагадування`
 
@@ -339,6 +437,10 @@ welcome.on_command_off:
     - `20:03`, `о 20:03`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - якщо не вказати час, нагадування надійде о `09:00`.
+    ###### ⚙️ Команди
+    - ставте `/` або `!` перед командою.
+    - `%{cmd_list}|%{cmd_local}` - теж створити нагадування.
+    - `%{cmd_tz_list} Europe/Paris` - встановити часовий пояс.
 reminder.command:
   en: remind
   de: erinnern
