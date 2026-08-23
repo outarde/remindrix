@@ -9,21 +9,14 @@ use tokio_rusqlite::Connection;
 use chrono::{Local, TimeZone, NaiveDateTime, NaiveTime, DateTime, Utc};
 use chrono_tz::Tz;
 use std::{
+    path::PathBuf,
     sync::Arc, 
     collections::HashMap
 };
 use rust_i18n::t;
 use anyhow::{Context, Result};
 
-/// Reminder
-#[derive(Debug, Clone)]
-pub struct Reminder {
-    pub id: i64,
-    pub room_id: OwnedRoomId,
-    pub text: String,
-    pub target_time: NaiveDateTime,
-    pub status: ReminderStatus,
-}
+use crate::handlers::CommandContext;
 
 /// Reminder in UTC
 #[derive(Debug, Clone)]
@@ -76,29 +69,14 @@ impl From<i64> for ReminderStatus {
 //let status = ReminderStatus::from(db_value);
 
 /// Database initialization.
-pub async fn init_db() -> anyhow::Result<Connection> {
-    // test
-    /*
-        let data_dir = dirs::data_dir()
-            .context("No data_dir")?
-            .join("persist_session");
-        */
+pub async fn init_db(data_dir: &PathBuf) -> anyhow::Result<Connection> {
+    // Path for DB file.
+    let path = data_dir.join("reminder-bot.db");
 
-        //let birthday = parse_to_datetime("15-07-2026 at 14:16", Language::English)?;
-        //println!("{:?}", birthday);
-
-        //let now = Local::now().naive_local();
-        //let date = from_human_time("15-07-2026 at 19:45", now).unwrap();
-        //println!("{date}");
-
-    // Path for DB file
-    let path = dirs::data_dir().expect("No data_dir directory found").join(super::APP_FOLDER).join("reminders.db");
-
-    // Open or create DB file
+    // Open or create DB file.
     let conn = Connection::open(&path).await?;
     
-    // Create table
-    // todo: table for rooms to customize timezone
+    // Create table.
     conn.call(|c| -> Result<(), tokio_rusqlite::Error> {
         let _ = c.execute(
             "CREATE TABLE IF NOT EXISTS reminders (
@@ -114,10 +92,24 @@ pub async fn init_db() -> anyhow::Result<Connection> {
             [],
         );
         let _ = c.execute(
+            "CREATE TABLE IF NOT EXISTS settings (
+            room_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            updated_by TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (room_id, user_id, key)
+            )",
+            [],
+        );
+        let _ = c.execute(
             "CREATE INDEX IF NOT EXISTS idx_reminders_status ON reminders(status)",
             [],
         );
-        //Ok::<_, tokio_rusqlite::Error>(())
+        // Ok::<_, tokio_rusqlite::Error>(())
+        // We can use OK(()) without turbo-fish if we specify
+        // -> Result<(), tokio_rusqlite::Error> in function result.
         Ok(())
     }).await?;
     
@@ -125,54 +117,14 @@ pub async fn init_db() -> anyhow::Result<Connection> {
 }
 
 /// Scheduling reminder.
-pub async fn schedule_reminder(
-    client: Client,
-    db: Connection,
-    reminder: Reminder,
-) {
-    // NaiveDateTime to Local time
-    let local_target = Local.from_local_datetime(&reminder.target_time).unwrap();
-    let now = Local::now();
-
-    // Calculate duration to remind
-    let duration_to_wait = local_target.signed_duration_since(now);
-    
-    if duration_to_wait.num_seconds() <= 0 {
-        tracing::error!("The reminder time has already passed!");
-        return;
-    }
-
-    let std_duration = std::time::Duration::from_secs(duration_to_wait.num_seconds() as u64);
-
-    // Tokio
-    tokio::spawn(async move {
-        tracing::info!("New reminder in {} sec", std_duration.as_secs());
-        
-        // Asynchronic sleep
-        tokio::time::sleep(std_duration).await;
-
-        // After sleep
-        if let Some(room) = client.get_room(&reminder.room_id) {
-            let reminder_text = t!("reminder.new", text = reminder.text);
-            let _ = room.send(RoomMessageEventContent::text_plain(reminder_text)).await;
-            // If the message was sent successfully, update the status!
-            let _ = db.call(move |c| {
-                c.execute("UPDATE reminders SET status = ?1 WHERE id = ?2", [ReminderStatus::Sent as i64, reminder.id])
-            }).await;
-            tracing::info!("Reminder #{} was sent", reminder.id);
-        }
-    });
-}
-
-/// Scheduling reminder.
 pub async fn schedule_reminder_utc(
     ctx: Arc<super::BotContext>,
     reminder: ReminderUtc,
 ) {
-    let target_time = &reminder.utc_time; 
+    // let utc_time = &reminder.utc_time; 
     let now = Utc::now();
 
-    let duration_to_wait = target_time.signed_duration_since(now);
+    let duration_to_wait = &reminder.utc_time.signed_duration_since(now);
 
     if duration_to_wait.num_seconds() <= 0 {
         tracing::error!("The reminder time has already passed!");
@@ -227,7 +179,9 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
             let target_time = NaiveDateTime::parse_from_str(&target_time_str, "%Y-%m-%d %H:%M:%S")
                 .map_err(|err| tokio_rusqlite::rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
 
-            // Timezone
+            // Timezone.
+            // It is always checked before sending to the server because of
+            // fetch_room_tz() in settings.rs, so there can be no errors.
             let tz = match super::settings::parse_tz(&room_tz_str) {
                 Ok(tz) => tz,
                 Err(err) => {
@@ -339,35 +293,36 @@ async fn summary_missed(
 // ===== DB =====
 /// Save reminder to DB
 pub async fn save_reminder_to_db_utc(
-    db: &Connection,
-    room_id: &RoomId,
+    cmd_ctx: &CommandContext,
     text: String,
     naive_time: NaiveDateTime,
     utc_time: DateTime<Utc>,
-    tz: Tz,
 ) -> Result<ReminderUtc, tokio_rusqlite::Error> {
-    let room_id_str = room_id.to_string();
+    let room_id_clone = cmd_ctx.room_id.clone();
+    let room_tz_clone = cmd_ctx.settings.room_tz.clone();
+
+    let room_id_str = cmd_ctx.room_id.to_string();
     let datetime_str = naive_time.format("%Y-%m-%d %H:%M:%S").to_string();
     let utc_str = utc_time.to_string();
-    let tz_str = tz.to_string();
+    let tz_str = cmd_ctx.settings.room_tz.to_string();
     
-    db.call(move |c| {
+    cmd_ctx.ctx.db.call(move |c| {
         c.execute(
             "INSERT INTO reminders (room_id, text, target_time, utc_time, tz) VALUES (?1, ?2, ?3, ?4, ?5)",
             [&room_id_str, &text, &datetime_str, &utc_str, &tz_str],
         )?;
         
         let reminder_id = c.last_insert_rowid();
-        let parsed_room_id = RoomId::parse(&room_id_str)
-            .map_err(|err| tokio_rusqlite::rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
+        // let parsed_room_id = RoomId::parse(&room_id_str)
+        //    .map_err(|err| tokio_rusqlite::rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
 
         Ok(ReminderUtc {
             id: reminder_id,
-            room_id: parsed_room_id,
+            room_id: room_id_clone,
             text,
             target_time: naive_time,
             utc_time,
-            tz,
+            tz: room_tz_clone,
             status: ReminderStatus::Pending,
         })
     }).await
