@@ -23,6 +23,7 @@ pub struct RoomTimezoneContent {
 }
 
 /// Settings for each bot activation (command context).
+#[derive(Debug)]
 pub struct SettingsManager {
 	// db: Arc<Connection>,
     pub room_tz: Tz,

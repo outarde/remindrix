@@ -94,12 +94,12 @@ enum NaturalTime {
 }
 
 impl NaturalTime {
-    fn from_str(text: &str, i18n_morning: &str, i18n_afternoon: &str, i18n_evening: &str) -> Option<Self> {
-        if text == i18n_morning {
+    fn from_str(text: &str, i18n: &I18nManager) -> Option<Self> {
+        if text == i18n.morning {
             Some(NaturalTime::Morning)
-        } else if text == i18n_afternoon {
+        } else if text == i18n.afternoon {
             Some(NaturalTime::Afternoon)
-        } else if text == i18n_evening {
+        } else if text == i18n.evening {
             Some(NaturalTime::Evening)
         } else {
             None
@@ -207,21 +207,26 @@ impl I18nManager {
     }
 }
 
+/// Context for current interaction with user.
+#[derive(Debug)]
 pub struct CommandContext {
     pub room: Room,
     pub ctx: Arc<super::BotContext>,
-    pub room_tz: Tz,
     pub settings: SettingsManager,
     pub i18n: Arc<I18nManager>,
 }
 
 impl CommandContext {
     pub async fn new(room: Room, ctx: Arc<super::BotContext>) -> Self { 
-        let room_tz = super::settings::get_room_tz(room.clone(), &ctx).await;
         let settings = SettingsManager::new(&room, &ctx).await;
         let i18n = ctx.get_i18n_manager(&settings.room_lang).await;
 
-        Self { room, ctx, room_tz, settings, i18n } 
+        Self { room, ctx, settings, i18n } 
+    }
+
+    // getter
+    pub fn bot_config(&self) -> &super::config::BotConfig {
+        &self.ctx.bot_config
     }
 }
 
@@ -312,7 +317,7 @@ pub async fn handle_tz(
         };
 
         // If user's input timezone is equal to current room timezone
-        if input_tz == cmd_ctx.room_tz {
+        if input_tz == cmd_ctx.settings.room_tz {
             let msg = t!("tz.not-set"); 
             let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(msg)).await;
         }
@@ -350,9 +355,7 @@ pub async fn handle_remind(
         // Parsed Data
         let reminder_data = match parse_reminder_data(
             &caps, 
-            &cmd_ctx.ctx.bot_config,
-            &cmd_ctx.settings.room_tz,
-            &cmd_ctx.i18n
+            &cmd_ctx
         ) {
             Some(data) => data,
             None => {
@@ -381,7 +384,7 @@ pub async fn handle_remind(
             reminder_data.text, 
             naive_time.clone(), 
             utc_time.clone(), 
-            cmd_ctx.room_tz.clone()
+            cmd_ctx.settings.room_tz.clone()
         ).await {
             Ok(new_reminder) => {
                 super::reminder::schedule_reminder_utc(cmd_ctx.ctx.clone(), new_reminder).await;
@@ -403,7 +406,7 @@ pub async fn handle_remind(
 
 /// Send welcome message with help to the room
 async fn send_welcome_message(cmd_ctx: CommandContext) {
-    let tomorrow = Utc::now().with_timezone(&cmd_ctx.room_tz).date_naive() + Days::new(1);
+    let tomorrow = Utc::now().with_timezone(&cmd_ctx.settings.room_tz).date_naive() + Days::new(1);
     let (month_str, month_str_truncated) = &cmd_ctx.i18n.format_month(&tomorrow.month()).unwrap();
 
     let welcome_type = if cmd_ctx.ctx.bot_config.on_command {
@@ -459,11 +462,14 @@ pub async fn on_stripped_state_member(
                 break;
             }
         }
+
         tracing::info!("Successfully joined room {}", room.room_id());
-        
+
         // Send welcome message.
         let cmd_ctx = CommandContext::new(room, ctx).await;
         send_welcome_message(cmd_ctx);
+
+        // let _ = room.send(RoomMessageEventContent::text_plain("/remind")).await.unwrap();
     });
 }
 
@@ -492,19 +498,20 @@ fn build_reminder_regex(
 /// Parse regex captions to ParsedReminder
 fn parse_reminder_data(
     caps: &regex::Captures,
-    bot_config: &BotConfig,
-    room_tz: &Tz,
-    i18n: &Arc<I18nManager>,
+    cmd_ctx: &CommandContext,
+    //bot_config: &BotConfig,
+    //room_tz: &Tz,
+    //i18n: &Arc<I18nManager>,
 ) -> Option<ParsedReminder> {
     // Get current date for user's timezone
-    let now_in_tz = Utc::now().with_timezone(room_tz);
+    let now_in_tz = Utc::now().with_timezone(&cmd_ctx.settings.room_tz);
     let today_date = now_in_tz.date_naive();
     
     // Day and month
     let (day, month) = if let (Some(d), Some(m)) = (caps.name("day"), caps.name("month")) {
         (d.as_str().to_string(), m.as_str().to_lowercase())
     } else if let Some(d_nat) = caps.name("day_natural") {
-        let natural_day = NaturalDay::from_str(d_nat.as_str(), &i18n.today, &i18n.tomorrow)?;
+        let natural_day = NaturalDay::from_str(d_nat.as_str(), &cmd_ctx.i18n.today, &cmd_ctx.i18n.tomorrow)?;
         match natural_day {
             NaturalDay::Today => (today_date.format("%d").to_string(), today_date.format("%m").to_string()),
             NaturalDay::Tomorrow => {
@@ -525,11 +532,11 @@ fn parse_reminder_data(
     let (hour, min) = if let (Some(h), Some(m)) = (caps.name("hour"), caps.name("min")) {
         (h.as_str().to_string(), m.as_str().to_string())
     } else if let Some(t_nat) = caps.name("time_natural") {
-        let natural_time = NaturalTime::from_str(&t_nat.as_str().to_lowercase(), &i18n.morning, &i18n.afternoon, &i18n.evening)?;
+        let natural_time = NaturalTime::from_str(&t_nat.as_str().to_lowercase(), &cmd_ctx.i18n)?;
         let (h, m) = match natural_time {
-            NaturalTime::Morning => &bot_config.morning.split_once(":")?,
-            NaturalTime::Afternoon => &bot_config.afternoon.split_once(":")?,
-            NaturalTime::Evening => &bot_config.evening.split_once(":")?,
+            NaturalTime::Morning => &cmd_ctx.bot_config().morning.split_once(":")?,
+            NaturalTime::Afternoon => &cmd_ctx.bot_config().afternoon.split_once(":")?,
+            NaturalTime::Evening => &cmd_ctx.bot_config().evening.split_once(":")?,
         };
         (h.to_string(), m.to_string())
     } else {
@@ -564,9 +571,7 @@ fn build_datetime_utc(
         .map_err(|_| ReminderDateError::InvalidTime)?;
 
     // We convert it to DateTime and check that zone mapping has a single result.
-    // TODO: parse None
-    // let user_dt = room_tz.from_local_datetime(&naive_dt).single().ok_or(ReminderDateError::InvalidTime)?;
-    let user_dt = match cmd_ctx.room_tz.from_local_datetime(&naive_dt) {
+    let user_dt = match cmd_ctx.settings.room_tz.from_local_datetime(&naive_dt) {
         LocalResult::Single(dt) => dt,
         LocalResult::Ambiguous(dt1, dt2) => {
             // To Winter Time
