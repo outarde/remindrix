@@ -11,13 +11,14 @@
 [![GitHub License](https://img.shields.io/github/license/outarde/reminder-bot)](https://github.com/outarde/reminder-bot/blob/main/LICENSE) [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/outarde/reminder-bot/docker-publish.yml)](https://github.com/outarde/reminder-bot/actions) [![GitHub Tag](https://img.shields.io/github/v/tag/outarde/reminder-bot)](https://github.com/outarde/reminder-bot/releases) [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/outarde/reminder-bot)](https://github.com/outarde/reminder-bot/commits/main/)
 
 # Reminder Bot
-A lightweight chatbot for reminders on Matrix servers focused on multilingual support and clear user experience. Schedule reminders on the go in personal or group rooms.
+A lightweight chatbot for reminders on Matrix servers focused on multilingual support and user experience. Schedule reminders on the go in personal or group rooms.
 ## Key Features
-- ⏲️ Create reminders with the `/remind` command
-- 📆 Basic date and time variability with the words `today`, `tomorrow`, `morning`, `afternoon`, `evening`, omitting the year and month
-- 🔤 Multilingual support for user input and bot responses, with the capability to upload custom translations
-- 📋 Send a summary of missed reminders in each room
-- 🎹 Aliases for calling the bot and the ability to call the bot without a command or only by mention
+- ⏲️ Create reminders with the `/remind` command.
+- 📅 Basic date and time variability with the words `today`, `tomorrow`, `morning`, `afternoon`, `evening`, omitting the year and month.
+- 🌐 Individual time zones for rooms by `/tz` command.
+- 🔤 Multilingual support both for commands and responses, with the capability to upload custom translations.
+- 📋 Send a summary of missed reminders in each room.
+- 🎹 Aliases for calling the bot and the ability to call the bot without a command or only by mention.
 ## Matrix Account Features
 - Login to the bot's Matrix account with a password and token, automatic device verification and backup if this is the first device for the account, and receiving a recovery key
 - Manual verification with a recovery key if the bot account has been logged in to before, and backup enabled via the command line (CLI)
@@ -27,12 +28,13 @@ A lightweight chatbot for reminders on Matrix servers focused on multilingual su
 #### Reminders Preferences:
 - [x] Optional activation of the bot without a command
 - [x] Optional requirement to mention the bot in group chats
-- [ ] Time zone settings
+- [x] Time zone settings
 #### Commands:
 - [x] Alternative text for the bot activation command
+- [ ] Bot’s replies via reactions
 - [ ] Deleting reminders
 - [ ] Recurring reminders
-- [ ] Sending a summary of sent and scheduled room or chat reminders on user command
+- [ ] Sending a list of reminders
 - [ ] Creating reminders for one user for another
 #### Language and Translation:
 - [x] Adding languages
@@ -45,7 +47,7 @@ A lightweight chatbot for reminders on Matrix servers focused on multilingual su
 <table>
   <tr>
 	  <td>
-		  <img src="docs/assets/UI-Chat1-Dark.jpg" alt="First message" width="200px">
+		  <img src="docs/assets/UI-Welcome-Dark.jpg" alt="First message" width="200px">
 	  </td>
 	  <td>
 		  <img src="docs/assets/UI-Chat2-Dark.jpg" alt="Interacting with the bot" width="200px">
@@ -56,6 +58,9 @@ A lightweight chatbot for reminders on Matrix servers focused on multilingual su
 	  <td>
 		  <img src="docs/assets/UI-List2-Dark.jpg" alt="Missed reminders notification in chats list" width="200px">
 	  </td>
+      <td>
+        <img src="docs/assets/UI-Tz-Dark.jpg" alt="Setting a room's time zone via chat" width="200px">
+      </td>
   </tr>
   <tr>
     <td>
@@ -69,6 +74,9 @@ A lightweight chatbot for reminders on Matrix servers focused on multilingual su
     </td>
     <td>
       <p align="center"><i>Summary of missed reminders</i></p>
+    </td>
+    <td>
+      <p align="center"><i>Setting a room's time zone</i></p>
     </td>
   </tr>
 </table>
@@ -101,9 +109,6 @@ Language and other additional settings are stored in a `config.yml` file in a fo
 
 You can also upload your [custom translation](https://github.com/outarde/reminder-bot/blob/main/docs/configuration.md#using-a-custom-translation-file).
 
-### Beyond the Quick Start
-For a full description of all bot settings, see [the configuration help page](https://github.com/outarde/reminder-bot/blob/main/docs/configuration.md).
-
 ## Usage
 ### Start a Chat
 Create a conversation with the bot or add it to a room. Send the `/remind`, `!remind` or command in your chosen language to get help:
@@ -116,78 +121,15 @@ Create a conversation with the bot or add it to a room. Send the `/remind`, `!re
 > - `20:03`, `at 20:03`
 > - `morning`, `afternoon`, `evening`
 > - if you do not specify the time, the reminder will come at `09:00`.
+> - ###### ⚙️ Commands
+> - Put `/` or `!` at the beginning.
+> - `r|remind` - create a reminder.
+> - `tz Europe/Paris` - set the time zone.
 
-### Create a Reminder
-Example commands:
-- `/remind 19.08.2026 at 10:00 buy milk`
-- `/remind 19/08 pet a cactus` - create a reminder for August 19th of this year at 9am.
-- `/remind 19 August 21:30 plant a tree`
-- `/remind tomorrow evening be kind with people` - create a reminder with predefined `evening` time.
-- `19 feb afternoon to have a fantasy` - create a reminder if the creation of reminders only on command (`on_command` in `config.yml`) is `false`.
+## Beyond the Quick Start
+| ⚙️                                                                                                                                                          | 💬                                                                                                             | ☑️                                                                                                                                                                                                         |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| For a full description of bot settings, see the [ configuration.md](https://github.com/outarde/reminder-bot/blob/main/docs/configuration.md) help page. | For details on using the bot, see [usage.md](https://github.com/outarde/reminder-bot/blob/main/docs/usage.md). | For information on interacting with the Matrix homeserver and managing your account, including **device verification**, see [matrix.md](https://github.com/outarde/reminder-bot/blob/main/docs/matrix.md). |
 
-> [!WARNING]
-> Currently, the American format of writing the month and then the day are not supported, as is the 12-hour system.
-
-### Summary
-After the container with bot or bot itself restarts, all reminders are restored from the local database. Reminders that weren't sent are sent to the user or room as a *summary* of missed reminders. Soon, it will be possible to request the summary manually.
-### Deletion
-After reminders are sent, they are not deleted from the database but marked as sent. To delete all sent reminders, the server administrator must use the `cleanup` command (in development).
-
-> [!IMPORTANT]
-> Reminders are stored unencrypted.
-
-## Matrix Verification
-Without verification, every bot message will be marked with an exclamation point in most clients.
-
-<p>
-	<img src="docs/assets/ElementX-Screenshot1.jpg" alt="ElementX Screenshot" width="480px">
-</p>
-
-For example, the Element X will warn: 
->Encrypted by a device not verified by its owner.
-
-Users will also receive a warning before sending their first message to the bot.
-### Enabling a New Account
-The easiest way is to create a new account for the bot. The account will be backed up and verified automatically. You'll then see the *recovery key* in the bot logs, which you'll need to save. The key will also be saved in the `recovery.json` file in the bot's session folder (which should have been forwarded to the host in step 1 of Quick Start).
-
-> [!IMPORTANT]
-> Keep your recovery key in a safe place!
-### Enabling a Previously Used Account
-To verify a new device, you will need a *recovery key* you received when logging in through another device or new matrix account. Recovery by *passphrase* is not supported and will likely never be supported, as it encrypts the same recovery key.
-#### Step 1. Set your Recovery Key
-First, pass the recovery key. Here are the methods for passing the recovery key, in descending order of priority:
-1. Write it as a command flag: `recover --recovery-key=your-recovery-key`.
-2. Write the recovery key in the `.env` file: `MATRIX_RECOVERY=your-recovery-key`.
-3. Move the `recovery.json` file to the bot session folder if you have already run the container on another machine and obtained a recovery key or recovered your account using it.
-#### Step 2. Run the Command
-Then run the recovery command. In `docker-compose.yml` add:
-```yaml
-command: ["recover"]
-```
-Or, if you want to specify the key directly:
-```yaml
-command: ["recover", "--recovery-key", "your-recovery-key"]
-```
-
-If verification is successful, you will see a corresponding message in the logs and the recovery key will be written to the `recovery.json` file. After this, remove `command` from `docker-compose.yml` and restart the bot.
-
-## Matrix Recovery
-### Verification with Re-creation of Backup
-You can use the `recover` command with the `--fix-backup` flag to automatically create a new backup if the previous one is missing chat encryption keys (key backup), as described in the [Matrix Rust SDK documentation](https://docs.rs/matrix-sdk/latest/matrix_sdk/encryption/recovery/struct.Recovery.html#method.recover_and_fix_backup). This is likely useful if the bot started some chats on a new device before verification. The recovery key will also be required. Remove the `--recovery-key` or `-r` flag from the commands below if you don't need to pass the key directly.
-
-Example for Docker:
-```yaml
-command: ["recover", "--recovery-key=your-recovery-key", "--fix-backup"]
-```
-Same as:
-```yaml
-command: recover -r your-recovery-key --fix-backup
-```
-Or in a list:
-```yaml
-command:
-- recover
-- -r
-- your-recovery-key
-- --fix-backup
-```
+---
+I am developing this bot with a focus on users, to make communication via the Matrix protocol more convenient where it is an indispensable option for personal, non-censored communication. You can read more in [this Reddit post](https://www.reddit.com/r/matrixdotorg/comments/1vfs5s9/new_matrix_reminder_bot/). Your suggestions and issue reports are invaluable for me and the 🤖!

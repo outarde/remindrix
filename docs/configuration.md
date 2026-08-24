@@ -48,10 +48,11 @@ Confirm that you want to create or overwrite a settings file.
 | :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- |
 | `lang`            | Language for bot commands and messages. See below for a list of available languages. Applies to all users.                                                                                           | `en`           |
 | `remind_commands` | Aliases that override the standard bot invocation command. These are formatted as a list. The command for the selected language is available regardless of this variable.                            | `[ "remind" ]` |
-| `list_commands`   | Same for the reminders list command.                                                                                                                                                                 | `[ "list" ]`   |
-| `tz_commands`     | Same for the timezone set up command.                                                                                                                                                                | `[ "tz" ]`     |
-| `on_command`      | Activate the bot only when a command is presented at the beginning of a message: `!remind ...`. If disabled, any text sent to the bot, except for other commands, will be treated as a new reminder. | `true`         |
+| `list_commands`   | Same for the reminders list command. Does not have a localized version.                                                                                                                                                                | `[ "list" ]`   |
+| `tz_commands`     | Same for the timezone set up command. Does not have a localized version.                                                                                                                                                                | `[ "tz" ]`     |
+| `on_command`      | Activate the bot only when a command is presented at the beginning of a message: `/remind ...`. If disabled, any text sent to the bot, except for other commands, will be treated as a new reminder. | `true`         |
 | `on_mention`      | Activation of the bot in chats with more than two active or invited participants only when it is mentioned: `@reminder-bot:matrix.org ...`.                                                          | `false`        |
+| `tz`         | Default time zone for all rooms on the server. Use [TZ identifier base](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). | `Europe/Paris`        |
 | `morning`         | The time that is considered morning. Please follow the format `%H:%M`, otherwise you will see a general error `Error parsing regex` only when the bot tries to access the variables.                 | `09:00`        |
 | `afternoon`       | The time that is considered afternoon.                                                                                                                                                               | `14:00`        |
 | `evening`         | The time that is considered evening.                                                                                                                                                                 | `19:00`        |
@@ -61,7 +62,7 @@ Confirm that you want to create or overwrite a settings file.
 
 ## Language
 ### List of Available Languages
-**v0.4.0:**
+**From v0.4.0:**
 - `en` English 🇬🇧,
 - `de` German 🇩🇪,
 - `fr` French 🇫🇷,
@@ -121,23 +122,10 @@ reminder.error.past-time:
 reminder.error.summer-time:
   en: This time does not exist in your time zone due to seasonal change.
 
-dates.today: 
-  en: today
-dates.tomorrow: 
-  en: tomorrow
-times.morning: 
-  en: morning
-times.afternoon: 
-  en: afternoon
-times.evening: 
-  en: evening
-
-# we want to use default English month names
+# We want to use the default values for next keys, 
+# so we don't include them in the file.
 # months: 
-#  en: january february march april may june july august september october november december
-
-prepositions:
-  en: at in
+#  en: ...
 ```
 > [!TIP]
 >  The `>` symbol means to remove all line breaks, the `|` symbol means to keep line breaks.
