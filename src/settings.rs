@@ -97,7 +97,7 @@ impl SettingsManager {
 
         // Save as a custom state.
         // let state_key = client.user_id().unwrap().to_string(); 
-        // cmd_ctx.room.send_state_event(content).await?;
+        cmd_ctx.room.send_state_event(content).await?;
 
         // Save to DB.
         let room_id = cmd_ctx.room_id.to_string();
