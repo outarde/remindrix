@@ -3,7 +3,7 @@
 Without verification, every bot message will be marked with an exclamation point in most clients.
 
 <p>
-	<img src=«/docs/assets/ElementX-Screenshot1.jpg" alt="ElementX Screenshot" width="480px">
+	<img src="/docs/assets/ElementX-Screenshot1.jpg" alt="ElementX Screenshot" width="480px">
 </p>
 
 For example, the Element X will warn: 
