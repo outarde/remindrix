@@ -668,7 +668,10 @@ fn parse_reminder_data(
         // TODO: Return +1 hour if day, month are today
         // let f_t = Local::now().checked_add_signed(TimeDelta::hours(1)).unwrap();
         // (f_t.format("%H").to_string(), f_t.format("%M").to_string())
-        (super::config::DEFAULT_MORNING_TIME.to_string(), "00".to_string())
+        super::config::DEFAULT_MORNING_TIME
+            .split_once(":")
+            .map(|(h, m)| (h.to_string(), m.to_string()))
+            .unwrap()
     };
 
     // Reminder's text
