@@ -2,22 +2,25 @@ use matrix_sdk::{
     deserialized_responses::SyncOrStrippedState,
     Client, Room, RoomState,
     ruma::{
-        RoomId, OwnedRoomId,
-        events::room::{
-            member::StrippedRoomMemberEvent, 
-            message::{MessageType, OriginalSyncRoomMessageEvent, RoomMessageEventContent},
+        RoomId, OwnedRoomId, OwnedEventId,
+        events::{
+            reaction::ReactionEventContent, relation::Annotation,
+            room::{
+                member::StrippedRoomMemberEvent, 
+                message::{MessageType, OriginalSyncRoomMessageEvent, RoomMessageEventContent},
+            }
         }
     }
 };
-//use ruma::events::room::{SyncOrStrippedState};
 use tokio::time::{Duration, sleep};
 use chrono::{Days, NaiveDateTime, DateTime, Utc, TimeZone, Datelike, LocalResult};
 use chrono_tz::Tz;
 use tokio_rusqlite::Connection;
-
 use regex::Regex;
-use std::sync::{OnceLock, Arc};
+use std::{string::ToString, sync::{OnceLock, Arc}};
 use rust_i18n::t;
+use strum_macros::{Display, EnumString};
+use std;
 
 // app crates
 use crate::config::BotConfig;
@@ -107,23 +110,71 @@ impl NaturalTime {
     }
 }
 
-/// Errors for build_datetime_str
-#[derive(Debug)]
+/// Keys of i18n for build_datetime_str() reply in case of error.
+#[derive(Debug, Display)]
 enum ReminderDateError {
+    #[strum(serialize = "reminder.error.month")]
     InvalidMonth,
+    #[strum(serialize = "reminder.error.past-time")]
     TimeInPast,
+    #[strum(serialize = "reminder.error.time")]
     InvalidTime,
+    #[strum(serialize = "reminder.error.summer-time")]
     SummerTime,
 }
 
-/// i18n keys
-impl ReminderDateError {
-    fn as_i18n_key(&self) -> &'static str {
-        match self {
-            ReminderDateError::InvalidMonth => "reminder.error.month",
-            ReminderDateError::TimeInPast => "reminder.error.past-time",
-            ReminderDateError::InvalidTime => "reminder.error.time",
-            ReminderDateError::SummerTime => "reminder.error.summer-time",
+// #[derive(strum_macros::Display)]
+// #[strum(to_string = "")]
+#[derive(PartialEq, EnumString, Display)]
+#[strum(serialize_all = "snake_case")]
+pub enum MessageReaction {
+    #[strum(serialize = "👍")]
+    ThumbsUp,
+    #[strum(serialize = "✅")]
+    Check,
+    #[strum(serialize = "❌")]
+    Cross,
+    #[strum(serialize = "🟢")]
+    Done,
+    #[strum(serialize = "⏲️")]
+    Timer,
+    #[strum(serialize = "0️⃣")]
+    Zero,
+    #[strum(serialize = "1️⃣")]
+    One,
+    #[strum(serialize = "2️⃣")]
+    Two,
+    #[strum(serialize = "3️⃣")]
+    Three,
+    #[strum(serialize = "4️⃣")]
+    Four,
+    #[strum(serialize = "5️⃣")]
+    Five,
+    #[strum(serialize = "6️⃣")]
+    Six,
+    #[strum(serialize = "7️⃣")]
+    Seven,
+    #[strum(serialize = "8️⃣")]
+    Eight,
+    #[strum(serialize = "9️⃣")]
+    Nine,
+}
+
+impl MessageReaction {
+    /// Turn digits to <MessageReaction>.
+    fn from_digit(digit: u32) -> Self {
+        match digit {
+            0 => Self::Zero,
+            1 => Self::One,
+            2 => Self::Two,
+            3 => Self::Three,
+            4 => Self::Four,
+            5 => Self::Five,
+            6 => Self::Six,
+            7 => Self::Seven,
+            8 => Self::Eight,
+            9 => Self::Nine,
+            _ => Self::Cross,
         }
     }
 }
@@ -243,6 +294,7 @@ struct ParsedReminder {
     min: String,
 }
 
+// ===== Entry Point =====
 /// Reply to incoming message
 pub async fn on_room_message(
     event: OriginalSyncRoomMessageEvent, 
@@ -285,7 +337,7 @@ pub async fn on_room_message(
 
     match command {
         BotCommand::Remind => {
-            handle_remind(&args, cmd_ctx).await;
+            handle_remind(&args, event.clone(), cmd_ctx).await;
         }
         BotCommand::List => {
             // handle_list(&room, &db).await;
@@ -298,7 +350,81 @@ pub async fn on_room_message(
     }
 }
 
-/// Change TZ
+// ===== Handlers =====
+/// Handle new reminder.
+pub async fn handle_remind(
+    body: &str,
+    event: OriginalSyncRoomMessageEvent,
+    cmd_ctx: CommandContext,
+) {
+    // Make regular expression
+    let re = build_reminder_regex(&cmd_ctx.i18n);
+
+    // If regular expression found some groups
+    if let Some(caps) = re.captures(body) {
+
+        // Parsed Data
+        let reminder_data = match parse_reminder_data(
+            &caps, 
+            &cmd_ctx
+        ) {
+            Some(data) => data,
+            None => {
+                tracing::error!("Error parsing regex: {:?}", caps);
+                return;
+            }
+        };
+
+        // Times
+        let (utc_time, naive_time) = match build_datetime_utc(&reminder_data, &cmd_ctx) {
+            Ok((ut, nt)) => (ut, nt),
+            Err(err) => {
+                let err_msg = t!(err.to_string()); 
+                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
+                
+                tracing::error!("Date and time validation error: {:?} for {:?}", err, reminder_data);
+                return;
+            }
+        };
+
+        // Save to DB.
+        match super::reminder::save_reminder_to_db_utc(
+            &cmd_ctx, 
+            reminder_data.text, 
+            naive_time.clone(), 
+            utc_time.clone()
+        ).await {
+            Ok(new_reminder) => {
+                // Schedule it.
+                super::reminder::schedule_reminder_utc(cmd_ctx.ctx.clone(), new_reminder).await;
+
+                // Send success reaction or message to the room.
+                if cmd_ctx.bot_config().send_reactions {
+                    // Send digits reaction or one emoji.
+                    if cmd_ctx.bot_config().send_digits_reactions {
+                        let _ = send_timebefore_reaction(event.event_id.clone(), &cmd_ctx, &utc_time).await;
+                    }
+                    else {
+                        let _ = send_reaction(event.event_id.clone(), &cmd_ctx, MessageReaction::Timer).await;
+                    }
+                } else {
+                    let date_str = naive_time.format("%d.%m.%Y");
+                    let reminder_mes = t!("reminder.saved", date = date_str, hour = reminder_data.hour, min = reminder_data.min);
+                    let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(reminder_mes)).await;
+                }
+            }
+            Err(err) => {
+                tracing::error!("SQLite error: {:?}", err);
+            }
+        }
+    } 
+    // Welcome message.
+    else {
+        send_welcome_message(cmd_ctx).await;
+    }
+}
+
+/// Handle changing time zone.
 pub async fn handle_tz(
     body: &str,
     ev: OriginalSyncRoomMessageEvent,
@@ -326,8 +452,12 @@ pub async fn handle_tz(
         else {
             let _ = cmd_ctx.settings.set_room_tz(&cmd_ctx, input_tz).await;
 
-            let msg = t!("tz.set", tz = input_tz.to_string()); 
-            let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(msg)).await;
+            if cmd_ctx.bot_config().send_reactions {
+                let _ = send_reaction(ev.event_id.clone(), &cmd_ctx, MessageReaction::Check).await;
+            } else {
+                let msg = t!("tz.set", tz = input_tz.to_string()); 
+                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(msg)).await;
+            }
         }
     }
     // Send current timezone.
@@ -337,105 +467,7 @@ pub async fn handle_tz(
     }
 }
 
-/// New reminder.
-pub async fn handle_remind(
-    body: &str, 
-    cmd_ctx: CommandContext,
-) {
-    // i18n and timezone
-    // let i18n = ctx.get_i18n_manager(&ctx.bot_config.lang).await;
-    // let room_tz = super::settings::get_room_tz(room.clone(), &ctx).await;
-
-    // let cmd_ctx = CommandContext::new(&room, ctx).await;
-
-    // Make regular expression
-    let re = build_reminder_regex(&cmd_ctx.i18n);
-
-    // If regular expression found some groups
-    if let Some(caps) = re.captures(body) {
-
-        // Parsed Data
-        let reminder_data = match parse_reminder_data(
-            &caps, 
-            &cmd_ctx
-        ) {
-            Some(data) => data,
-            None => {
-                tracing::error!("Error parsing regex: {:?}", caps);
-                return;
-            }
-        };
-
-        // Times
-        let (utc_time, naive_time) = match build_datetime_utc(&reminder_data, &cmd_ctx) {
-            Ok((ut, nt)) => (ut, nt),
-            Err(err) => {
-                let err_msg = t!(err.as_i18n_key()); 
-                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
-                
-                tracing::error!("Date and time validation error: {:?} for {:?}", err, reminder_data);
-                return;
-            }
-        };
-
-        // Save to DB and schedule if ok.
-        match super::reminder::save_reminder_to_db_utc(
-            &cmd_ctx, 
-            reminder_data.text, 
-            naive_time.clone(), 
-            utc_time.clone()
-        ).await {
-            Ok(new_reminder) => {
-                super::reminder::schedule_reminder_utc(cmd_ctx.ctx.clone(), new_reminder).await;
-
-                let date_str = naive_time.format("%d.%m.%Y");
-                let reminder_mes = t!("reminder.saved", date = date_str, hour = reminder_data.hour, min = reminder_data.min);
-                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(reminder_mes)).await;
-            }
-            Err(err) => {
-                tracing::error!("SQLite error: {:?}", err);
-            }
-        }
-    } 
-    // Welcome message
-    else {
-        send_welcome_message(cmd_ctx).await;
-    }
-}
-
-/// Send welcome message with help to the room
-async fn send_welcome_message(cmd_ctx: CommandContext) {
-    let tomorrow = Utc::now().with_timezone(&cmd_ctx.settings.room_tz).date_naive() + Days::new(1);
-    let (month_str, month_str_truncated) = &cmd_ctx.i18n.format_month(&tomorrow.month()).unwrap();
-
-    let welcome_type = if cmd_ctx.ctx.bot_config.on_command {
-        "welcome.on_command"
-    } else { "welcome.on_command_off" };
-
-    let welcome_msg = t!(
-        welcome_type,
-        cmd_local = &cmd_ctx.i18n.cmd_remind,
-        cmd_list = &cmd_ctx.ctx.bot_config.remind_commands.join("|"),
-        cmd_tz_list = &cmd_ctx.ctx.bot_config.tz_commands.join("|"),
-        date = tomorrow.format("%d.%m.%Y").to_string(),
-        date_slash = tomorrow.format("%d/%m/%Y").to_string(),
-        date_hyphen = tomorrow.format("%d-%m").to_string(),
-        date_d = tomorrow.format("%d").to_string(),
-        month = month_str,
-        month_truncated = month_str_truncated,
-        today = &cmd_ctx.i18n.today,
-        tomorrow = &cmd_ctx.i18n.tomorrow,
-        morning = &cmd_ctx.i18n.morning,
-        afternoon = &cmd_ctx.i18n.afternoon,
-        evening = &cmd_ctx.i18n.evening
-    );
-    // for markdonw to text_html: use pulldown_cmark::{Parser, html};
-    // let welcome_msg_html = markdown_to_html(&welcome_msg).await;
-
-    let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(welcome_msg)).await.unwrap();
-}
-
-/// Auto-join
+/// Auto-join.
 pub async fn on_stripped_state_member(
     room_member: StrippedRoomMemberEvent,
     room: Room,
@@ -474,6 +506,98 @@ pub async fn on_stripped_state_member(
     });
 }
 
+// ===== Special Messages =====
+/// Send welcome message with help to the room.
+async fn send_welcome_message(cmd_ctx: CommandContext) {
+    let tomorrow = Utc::now().with_timezone(&cmd_ctx.settings.room_tz).date_naive() + Days::new(1);
+    let (month_str, month_str_truncated) = &cmd_ctx.i18n.format_month(&tomorrow.month()).unwrap();
+
+    let welcome_type = if cmd_ctx.ctx.bot_config.on_command {
+        "welcome.on_command"
+    } else { "welcome.on_command_off" };
+
+    let welcome_msg = t!(
+        welcome_type,
+        cmd_local = &cmd_ctx.i18n.cmd_remind,
+        cmd_list = &cmd_ctx.ctx.bot_config.remind_commands.join("|"),
+        cmd_tz_list = &cmd_ctx.ctx.bot_config.tz_commands.join("|"),
+        date = tomorrow.format("%d.%m.%Y").to_string(),
+        date_slash = tomorrow.format("%d/%m/%Y").to_string(),
+        date_hyphen = tomorrow.format("%d-%m").to_string(),
+        date_d = tomorrow.format("%d").to_string(),
+        month = month_str,
+        month_truncated = month_str_truncated,
+        today = &cmd_ctx.i18n.today,
+        tomorrow = &cmd_ctx.i18n.tomorrow,
+        morning = &cmd_ctx.i18n.morning,
+        afternoon = &cmd_ctx.i18n.afternoon,
+        evening = &cmd_ctx.i18n.evening
+    );
+    // for markdonw to text_html: use pulldown_cmark::{Parser, html};
+    // let welcome_msg_html = markdown_to_html(&welcome_msg).await;
+
+    let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(welcome_msg)).await.unwrap();
+}
+
+/// Send reaction to the related event (message).
+async fn send_reaction(
+    event_id: OwnedEventId, 
+    cmd_ctx: &CommandContext, 
+    emoji_key: MessageReaction
+) {
+    let annotation = Annotation::new(event_id, emoji_key.to_string());
+    let content = ReactionEventContent::new(annotation);
+    
+    let _ = cmd_ctx.room.send(content).await;
+}
+
+/// Send reactions with digits emoji with to the related event (message).
+/// Calculates the time until an event occurs and selects the number of the 
+/// largest non-empty dimension (days -> hours -> minutes).
+async fn send_timebefore_reaction(
+    event_id: OwnedEventId, 
+    cmd_ctx: &CommandContext, 
+    end_time: &DateTime<Utc>
+    // numbers: Option<Vec<i64>>
+) {
+    let duration_to_wait = end_time.signed_duration_since(Utc::now());
+    let numbers = vec![
+        duration_to_wait.num_weeks(), 
+        duration_to_wait.num_days(), 
+        duration_to_wait.num_hours(),
+        duration_to_wait.num_minutes()
+    ];
+
+    for (mut d) in numbers {
+        if d > 0 {
+            // Matrix prevents sending the same reaction twice
+            // (status_code: 400, DuplicateAnnotation, message: "Can't send same reaction twice"),
+            // so we can't send numbers with equal digits and send "check" emoji instead
+            if d % 11 == 0 {
+                let _ = send_reaction(event_id.clone(), &cmd_ctx, MessageReaction::Timer).await;
+                break;
+            }
+
+            let mut digits = Vec::new();
+         
+            while d > 0 {
+                digits.push((d % 10) as u32);
+                d /= 10;
+            }
+            // we don't need reverse vector as Matrix clients
+            // display new reactions at the left of message bubble.
+            // digits.reverse();
+
+            for digit_emoji in digits {
+                let _ = send_reaction(event_id.clone(), &cmd_ctx, MessageReaction::from_digit(digit_emoji)).await;
+            }
+            
+            break;
+        };
+    };
+}
+
+// ===== Parsers and Constructions Methods for Reminders =====
 /// Build regular expression
 fn build_reminder_regex(
     i18n: &Arc<I18nManager>,

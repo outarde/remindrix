@@ -152,6 +152,12 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
     let on_mention = Confirm::new("Activate the bot only when mentioned in group rooms?")
         .with_help_message("In rooms with only two people, the bot will respond regardless of whether it is mentioned.")
         .with_default(false).prompt()?;
+    let send_reactions = Confirm::new("Send reactions as bot's replies?")
+        .with_help_message("The bot will send emoji reactions instead of success messages, but errors will remain in text format.")
+        .with_default(true).prompt()?;
+    let send_digits_reactions = Confirm::new("Send reactions in digits?")
+        .with_help_message("The bot will send reactions in the form of a number of the longest duration before the reminder time.")
+        .with_default(true).prompt()?;
 
     let tz = Text::new("Default timezone in IANA format:")
         .with_help_message("This time zone will be applied in rooms where users have not specified their own.")
@@ -179,6 +185,8 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
         tz_commands: vec![config::DEFAULT_TIMEZONE_COMMAND.to_string()],
         on_command,
         on_mention,
+        send_reactions,
+        send_digits_reactions,
         tz,
         morning,
         afternoon,

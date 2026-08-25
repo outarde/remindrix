@@ -66,6 +66,10 @@ pub struct BotConfig {
     pub on_command: bool,
     #[serde(default = "BotConfig::default_on_mention")]
     pub on_mention: bool,
+    #[serde(default = "BotConfig::default_send_reactions")]
+    pub send_reactions: bool,
+    #[serde(default = "BotConfig::default_send_digits_reactions")]
+    pub send_digits_reactions: bool,
     #[serde(default = "BotConfig::default_tz")]
     pub tz: String,
     #[serde(default = "BotConfig::default_morning_time")]
@@ -85,6 +89,12 @@ impl BotConfig {
     }
     fn default_on_mention() -> bool {
         false
+    }
+    fn default_send_reactions() -> bool {
+        true
+    }
+    fn default_send_digits_reactions() -> bool {
+        true
     }
     fn default_remind_command() -> Vec<String> {
         vec![DEFAULT_COMMAND.to_string()]
