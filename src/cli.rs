@@ -137,21 +137,26 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
     let languages = rust_i18n::available_locales!();
     let lang = Select::new("Select language:", languages).prompt()?.to_string();
 
-    let remind_commands = Text::new("Aliases for the reminder creation command:")
+    let str_remind_commands = Text::new("Aliases for the reminder creation command:")
         .with_help_message("The command in your chosen language will always be available.")
         .with_placeholder("separated by spaces")
         .with_default("remind").prompt()?.to_string();
-    let bot_remind_commands = remind_commands
+    let remind_commands = str_remind_commands
         .split_whitespace()
         .map(String::from)
         .collect();
 
-    let on_command = Confirm::new("Activate the bot only on command?")
-        .with_help_message("If you select \"no\", the bot will attempt to create a reminder whenever it receives a message.")
+    let on_command = Confirm::new("Activate the bot only if there is a prefix `!` or `/` at the beginning of the message.")
+        .with_help_message("This setting must be disabled if you want to create quick reminders (next).")
+        .with_default(true).prompt()?;
+    let on_command_group = Confirm::new("Activate the bot only if there is a prefix in group rooms.")
         .with_default(true).prompt()?;
     let on_mention = Confirm::new("Activate the bot only when mentioned in group rooms?")
         .with_help_message("In rooms with only two people, the bot will respond regardless of whether it is mentioned.")
         .with_default(false).prompt()?;
+    let quick_remind = Confirm::new("Messages to the bot without a command will try to be converted into reminders.")
+        .with_help_message("The setting does not apply to group rooms to prevent false positives.")
+        .with_default(true).prompt()?;
     let send_reactions = Confirm::new("Send reactions as bot's replies?")
         .with_help_message("The bot will send emoji reactions instead of success messages, but errors will remain in text format.")
         .with_default(true).prompt()?;
@@ -180,11 +185,13 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
 
     let new_config = config::BotConfig {
         lang,
-        remind_commands: bot_remind_commands,
+        remind_commands,
         list_commands: vec![config::DEFAULT_LIST_COMMAND.to_string()],
         tz_commands: vec![config::DEFAULT_TIMEZONE_COMMAND.to_string()],
         on_command,
+        on_command_group,
         on_mention,
+        quick_remind,
         send_reactions,
         send_digits_reactions,
         tz,

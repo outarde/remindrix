@@ -20,7 +20,7 @@ use regex::Regex;
 use std::{string::ToString, sync::{OnceLock, Arc}};
 use rust_i18n::t;
 use strum_macros::{Display, EnumString};
-use std;
+use clap::Parser;
 
 // app crates
 use crate::config::BotConfig;
@@ -38,35 +38,38 @@ enum BotCommand {
 }
 
 impl BotCommand {
-    fn parse(text: &str, bot_config: BotConfig) -> Option<(Self, String)> {
-        if !text.starts_with('/') && !text.starts_with('!') {
-            // Return None if bot can be activated only with command
-            // and return "remind" command if can be activated without command
-            if bot_config.on_command {
+    fn parse(text: &str, cmd_ctx: &CommandContext) -> Option<(Self, String)> {
+        // Numbers of chars to skip
+        let mut skip_num = 1;
+
+        // Check if it is no prefix and it is not required in config.
+        if !text.starts_with('/') && !text.starts_with('!') && !cmd_ctx.bot_config().on_command {
+            if cmd_ctx.is_room_group() && cmd_ctx.bot_config().on_command_group {
                 return None;
-            } else {
-                return Some((BotCommand::Remind, text.to_string()))
             }
+            skip_num = 0;
+        } else {
+            return None;
         }
         
-        let remaining: String = text.chars().skip(1).collect();
+        let remaining: String = text.chars().skip(skip_num).collect();
         let mut parts = remaining.splitn(2, ' ');
 
         // command and args from text
         let cmd_str = parts.next()?.to_lowercase();
         let args = parts.next().unwrap_or("").to_string();
 
-        // i18n aliases for commands
-        let i18n_command = t!("reminder.command");
-
-        if bot_config.remind_commands.contains(&cmd_str) || &i18n_command == &cmd_str {
+        if cmd_ctx.bot_config().remind_commands.contains(&cmd_str) || &cmd_ctx.i18n.cmd_remind == &cmd_str {
             Some((BotCommand::Remind, args))
-        } else if bot_config.list_commands.contains(&cmd_str) {
+        } else if cmd_ctx.bot_config().list_commands.contains(&cmd_str) {
             Some((BotCommand::List, args))
-        } else if bot_config.tz_commands.contains(&cmd_str) {
+        } else if cmd_ctx.bot_config().tz_commands.contains(&cmd_str) {
             Some((BotCommand::Tz, args))
         } else {
-            None
+            // Return "remind" command for fast only-remind creations only in private rooms.
+            if cmd_ctx.bot_config().quick_remind && !cmd_ctx.is_room_group() {
+                Some((BotCommand::Remind, text.to_string()))
+            } else { return None; }
         }
     }
 }
@@ -138,6 +141,8 @@ pub enum MessageReaction {
     Done,
     #[strum(serialize = "⏲️")]
     Timer,
+    #[strum(serialize = "🕒")]
+    Clock,
     #[strum(serialize = "0️⃣")]
     Zero,
     #[strum(serialize = "1️⃣")]
@@ -277,9 +282,14 @@ impl CommandContext {
         Self { room, room_id, ctx, settings, i18n } 
     }
 
-    // getter
+    // getters
+    // cmd_ctx.ctx.bot_config
     pub fn bot_config(&self) -> &super::config::BotConfig {
         &self.ctx.bot_config
+    }
+    // Check if room has more than 2 active (joined and invitees) members
+    pub fn is_room_group(&self) -> bool {
+        self.room.active_members_count() > 2 as u64
     }
 }
 
@@ -294,6 +304,49 @@ struct ParsedReminder {
     min: String,
 }
 
+// Experimental CLI commands for reminders
+// 
+#[derive(Parser, Debug)]
+pub struct RemindArgs {
+    #[arg(short, long)]
+    pub day: Option<String>,
+    #[arg(short, long)]
+    pub month: Option<String>,
+    #[arg(short, long)]
+    pub year: Option<String>,
+    #[arg(long)]
+    pub date: Option<String>,
+
+    #[arg(long)]
+    pub hour: Option<String>,
+    #[arg(long)]
+    pub min: Option<String>,
+    #[arg(short, long)]
+    pub time: Option<String>,
+    
+    pub text: Vec<String>,
+
+    #[arg(long)]
+    pub to: Option<String>,
+    #[arg(short, long)]
+    pub interval: Option<bool>,
+    #[arg(short, long)]
+    pub repeat: Option<String>,
+}
+
+// 
+#[derive(Parser, Debug)]
+pub struct TzArgs {
+    pub set: Option<String>,
+}
+
+// 
+#[derive(Parser, Debug)]
+pub struct ListArgs {
+    #[arg(short, long)]
+    pub pending: bool,
+}
+
 // ===== Entry Point =====
 /// Reply to incoming message
 pub async fn on_room_message(
@@ -301,19 +354,22 @@ pub async fn on_room_message(
     room: Room, 
     ctx: Arc<super::BotContext>
 ) {
-    // check if we joined the room
+    // Check if we joined the room
     if room.state() != RoomState::Joined { return; }
-    // check if message is not from bot account
+    // We don't reply to our message
     // can be changed if multi-step interaction with bot will be presented
     if event.sender == ctx.bot_id { return; }
 
-    // check for text type of message
+    // Check for text type of message
     let MessageType::Text(text_content) = &event.content.msgtype else { return };
     let mut body = text_content.body.trim().to_string();
 
+    // Command Context
+    let cmd_ctx = CommandContext::new(room.clone(), ctx.clone()).await;
+
     // if ctx.bot_config.on_mention is true, 
-    // check for if bot was mentioned in public rooms (where more than 2 members joined or invited)
-    if ctx.bot_config.on_mention && room.active_members_count() > 2 {
+    // check if bot was mentioned in public rooms
+    if ctx.bot_config.on_mention && cmd_ctx.is_room_group() {
         if let Some(mentions) = &event.content.mentions {
             // clean body from makrdown if there is mention
             if mentions.user_ids.contains(&ctx.bot_id) {
@@ -328,12 +384,9 @@ pub async fn on_room_message(
     }
 
     // Parse command
-    let Some((command, args)) = BotCommand::parse(&body, ctx.bot_config.clone()) else { 
+    let Some((command, args)) = BotCommand::parse(&body, &cmd_ctx) else { 
         return;
     };
-
-    // Command Context
-    let cmd_ctx = CommandContext::new(room.clone(), ctx.clone()).await;
 
     match command {
         BotCommand::Remind => {
@@ -351,9 +404,43 @@ pub async fn on_room_message(
 }
 
 // ===== Handlers =====
-/// Handle new reminder.
+/// Handle new reminder router.
 pub async fn handle_remind(
-    body: &str,
+    args_str: &str,
+    event: OriginalSyncRoomMessageEvent,
+    cmd_ctx: CommandContext,
+) {
+
+    let args: Vec<&str> = args_str.split_whitespace().collect();
+    // clap requires some command at the first place
+    let mut clap_input = vec!["remind"];
+    clap_input.extend(&args);
+
+    // Try to parse in CLI mode
+    match RemindArgs::try_parse_from(clap_input) {
+        Ok(cli_args) => {
+            process_cli_reminder(cli_args, event, cmd_ctx).await;
+        }
+        Err(_) => {
+            process_natural_reminder(args_str, event, cmd_ctx).await;
+        }
+    }
+}
+
+/// Create reminder with CLI recognition.
+/// Extended capabilities such as reminder for other user, intervals, etc.
+pub async fn process_cli_reminder(
+    cli_args: RemindArgs,
+    event: OriginalSyncRoomMessageEvent,
+    cmd_ctx: CommandContext,
+) {
+    return;
+}
+
+/// Create reminder with regular expression recognition.
+/// Original pipeline with base capability.
+pub async fn process_natural_reminder(
+    args_str: &str,
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
 ) {
@@ -361,7 +448,7 @@ pub async fn handle_remind(
     let re = build_reminder_regex(&cmd_ctx.i18n);
 
     // If regular expression found some groups
-    if let Some(caps) = re.captures(body) {
+    if let Some(caps) = re.captures(args_str) {
 
         // Parsed Data
         let reminder_data = match parse_reminder_data(
@@ -402,7 +489,8 @@ pub async fn handle_remind(
                 if cmd_ctx.bot_config().send_reactions {
                     // Send digits reaction or one emoji.
                     if cmd_ctx.bot_config().send_digits_reactions {
-                        let _ = send_timebefore_reaction(event.event_id.clone(), &cmd_ctx, &utc_time).await;
+                        let digits = calculate_durations(&utc_time);
+                        let _ = send_digits_reaction(event.event_id.clone(), &cmd_ctx, digits).await;
                     }
                     else {
                         let _ = send_reaction(event.event_id.clone(), &cmd_ctx, MessageReaction::Timer).await;
@@ -554,21 +642,42 @@ async fn send_reaction(
 /// Send reactions with digits emoji with to the related event (message).
 /// Calculates the time until an event occurs and selects the number of the 
 /// largest non-empty dimension (days -> hours -> minutes).
-async fn send_timebefore_reaction(
+async fn send_digits_reaction(
     event_id: OwnedEventId, 
-    cmd_ctx: &CommandContext, 
-    end_time: &DateTime<Utc>
-    // numbers: Option<Vec<i64>>
+    cmd_ctx: &CommandContext,
+    numbers: Vec<i64>
 ) {
-    let duration_to_wait = end_time.signed_duration_since(Utc::now());
-    let numbers = vec![
-        duration_to_wait.num_weeks(), 
-        duration_to_wait.num_days(), 
-        duration_to_wait.num_hours(),
-        duration_to_wait.num_minutes()
-    ];
+    // First positive number whose remainder when divided by 11 is not 0
+    // (because Matrix prevents sending the same reaction twice:
+    // status_code: 400, DuplicateAnnotation, message: "Can't send same reaction twice".
+    let first_positive = numbers.iter().find(|&&x| x > 0 && x % 11 != 0);
 
-    for (mut d) in numbers {
+    match first_positive {
+        Some(&(mut d)) => {
+            let mut digits = Vec::new();
+         
+            while d > 0 {
+                digits.push((d % 10) as u32);
+                d /= 10;
+            }
+            // we don't need reverse vector as Matrix clients
+            // display new reactions at the left of message bubble.
+            // digits.reverse();
+
+            for digit_emoji in digits {
+                let _ = send_reaction(event_id.clone(), &cmd_ctx, MessageReaction::from_digit(digit_emoji)).await;
+            }
+
+            let _ = send_reaction(event_id.clone(), &cmd_ctx, MessageReaction::Clock).await;
+        },
+        // so we can't send numbers with equal digits and send "check" emoji instead
+        None => {
+            let _ = send_reaction(event_id.clone(), &cmd_ctx, MessageReaction::Timer).await;
+        }
+    }
+
+    /*
+    for &mut d in numbers {
         if d > 0 {
             // Matrix prevents sending the same reaction twice
             // (status_code: 400, DuplicateAnnotation, message: "Can't send same reaction twice"),
@@ -591,10 +700,13 @@ async fn send_timebefore_reaction(
             for digit_emoji in digits {
                 let _ = send_reaction(event_id.clone(), &cmd_ctx, MessageReaction::from_digit(digit_emoji)).await;
             }
+
+            let _ = send_reaction(event.event_id.clone(), &cmd_ctx, MessageReaction::Clock).await;
             
             break;
         };
     };
+    */
 }
 
 // ===== Parsers and Constructions Methods for Reminders =====
@@ -611,10 +723,10 @@ fn build_reminder_regex(
 
         regex_str.push_str(r"))(?:(?:\s+(?<prep>at|");
         regex_str.push_str(&i18n.prepositions.join("|"));
-        regex_str.push_str(r"))?\s+(((?P<hour>\d{2}):(?P<min>\d{2}))|(?P<time_natural>");
+        regex_str.push_str(r"))?\s+((?P<hour>\d{2}):(?P<min>\d{2}))|(?P<time_natural>");
         regex_str.push_str(&i18n.times.join("|"));
-        regex_str.push_str(r")))?\s+(?P<text>.+)$");
-        //regex_str.push_str(r")|(?P<time_interval>(?<gap>\d{1,2})\s(?<step>минут|часов)) ))?\s+(?P<text>.+)$");
+        regex_str.push_str(r"))?+\s+(?P<text>.+)$");
+        //regex_str.push_str(r")|(?P<time_interval>(?<gap>\d{1,2})\s(?<step>minutes|hours)) ))?\s+(?P<text>.+)$");
 
         Regex::new(&regex_str).unwrap()
     })
@@ -736,7 +848,7 @@ async fn naive_date_with_tz(tz: &Tz) -> NaiveDateTime {
     //return now_in_tz.date_naive();
 }
 */
-
+// ===== Service ======
 /// Clean message from makrdown link with user mention
 // or can be implemented with input.strip_prefix()
 fn clean_from_mention(text: &str) -> String {
@@ -745,4 +857,15 @@ fn clean_from_mention(text: &str) -> String {
     });
 
     re.replace(text, "").trim().to_string()
+}
+/// Calculate weeks, days, hours and minutes before some time
+fn calculate_durations(utc_time: &DateTime<Utc>) -> Vec<i64> {
+    let duration_to_wait = utc_time.signed_duration_since(Utc::now());
+    let numbers = vec![
+        duration_to_wait.num_weeks(), 
+        duration_to_wait.num_days(), 
+        duration_to_wait.num_hours(),
+        duration_to_wait.num_minutes()
+    ];
+    return numbers;
 }

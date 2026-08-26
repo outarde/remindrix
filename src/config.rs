@@ -64,8 +64,12 @@ pub struct BotConfig {
     pub tz_commands: Vec<String>,
     #[serde(default = "BotConfig::default_on_command")]
     pub on_command: bool,
+    #[serde(default = "BotConfig::default_on_command_group")]
+    pub on_command_group: bool,
     #[serde(default = "BotConfig::default_on_mention")]
     pub on_mention: bool,
+    #[serde(default = "BotConfig::default_quick_remind")]
+    pub quick_remind: bool,
     #[serde(default = "BotConfig::default_send_reactions")]
     pub send_reactions: bool,
     #[serde(default = "BotConfig::default_send_digits_reactions")]
@@ -87,8 +91,14 @@ impl BotConfig {
     fn default_on_command() -> bool {
         true
     }
+    fn default_on_command_group() -> bool {
+        true
+    }
     fn default_on_mention() -> bool {
         false
+    }
+    fn default_quick_remind() -> bool {
+        true
     }
     fn default_send_reactions() -> bool {
         true
