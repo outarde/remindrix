@@ -2,6 +2,7 @@ use matrix_sdk::{
     deserialized_responses::SyncOrStrippedState,
     Client, Room, RoomState,
     ruma::{
+        room_id,
         RoomId, OwnedRoomId, OwnedEventId,
         events::{
             reaction::ReactionEventContent, relation::Annotation,
@@ -12,8 +13,14 @@ use matrix_sdk::{
         }
     }
 };
+use anyhow::Result;
 use tokio::time::{Duration, sleep};
-use chrono::{Days, NaiveDateTime, DateTime, Utc, TimeZone, Datelike, LocalResult};
+use chrono::{
+    Days, Months,
+    NaiveDateTime, NaiveDate, NaiveTime,
+    DateTime, Utc, TimeDelta, TimeZone, 
+    Datelike, Timelike, LocalResult
+};
 use chrono_tz::Tz;
 use tokio_rusqlite::Connection;
 use regex::Regex;
@@ -43,19 +50,19 @@ impl BotCommand {
         let mut skip_num = 1;
 
         // Check if it is no prefix and it is not required in config.
-        if !text.starts_with('/') && !text.starts_with('!') && !cmd_ctx.bot_config().on_command {
+        if !text.starts_with('/') && !text.starts_with('!') {
+            if cmd_ctx.bot_config().on_command { return None; };
             if cmd_ctx.is_room_group() && cmd_ctx.bot_config().on_command_group {
                 return None;
             }
             skip_num = 0;
-        } else {
-            return None;
         }
-        
+
         let remaining: String = text.chars().skip(skip_num).collect();
         let mut parts = remaining.splitn(2, ' ');
 
         // command and args from text
+        // next()? returns None if no content in Vec
         let cmd_str = parts.next()?.to_lowercase();
         let args = parts.next().unwrap_or("").to_string();
 
@@ -293,7 +300,7 @@ impl CommandContext {
     }
 }
 
-/// Parsed data of user message for newly reminder
+/// Parsed data of user message for new reminder.
 #[derive(Debug)]
 struct ParsedReminder {
     text: String,
@@ -304,8 +311,7 @@ struct ParsedReminder {
     min: String,
 }
 
-// Experimental CLI commands for reminders
-// 
+/// CLI commands for new reminders.
 #[derive(Parser, Debug)]
 pub struct RemindArgs {
     #[arg(short, long)]
@@ -321,7 +327,7 @@ pub struct RemindArgs {
     pub hour: Option<String>,
     #[arg(long)]
     pub min: Option<String>,
-    #[arg(short, long)]
+    #[arg(long)]
     pub time: Option<String>,
     
     pub text: Vec<String>,
@@ -329,18 +335,37 @@ pub struct RemindArgs {
     #[arg(long)]
     pub to: Option<String>,
     #[arg(short, long)]
-    pub interval: Option<bool>,
+    pub interval: bool,
     #[arg(short, long)]
     pub repeat: Option<String>,
 }
 
-// 
+/// Erros for CLi proccesing.
+#[derive(Debug)]
+enum CliError {
+    ClapError(clap::Error),
+    ValidationError(String),
+}
+
+// From for operator ?
+impl From<clap::Error> for CliError {
+    fn from(err: clap::Error) -> Self {
+        CliError::ClapError(err)
+    }
+}
+impl From<chrono::ParseError> for CliError {
+    fn from(_err: chrono::ParseError) -> Self {
+        CliError::ValidationError("reminder.error.date-format".to_string())
+    }
+}
+
+/// CLI commands for time zone.
 #[derive(Parser, Debug)]
 pub struct TzArgs {
     pub set: Option<String>,
 }
 
-// 
+/// CLI commands for list of reminders.
 #[derive(Parser, Debug)]
 pub struct ListArgs {
     #[arg(short, long)]
@@ -416,13 +441,18 @@ pub async fn handle_remind(
     let mut clap_input = vec!["remind"];
     clap_input.extend(&args);
 
-    // Try to parse in CLI mode
-    match RemindArgs::try_parse_from(clap_input) {
-        Ok(cli_args) => {
-            process_cli_reminder(cli_args, event, cmd_ctx).await;
-        }
-        Err(_) => {
-            process_natural_reminder(args_str, event, cmd_ctx).await;
+    // Try to parse in CLI mode at first.
+    // try_parse_from() from clap only throws an error when there is a parsing error, 
+    // not when there are empty values, so we put it in another function.
+    match process_cli_reminder(clap_input, event.clone(), cmd_ctx.clone()).await {
+        Ok(_) => return,
+        Err(CliError::ClapError(_err)) => {
+            // tracing::error!("CLI parser error: {:?}", err);
+            process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await;
+        },
+        Err(CliError::ValidationError(err)) => {
+            let err_msg = t!(err); 
+            let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
         }
     }
 }
@@ -430,16 +460,271 @@ pub async fn handle_remind(
 /// Create reminder with CLI recognition.
 /// Extended capabilities such as reminder for other user, intervals, etc.
 pub async fn process_cli_reminder(
-    cli_args: RemindArgs,
+    args_str: Vec<&str>,
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
-) {
-    return;
+) -> Result<(), CliError> {
+    let args = RemindArgs::try_parse_from(args_str)?;
+
+    // Check if text is empty.
+    if args.text.len() == 0 {
+        return Err(CliError::ValidationError("reminder.error.empty-text".to_string()));
+    }
+
+    // Parse date.
+    let (day, month, year) = if args.interval {
+        resolve_date_interval(&args, &cmd_ctx.settings.room_tz).unwrap()
+    } else {
+        resolve_date(&args, &cmd_ctx.settings.room_tz).unwrap()
+    };
+
+    // Parse NaiveDate from parsed date.
+    let date_str = format!("{}-{}-{}", year, month, day);
+    let date_naive = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")?;
+
+    // Get target datetime with parsed time and changed date if necessary.
+    let target_dt = match match args.interval {
+        true => resolve_time_interval(&args, &cmd_ctx.settings.room_tz, date_naive),
+        false => resolve_time(&args, &cmd_ctx.settings.room_tz, date_naive)
+    } {
+        Some(dt) => dt,
+        None => return Err(CliError::ValidationError("reminder.error.time".to_string()))
+    };
+
+    // Fill a structure.
+    let reminder_data = ParsedReminder { 
+        text: args.text.join(" ").to_string(), 
+        year: target_dt.year().to_string(), 
+        month: target_dt.month().to_string(), 
+        day: target_dt.day().to_string(), 
+        hour: target_dt.hour().to_string(), 
+        min: target_dt.minute().to_string()
+    };
+
+    // Draft for delegation
+    /*
+    let to = args.to.unwrap();
+    let room_to: OwnedRoomId = to.try_into().expect("Inalid Room ID format");
+
+    let cmd_ctx2 = if let Some(room) = cmd_ctx.ctx.client.get_room(room_id) {
+        CommandContext::new(room.clone(), cmd_ctx.ctx.clone()).await
+    } else { cmd_ctx };
+    */
+
+    // Save reminder.
+    let _ = process_saving(event, reminder_data, cmd_ctx).await;
+
+    Ok(())
 }
 
+/// If we know time in CLI and want to parse it.
+fn resolve_time(args: &RemindArgs, room_tz: &Tz, start_d_naive: NaiveDate) -> Option<(DateTime<Tz>)> {
+    // Try to get from --time
+    let (hour, min) = match &args.time {
+        Some(time_str) => {
+            let parts: Vec<&str> = time_str.split(':').collect();
+            if parts.len() == 2 {
+                (parts[0].to_string(), parts[1].to_string())
+            }
+            else {
+                return None;
+            }
+        },
+        None => ("09".to_string(), "00".to_string())
+    };
+    
+    // Try to getn from -h, -m
+    let (hour, min) = match (&args.hour, &args.min) {
+        (Some(h), Some(m)) => (h.clone(), m.clone()),
+        (Some(h), None) => (h.clone(), "00".to_string()),
+        (None, Some(m)) => ("09".to_string(), m.clone()),
+        // TODO: check if time is in the future. Change date if time is in the past.
+        (None, None) => ("09".to_string(), "00".to_string()),
+    };
+
+    let time = format!("{}:{}", hour, min);
+    let time_naive = match NaiveTime::parse_from_str(&time, "%H:%M") {
+        Ok(dt) => dt,
+        Err(_) => return None
+    };
+    let dt_naive = start_d_naive.and_time(time_naive);
+
+    Some(naive_to_datetime(dt_naive, &room_tz))
+}
+
+/// If we want to calculate time interval from CLI with start date.
+fn resolve_time_interval(args: &RemindArgs, room_tz: &Tz, start_d_naive: NaiveDate) -> Option<(DateTime<Tz>)> {
+    // Get start date with the current time
+    let now_naive = Utc::now().with_timezone(room_tz).time();
+    let start_dt_naive = start_d_naive.and_time(now_naive);
+    
+    // To DateTime<Tz> with checking for a change of season
+    let start_dt = naive_to_datetime(start_dt_naive, &room_tz);
+    
+    let mut delta = TimeDelta::zero();
+
+    // Add hours
+    if let Some(h) = &args.hour {
+        if let Ok(hours) = h.parse::<i64>() {
+            delta = delta + TimeDelta::hours(hours);
+        }
+    }
+
+    // Add minutes
+    if let Some(m) = &args.min {
+        if let Ok(minutes) = m.parse::<i64>() {
+            delta = delta + TimeDelta::minutes(minutes);
+        }
+    }
+
+    // If the interval is not specified, we return the start datetime
+    if delta == TimeDelta::zero() {
+        // return Some((now.format("%H").to_string(), now.format("%M").to_string()));
+        return Some(start_dt)
+    }
+
+    // Shifting the current time
+    let future_time = start_dt + delta;
+    Some(future_time)
+
+    /*
+    Some((
+        future_time.format("%H").to_string(),
+        future_time.format("%M").to_string()
+    ))
+    */
+}
+
+/// If we know date in CLI and want to parse it.
+fn resolve_date(args: &RemindArgs, room_tz: &Tz) -> Option<(String, String, String)> {
+    let today = Utc::now().with_timezone(room_tz).date_naive();
+    
+    // helper function to get the same day a month from d_str
+    let adjust_month_for_day = |d_str: &str| -> (String, String, String) {
+        let d = d_str.parse::<u32>().unwrap_or(1);
+        let target_date = if d < today.day() { 
+            today + Months::new(1) 
+        } else { today };
+        (d.to_string(), target_date.month().to_string(), target_date.year().to_string())
+    };
+
+    // Try to get date from --date
+    if let Some(date_str) = &args.date {
+        let parts: Vec<&str> = date_str.split(['.', '/', '-']).collect();
+        
+        return match parts.as_slice() {
+            [d, m, y] => Some((d.to_string(), m.to_string(), y.to_string())),
+            [d, m] => Some((d.to_string(), m.to_string(), today.year().to_string())),
+            [d] => Some(adjust_month_for_day(d)),
+            _ => {
+                let tmrw = today + Days::new(1);
+                Some((tmrw.day().to_string(), tmrw.month().to_string(), tmrw.year().to_string()))
+            }
+        };
+    }
+    
+    // Try to get date from -d, -m, -y
+    match (&args.day, &args.month, &args.year) {
+        (Some(d), Some(m), Some(y)) => Some((d.clone(), m.clone(), y.clone())),
+        (Some(d), Some(m), None) => Some((d.clone(), m.clone(), today.year().to_string())),
+        (Some(d), None, None) => Some(adjust_month_for_day(d)),
+        _ => {
+            // let tmrw = today + Days::new(1);
+            Some((today.day().to_string(), today.month().to_string(), today.year().to_string()))
+        }
+    }
+}
+
+/// If we want to calculate an interval from days and months from CLI.
+/// We check if there is a date. if there is, we calculate the interval from it. 
+/// if not, we calculate the interval from time, and leave the date as today.
+fn resolve_date_interval(args: &RemindArgs, room_tz: &Tz) -> Option<(String, String, String)> {
+    // Shadowing way
+    /*
+    let date = Utc::now().with_timezone(room_tz).date_naive();
+    
+    let date = if let Some(d) = &args.day {
+        let d = d.parse::<u64>().unwrap_or(0);
+        date + Days::new(d)
+    } else { 
+        date
+    };
+
+    let date_with_int = if let Some(m) = &args.month {
+        let m = m.parse::<u32>().unwrap_or(0);
+        date + Months::new(m)
+    } else { 
+        date
+    };
+    */
+
+    // Mutability way
+    let mut date = Utc::now().with_timezone(room_tz).date_naive();
+
+    if let Some(d) = &args.day {
+        let d = d.parse::<u64>().unwrap_or(0);
+        date = date + Days::new(d);
+    }
+
+    if let Some(m) = &args.month {
+        let m = m.parse::<u32>().unwrap_or(0);
+        date = date + Months::new(m);
+    }
+
+    return Some((date.day().to_string(), date.month().to_string(), date.year().to_string())); 
+}
+
+/// Save reminder with ParsedReminder.
+async fn process_saving(event: OriginalSyncRoomMessageEvent, reminder_data: ParsedReminder, cmd_ctx: CommandContext) {
+    // Times
+    let (utc_dt, naive_dt) = match build_datetime_utc(&reminder_data, &cmd_ctx) {
+        Ok((ut, nt)) => (ut, nt),
+        Err(err) => {
+            let err_msg = t!(err.to_string()); 
+            let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
+            
+            tracing::error!("Date and time validation error: {:?} for {:?}", err, reminder_data);
+            return;
+        }
+    };
+
+    // Save to DB.
+    match super::reminder::save_reminder_to_db_utc(
+        &cmd_ctx, 
+        reminder_data.text, 
+        naive_dt.clone(), 
+        utc_dt.clone()
+    ).await {
+        Ok(new_reminder) => {
+            // Schedule it.
+            super::reminder::schedule_reminder_utc(cmd_ctx.ctx.clone(), new_reminder).await;
+
+            // Send success reaction or message to the room.
+            if cmd_ctx.bot_config().send_reactions {
+                // Send digits reaction or one emoji.
+                if cmd_ctx.bot_config().send_digits_reactions {
+                    let digits = calculate_durations(&utc_dt);
+                    let _ = send_digits_reaction(event.event_id.clone(), &cmd_ctx, digits).await;
+                }
+                else {
+                    let _ = send_reaction(event.event_id.clone(), &cmd_ctx, MessageReaction::Timer).await;
+                }
+            } else {
+                let date_str = naive_dt.format("%d.%m.%Y");
+                let reminder_mes = t!("reminder.saved", date = date_str, hour = reminder_data.hour, min = reminder_data.min);
+                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(reminder_mes)).await;
+            }
+        }
+        Err(err) => {
+            tracing::error!("SQLite error: {:?}", err);
+        }
+    }
+}
+
+// ===== Natural Pipeline =====
 /// Create reminder with regular expression recognition.
 /// Original pipeline with base capability.
-pub async fn process_natural_reminder(
+async fn process_natural_reminder(
     args_str: &str,
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
@@ -463,7 +748,7 @@ pub async fn process_natural_reminder(
         };
 
         // Times
-        let (utc_time, naive_time) = match build_datetime_utc(&reminder_data, &cmd_ctx) {
+        let (utc_dt, naive_dt) = match build_datetime_utc(&reminder_data, &cmd_ctx) {
             Ok((ut, nt)) => (ut, nt),
             Err(err) => {
                 let err_msg = t!(err.to_string()); 
@@ -478,8 +763,8 @@ pub async fn process_natural_reminder(
         match super::reminder::save_reminder_to_db_utc(
             &cmd_ctx, 
             reminder_data.text, 
-            naive_time.clone(), 
-            utc_time.clone()
+            naive_dt.clone(), 
+            utc_dt.clone()
         ).await {
             Ok(new_reminder) => {
                 // Schedule it.
@@ -489,14 +774,14 @@ pub async fn process_natural_reminder(
                 if cmd_ctx.bot_config().send_reactions {
                     // Send digits reaction or one emoji.
                     if cmd_ctx.bot_config().send_digits_reactions {
-                        let digits = calculate_durations(&utc_time);
+                        let digits = calculate_durations(&utc_dt);
                         let _ = send_digits_reaction(event.event_id.clone(), &cmd_ctx, digits).await;
                     }
                     else {
                         let _ = send_reaction(event.event_id.clone(), &cmd_ctx, MessageReaction::Timer).await;
                     }
                 } else {
-                    let date_str = naive_time.format("%d.%m.%Y");
+                    let date_str = naive_dt.format("%d.%m.%Y");
                     let reminder_mes = t!("reminder.saved", date = date_str, hour = reminder_data.hour, min = reminder_data.min);
                     let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(reminder_mes)).await;
                 }
@@ -513,7 +798,7 @@ pub async fn process_natural_reminder(
 }
 
 /// Handle changing time zone.
-pub async fn handle_tz(
+async fn handle_tz(
     body: &str,
     ev: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
@@ -600,9 +885,9 @@ async fn send_welcome_message(cmd_ctx: CommandContext) {
     let tomorrow = Utc::now().with_timezone(&cmd_ctx.settings.room_tz).date_naive() + Days::new(1);
     let (month_str, month_str_truncated) = &cmd_ctx.i18n.format_month(&tomorrow.month()).unwrap();
 
-    let welcome_type = if cmd_ctx.ctx.bot_config.on_command {
-        "welcome.on_command"
-    } else { "welcome.on_command_off" };
+    let welcome_type = if cmd_ctx.ctx.bot_config.quick_remind {
+        "welcome.on_command_off"
+    } else { "welcome.on_command" };
 
     let welcome_msg = t!(
         welcome_type,
@@ -811,17 +1096,7 @@ fn build_datetime_utc(
         .map_err(|_| ReminderDateError::InvalidTime)?;
 
     // We convert it to DateTime and check that zone mapping has a single result.
-    let user_dt = match cmd_ctx.settings.room_tz.from_local_datetime(&naive_dt) {
-        LocalResult::Single(dt) => dt,
-        LocalResult::Ambiguous(_dt1, dt2) => {
-            // To Winter Time
-            dt2 
-        }
-        LocalResult::None => {
-            // To Summer Time
-            return Err(ReminderDateError::SummerTime); 
-        }
-    };
+    let user_dt = naive_to_datetime(naive_dt.clone(), &cmd_ctx.settings.room_tz);
     let utc_dt = user_dt.with_timezone(&Utc);
 
     // Checking that the time is in the future
@@ -868,4 +1143,18 @@ fn calculate_durations(utc_time: &DateTime<Utc>) -> Vec<i64> {
         duration_to_wait.num_minutes()
     ];
     return numbers;
+}
+
+/// Convert NaiveDateTime to chrono-tz Datetime<Tz> with checking for a change of season.
+fn naive_to_datetime(dt_naive: NaiveDateTime, tz: &Tz) -> DateTime<Tz> {
+    match tz.from_local_datetime(&dt_naive) {
+        LocalResult::Single(dt) => dt,
+        LocalResult::Ambiguous(dt_earliest, _) => dt_earliest,
+        LocalResult::None => {
+            // If the time falls within an hour missed due to the clock change,
+            // we move it forward by 1 hour to get out of the "hole".
+            let fixed_naive = dt_naive + TimeDelta::hours(1);
+            tz.from_local_datetime(&fixed_naive).unwrap()
+        }
+    }
 }

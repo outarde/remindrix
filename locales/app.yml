@@ -619,6 +619,18 @@ reminder.error.summer-time:
   zh: 由于季节变化，您所在时区不存在此时间，请选择其他时间。
   ru: Это время не существует в вашем часовом поясе из-за смены сезона, пожалуйста, выберите другое.
   uk: Цей час не існує у вашому часовому поясі через зміну сезону, будь ласка, виберіть інше.
+reminder.error.date-format:
+  en: Invalid date format.
+reminder.error.empty-text:
+  en: Empty reminder text.
+reminder.error.delegation:
+  en: Invalid room format or room not found.
+  reminder.error.delegation-room-format:
+  en: Invalid room format.
+reminder.error.delegation-no-room:
+  en: Room not found.
+reminder.error.delegation-denied:
+  en: The room is not allowed to delegate reminders.
 tz.current:
   en: Room time zone is **%{tz}**.
   de: Die Zeitzone des Raumes ist **%{tz}**.
