@@ -3,7 +3,7 @@ use matrix_sdk::{
     Client, Room, RoomState,
     ruma::{
         room_id,
-        RoomId, OwnedRoomId, OwnedEventId,
+        OwnedUserId, RoomId, OwnedRoomId, OwnedEventId,
         events::{
             reaction::ReactionEventContent, relation::Annotation,
             room::{
@@ -274,6 +274,7 @@ impl I18nManager {
 #[derive(Clone, Debug)]
 pub struct CommandContext {
     pub room: Room,
+    pub user_id: OwnedUserId,
     pub room_id: OwnedRoomId,
     pub ctx: Arc<super::BotContext>,
     pub settings: SettingsManager,
@@ -281,12 +282,12 @@ pub struct CommandContext {
 }
 
 impl CommandContext {
-    pub async fn new(room: Room, ctx: Arc<super::BotContext>) -> Self { 
-        let settings = SettingsManager::new(&room, &ctx).await;
+    pub async fn new(user_id: OwnedUserId, room: Room, ctx: Arc<super::BotContext>) -> Self {
+        let settings = SettingsManager::new(&room, Some(user_id.clone()), &ctx).await;
         let i18n = ctx.get_i18n_manager(&settings.room_lang).await;
         let room_id = room.room_id().to_owned();
 
-        Self { room, room_id, ctx, settings, i18n } 
+        Self { room, user_id, room_id, ctx, settings, i18n } 
     }
 
     // getters
@@ -411,7 +412,7 @@ pub async fn on_room_message(
     let mut body = text_content.body.trim().to_string();
 
     // Command Context
-    let cmd_ctx = CommandContext::new(room.clone(), ctx.clone()).await;
+    let cmd_ctx = CommandContext::new(event.sender.clone(), room.clone(), ctx.clone()).await;
 
     // if ctx.bot_config.on_mention is true, 
     // check if bot was mentioned in public rooms
@@ -775,7 +776,7 @@ async fn process_saving(
     let target_settings = if target_room_id != cmd_ctx.room_id {
         match cmd_ctx.ctx.client.get_room(&target_room_id) {
             Some(room) => {
-                SettingsManager::new(&room, &cmd_ctx.ctx).await
+                SettingsManager::new(&room, None, &cmd_ctx.ctx).await
             },
             None => {
                 let err_msg = t!("reminder.error.delegation-no-room"); 
@@ -803,6 +804,7 @@ async fn process_saving(
     // Save to DB.
     match super::reminder::save_reminder_to_db_extended(
         cmd_ctx.ctx.db.clone(),
+        event.sender.clone(),
         target_room_id,
         target_settings.room_tz, 
         naive_dt.clone(), 
@@ -962,7 +964,7 @@ pub async fn on_stripped_state_member(
     room: Room,
     ctx: Arc<super::BotContext>,
 ) {
-    if room_member.state_key != ctx.client.user_id().unwrap() {
+    if room_member.state_key != ctx.bot_id {
         return;
     }
 
@@ -988,7 +990,7 @@ pub async fn on_stripped_state_member(
         tracing::info!("Successfully joined room {}", room.room_id());
 
         // Send welcome message.
-        let cmd_ctx = CommandContext::new(room, ctx).await;
+        let cmd_ctx = CommandContext::new(room_member.sender, room, ctx).await;
         send_welcome_message(cmd_ctx).await;
 
         // let _ = room.send(RoomMessageEventContent::text_plain("/remind")).await.unwrap();

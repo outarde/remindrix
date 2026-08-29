@@ -1,7 +1,7 @@
 use matrix_sdk::{
     Client,
     ruma::{
-        OwnedRoomId, RoomId,
+        OwnedUserId, OwnedRoomId, RoomId,
         events::room::message::{RoomMessageEventContent},
     },
 };
@@ -87,6 +87,7 @@ pub async fn init_db(data_dir: &PathBuf) -> anyhow::Result<Connection> {
                 utc_time TEXT NOT NULL,
                 tz TEXT NOT NULL,
                 created_at TEXT DEFAULT (datetime('now')),
+                created_by TEXT NOT NULL,
                 status INTEGER DEFAULT 0
             )",
             [],
@@ -310,11 +311,12 @@ pub async fn save_reminder_to_db_utc(
     let datetime_str = naive_time.format("%Y-%m-%d %H:%M:%S").to_string();
     let utc_str = utc_time.to_string();
     let tz_str = cmd_ctx.settings.room_tz.to_string();
+    let created_by_str = cmd_ctx.user_id.to_string();
     
     cmd_ctx.ctx.db.call(move |c| {
         c.execute(
-            "INSERT INTO reminders (room_id, text, target_time, utc_time, tz) VALUES (?1, ?2, ?3, ?4, ?5)",
-            [&room_id_str, &text, &datetime_str, &utc_str, &tz_str],
+            "INSERT INTO reminders (room_id, text, target_time, utc_time, tz, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            [&room_id_str, &text, &datetime_str, &utc_str, &tz_str, &created_by_str],
         )?;
         
         let reminder_id = c.last_insert_rowid();
@@ -337,6 +339,7 @@ pub async fn save_reminder_to_db_utc(
 // Was planned for delegation in the CLI processing.
 pub async fn save_reminder_to_db_extended(
     db: Arc<Connection>,
+    created_by: OwnedUserId,
     room_id: OwnedRoomId,
     room_tz: Tz,
     naive_time: NaiveDateTime,
@@ -350,11 +353,12 @@ pub async fn save_reminder_to_db_extended(
     let datetime_str = naive_time.format("%Y-%m-%d %H:%M:%S").to_string();
     let utc_str = utc_time.to_string();
     let tz_str = room_tz.to_string();
+    let created_by_str = created_by.to_string();
     
     db.call(move |c| {
         c.execute(
-            "INSERT INTO reminders (room_id, text, target_time, utc_time, tz) VALUES (?1, ?2, ?3, ?4, ?5)",
-            [&room_id_str, &text, &datetime_str, &utc_str, &tz_str],
+            "INSERT INTO reminders (room_id, text, target_time, utc_time, tz, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            [&room_id_str, &text, &datetime_str, &utc_str, &tz_str, &created_by_str],
         )?;
         
         let reminder_id = c.last_insert_rowid();

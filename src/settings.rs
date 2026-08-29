@@ -5,9 +5,12 @@ use anyhow::{Result, Context, anyhow};
 use matrix_sdk::{
     deserialized_responses::SyncOrStrippedState,
     Room,
-    ruma::events::{
+    ruma::{
+    OwnedUserId, 
+        events::{
         EmptyStateKey, macros::EventContent, 
         room::message::{RoomMessageEventContent}
+        }
     }
 };
 use serde::{Deserialize, Serialize};
@@ -23,17 +26,21 @@ pub struct RoomTimezoneContent {
     pub timezone: String,
 }
 
-/// Settings for each bot activation (command context).
+/// Settings for room where bot was activated.
+// When we create CommandContext, we create it for a specific user interaction in the room. 
+// When we create SettingsManager, we create it for the room with possible filtering by user.
 #[derive(Clone, Debug)]
 pub struct SettingsManager {
     // db: Arc<Connection>,
-    // room_id, user_id, key, value, updated_by, _at
+    // room_id, key, value, updated_by, _at
+    // pub room_id: OwnedRoomId,
+    pub user_id: Option<OwnedUserId>,
     pub room_tz: Tz,
     pub room_lang: String
 }
 
 impl SettingsManager {
-    pub async fn new(room: &Room, ctx: &Arc<super::BotContext>) -> Self {
+    pub async fn new(room: &Room, user_id: Option<OwnedUserId>, ctx: &Arc<super::BotContext>) -> Self {
         /*
         let mut settings = Self {
             room_tz: Tz::UTC,
@@ -44,8 +51,17 @@ impl SettingsManager {
         settings
         */
 
+        // let user_id = user_id.unwrap_or(None);
         let room_tz = Self::fetch_room_tz(room, ctx).await;
-        Self { room_tz, room_lang: ctx.bot_config.lang.clone() }
+        
+
+        /*
+        let user_id = match user_id {
+            Some(u) => u,
+            None => None
+        }*/
+
+        Self { user_id, room_tz, room_lang: ctx.bot_config.lang.clone() }
     }
 
     /// Get timezone for the room.
@@ -101,7 +117,10 @@ impl SettingsManager {
 
         // Save to DB.
         let room_id = cmd_ctx.room_id.to_string();
-        let user_id = cmd_ctx.ctx.client.user_id().unwrap().to_string();
+        let user_id = match &self.user_id {
+            Some(u) => u.to_string(),
+            None => cmd_ctx.user_id.to_string()
+        };
         let tz_clone = tz.to_string();
 
         let _ = cmd_ctx.ctx.db.call(move |c| -> Result<(), tokio_rusqlite::Error> {
