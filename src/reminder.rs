@@ -37,7 +37,7 @@ pub enum ReminderStatus {
     Pending = 0,
     Sent = 1,
     // missed can be when bot was offline
-    // Missed = 2,
+    Missed = 2,
     // Recurring = 3,
     // Cancelled = 4,
 }
@@ -149,6 +149,11 @@ pub async fn schedule_reminder_utc(
                 c.execute("UPDATE reminders SET status = ?1 WHERE id = ?2", [ReminderStatus::Sent as i64, reminder.id])
             }).await;
             tracing::info!("Reminder #{} was sent", reminder.id);
+        } else {
+            tracing::warn!("Room {} was not found for reminder #{}.", reminder.room_id, reminder.id);
+            let _ = ctx.db.call(move |c| {
+                c.execute("UPDATE reminders SET status = ?1 WHERE id = ?2", [ReminderStatus::Missed as i64, reminder.id])
+            }).await;
         }
     });
 }
@@ -307,6 +312,46 @@ pub async fn save_reminder_to_db_utc(
     let tz_str = cmd_ctx.settings.room_tz.to_string();
     
     cmd_ctx.ctx.db.call(move |c| {
+        c.execute(
+            "INSERT INTO reminders (room_id, text, target_time, utc_time, tz) VALUES (?1, ?2, ?3, ?4, ?5)",
+            [&room_id_str, &text, &datetime_str, &utc_str, &tz_str],
+        )?;
+        
+        let reminder_id = c.last_insert_rowid();
+        // let parsed_room_id = RoomId::parse(&room_id_str)
+        //    .map_err(|err| tokio_rusqlite::rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
+
+        Ok(ReminderUtc {
+            id: reminder_id,
+            room_id: room_id_clone,
+            text,
+            target_time: naive_time,
+            utc_time,
+            tz: room_tz_clone,
+            status: ReminderStatus::Pending,
+        })
+    }).await
+}
+
+/// Save reminder to DB with extended arguments. 
+// Was planned for delegation in the CLI processing.
+pub async fn save_reminder_to_db_extended(
+    db: Arc<Connection>,
+    room_id: OwnedRoomId,
+    room_tz: Tz,
+    naive_time: NaiveDateTime,
+    utc_time: DateTime<Utc>,
+    text: String,
+) -> Result<ReminderUtc, tokio_rusqlite::Error> {
+    let room_id_clone = room_id.clone();
+    let room_tz_clone = room_tz.clone();
+
+    let room_id_str = room_id.to_string();
+    let datetime_str = naive_time.format("%Y-%m-%d %H:%M:%S").to_string();
+    let utc_str = utc_time.to_string();
+    let tz_str = room_tz.to_string();
+    
+    db.call(move |c| {
         c.execute(
             "INSERT INTO reminders (room_id, text, target_time, utc_time, tz) VALUES (?1, ?2, ?3, ?4, ?5)",
             [&room_id_str, &text, &datetime_str, &utc_str, &tz_str],

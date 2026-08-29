@@ -340,10 +340,31 @@ pub struct RemindArgs {
     pub repeat: Option<String>,
 }
 
+impl RemindArgs {
+    /// Checks whether the fields of the structure that allow to determine 
+    /// that the user actually entered a CLI command are Some.
+    pub fn enough_options_are_some(&self) -> bool {
+        let options = [
+            self.day.as_ref(),
+            self.month.as_ref(),
+            self.year.as_ref(),
+            self.date.as_ref(),
+            self.hour.as_ref(),
+            self.min.as_ref(),
+            self.time.as_ref(),
+            self.to.as_ref(),
+            self.repeat.as_ref(),
+        ];
+
+        options.iter().find(|opt| opt.is_some()).is_some()
+    }
+}
+
 /// Erros for CLi proccesing.
 #[derive(Debug)]
 enum CliError {
     ClapError(clap::Error),
+    NaturalFallback,
     ValidationError(String),
 }
 
@@ -447,7 +468,9 @@ pub async fn handle_remind(
     match process_cli_reminder(clap_input, event.clone(), cmd_ctx.clone()).await {
         Ok(_) => return,
         Err(CliError::ClapError(_err)) => {
-            // tracing::error!("CLI parser error: {:?}", err);
+            process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await;
+        },
+        Err(CliError::NaturalFallback) => {
             process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await;
         },
         Err(CliError::ValidationError(err)) => {
@@ -466,10 +489,22 @@ pub async fn process_cli_reminder(
 ) -> Result<(), CliError> {
     let args = RemindArgs::try_parse_from(args_str)?;
 
+    // Without this check, the parser will perceive any text as a --text parameter.
+    if !args.enough_options_are_some() {
+        return Err(CliError::NaturalFallback);
+    }
+
     // Check if text is empty.
     if args.text.len() == 0 {
         return Err(CliError::ValidationError("reminder.error.empty-text".to_string()));
     }
+
+    // Delegation.
+    let target_room_id = if let Some(to) = args.to.as_deref() {
+        let room_to: OwnedRoomId = to.try_into()
+            .map_err(|_| CliError::ValidationError("reminder.delegation-room-format".to_string()))?;
+        Some(room_to)
+    } else { None };
 
     // Parse date.
     let (day, month, year) = if args.interval {
@@ -487,9 +522,24 @@ pub async fn process_cli_reminder(
         true => resolve_time_interval(&args, &cmd_ctx.settings.room_tz, date_naive),
         false => resolve_time(&args, &cmd_ctx.settings.room_tz, date_naive)
     } {
-        Some(dt) => dt,
-        None => return Err(CliError::ValidationError("reminder.error.time".to_string()))
+        Ok(dt) => dt,
+        // None => return Err(CliError::ValidationError("reminder.error.time".to_string()))
+        Err(e) => return Err(e)
     };
+
+    //////
+    // Instead of build_datetime_utc
+    // BUT it required because: WE HAVEN'T CHECKED TIME FORMAT like 26:00, etc??
+    /*
+    let naive_dt = target_dt.naive_local();
+    let utc_dt = target_dt.with_timezone(&Utc);
+
+    // Checking that the time is in the future
+    if utc_dt <= Utc::now() {
+        return Err(CliError::ValidationError("reminder.error.past-time".to_string()));
+    }
+    ///////
+    */
 
     // Fill a structure.
     let reminder_data = ParsedReminder { 
@@ -501,59 +551,85 @@ pub async fn process_cli_reminder(
         min: target_dt.minute().to_string()
     };
 
-    // Draft for delegation
-    /*
-    let to = args.to.unwrap();
-    let room_to: OwnedRoomId = to.try_into().expect("Inalid Room ID format");
-
-    let cmd_ctx2 = if let Some(room) = cmd_ctx.ctx.client.get_room(room_id) {
-        CommandContext::new(room.clone(), cmd_ctx.ctx.clone()).await
-    } else { cmd_ctx };
-    */
-
     // Save reminder.
-    let _ = process_saving(event, reminder_data, cmd_ctx).await;
+    let _ = process_saving(event, reminder_data, cmd_ctx, target_room_id).await;
 
     Ok(())
 }
 
 /// If we know time in CLI and want to parse it.
-fn resolve_time(args: &RemindArgs, room_tz: &Tz, start_d_naive: NaiveDate) -> Option<(DateTime<Tz>)> {
+fn resolve_time(args: &RemindArgs, room_tz: &Tz, start_d_naive: NaiveDate) -> Result<(DateTime<Tz>), CliError> {
+    // let now_naive = Utc::now().with_timezone(room_tz).date_naive().and_time(Utc::now().with_timezone(room_tz).time());
+    let now_naive = Utc::now().with_timezone(room_tz).naive_local();
+
+    let mut hour: String = String::new();
+    let mut min: String = String::new();
+
     // Try to get from --time
-    let (hour, min) = match &args.time {
+    match &args.time {
         Some(time_str) => {
             let parts: Vec<&str> = time_str.split(':').collect();
             if parts.len() == 2 {
-                (parts[0].to_string(), parts[1].to_string())
+                (hour, min) = (parts[0].to_string(), parts[1].to_string());
+            }
+            else if parts.len() == 1 {
+                (hour, min) = (parts[0].to_string(), "00".to_string());
             }
             else {
-                return None;
+                return Err(CliError::ValidationError("reminder.error.time-format".to_string()));
             }
         },
-        None => ("09".to_string(), "00".to_string())
+        None => ()
     };
     
     // Try to getn from -h, -m
-    let (hour, min) = match (&args.hour, &args.min) {
-        (Some(h), Some(m)) => (h.clone(), m.clone()),
-        (Some(h), None) => (h.clone(), "00".to_string()),
-        (None, Some(m)) => ("09".to_string(), m.clone()),
-        // TODO: check if time is in the future. Change date if time is in the past.
-        (None, None) => ("09".to_string(), "00".to_string()),
+    match (&args.hour, &args.min) {
+        (Some(h), Some(m)) => (hour, min) = (h.clone(), m.clone()),
+        (Some(h), None) => (hour, min) = (h.clone(), "00".to_string()),
+        (None, Some(m)) => (hour, min) = ("09".to_string(), m.clone()),
+        (None, None) => {
+            // Check if the time has already been written to prevent overwriting.
+            if hour.is_empty() {
+                (hour, min) = ("09".to_string(), "00".to_string())
+            }
+        },
     };
 
     let time = format!("{}:{}", hour, min);
     let time_naive = match NaiveTime::parse_from_str(&time, "%H:%M") {
         Ok(dt) => dt,
-        Err(_) => return None
+        Err(_) => return Err(CliError::ValidationError("reminder.error.time-format".to_string()))
     };
     let dt_naive = start_d_naive.and_time(time_naive);
 
-    Some(naive_to_datetime(dt_naive, &room_tz))
+    // date str "2026-8-28"
+    // date naive 1 (start naive) 2026-08-28
+    // now 2 is 2026-08-28T23:02:13.142228, now naive is 2026-08-28T22:02:13.142228
+    // time "22:00"
+    // after time dt_naive 2026-08-28T22:00:00
+    // checkpoint
+    // target_dt final 2026-08-29T22:00:00IST
+
+    // date str "2026-8-28"
+    // date naive 1 (start naive) 2026-08-28
+    // now 2 is 2026-08-28T23:36:22.951168, naive local is 2026-08-28T23:36:22.951169
+    // time "22:00"
+    // after time dt_naive 2026-08-28T22:00:00
+    // checkpoint
+    // target_dt final 2026-08-29T22:00:00IST
+
+    // If user's input date is today because of date-autofill, and reminder time is in the past, 
+    // convert date to tomorrow.
+    let dt_naive = if now_naive >= dt_naive && (args.date.is_none() || args.day.is_none()) {
+        dt_naive + Days::new(1)
+    } else { dt_naive };
+
+    Ok(naive_to_datetime(dt_naive, &room_tz))
+    // Ok((dt_naive, naive_to_datetime(dt_naive, &room_tz)))
 }
 
 /// If we want to calculate time interval from CLI with start date.
-fn resolve_time_interval(args: &RemindArgs, room_tz: &Tz, start_d_naive: NaiveDate) -> Option<(DateTime<Tz>)> {
+fn resolve_time_interval(args: &RemindArgs, room_tz: &Tz, start_d_naive: NaiveDate) -> Result<(DateTime<Tz>), CliError> {
     // Get start date with the current time
     let now_naive = Utc::now().with_timezone(room_tz).time();
     let start_dt_naive = start_d_naive.and_time(now_naive);
@@ -579,20 +655,13 @@ fn resolve_time_interval(args: &RemindArgs, room_tz: &Tz, start_d_naive: NaiveDa
 
     // If the interval is not specified, we return the start datetime
     if delta == TimeDelta::zero() {
-        // return Some((now.format("%H").to_string(), now.format("%M").to_string()));
-        return Some(start_dt)
+        return Ok(start_dt);
     }
 
     // Shifting the current time
     let future_time = start_dt + delta;
-    Some(future_time)
 
-    /*
-    Some((
-        future_time.format("%H").to_string(),
-        future_time.format("%M").to_string()
-    ))
-    */
+    Ok(future_time)
 }
 
 /// If we know date in CLI and want to parse it.
@@ -675,7 +744,12 @@ fn resolve_date_interval(args: &RemindArgs, room_tz: &Tz) -> Option<(String, Str
 }
 
 /// Save reminder with ParsedReminder.
-async fn process_saving(event: OriginalSyncRoomMessageEvent, reminder_data: ParsedReminder, cmd_ctx: CommandContext) {
+async fn process_saving(
+    event: OriginalSyncRoomMessageEvent, 
+    reminder_data: ParsedReminder, 
+    cmd_ctx: CommandContext,
+    target_room_id: Option<OwnedRoomId>,
+) {
     // Times
     let (utc_dt, naive_dt) = match build_datetime_utc(&reminder_data, &cmd_ctx) {
         Ok((ut, nt)) => (ut, nt),
@@ -688,15 +762,56 @@ async fn process_saving(event: OriginalSyncRoomMessageEvent, reminder_data: Pars
         }
     };
 
+    // 
+    let target_room_id = match target_room_id {
+        Some(id) => id,
+        None => cmd_ctx.room_id.clone()
+    };
+
+    //
+    // Instead of settings we can get CommandContext. It will be shorter and includes 
+    // room and settings. Memory saving in the current version is only that we clone()
+    // cmd_ctx.settings and not the whole cmd_ctx with room, etc.
+    let target_settings = if target_room_id != cmd_ctx.room_id {
+        match cmd_ctx.ctx.client.get_room(&target_room_id) {
+            Some(room) => {
+                SettingsManager::new(&room, &cmd_ctx.ctx).await
+            },
+            None => {
+                let err_msg = t!("reminder.error.delegation-no-room"); 
+                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
+                return;
+            }
+        }
+    } else { cmd_ctx.settings.clone() };
+
+    /*
+    let target_room = if let Some(id) = &target_room_id {
+        match cmd_ctx.ctx.client.get_room(id) {
+            Some(room) => room,
+            None => {
+                let err_msg = t!("reminder.error.delegation-no-room"); 
+                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
+                return;
+            }
+        }
+    } else { cmd_ctx.room.clone() };
+
+    let target_settings = SettingsManager::new(&target_room, &cmd_ctx.ctx).await;
+    */
+
     // Save to DB.
-    match super::reminder::save_reminder_to_db_utc(
-        &cmd_ctx, 
-        reminder_data.text, 
+    match super::reminder::save_reminder_to_db_extended(
+        cmd_ctx.ctx.db.clone(),
+        target_room_id,
+        target_settings.room_tz, 
         naive_dt.clone(), 
-        utc_dt.clone()
+        utc_dt.clone(),
+        reminder_data.text,
     ).await {
         Ok(new_reminder) => {
             // Schedule it.
+            // TODO: pass target_settings to schedule_reminder_utc for language compatibility
             super::reminder::schedule_reminder_utc(cmd_ctx.ctx.clone(), new_reminder).await;
 
             // Send success reaction or message to the room.
@@ -748,6 +863,7 @@ async fn process_natural_reminder(
         };
 
         // Times
+        println!("{:?}", reminder_data);
         let (utc_dt, naive_dt) = match build_datetime_utc(&reminder_data, &cmd_ctx) {
             Ok((ut, nt)) => (ut, nt),
             Err(err) => {
@@ -932,13 +1048,21 @@ async fn send_digits_reaction(
     cmd_ctx: &CommandContext,
     numbers: Vec<i64>
 ) {
-    // First positive number whose remainder when divided by 11 is not 0
-    // (because Matrix prevents sending the same reaction twice:
-    // status_code: 400, DuplicateAnnotation, message: "Can't send same reaction twice".
-    let first_positive = numbers.iter().find(|&&x| x > 0 && x % 11 != 0);
+    // First positive number, whose remainder when divided by 11 is not 0.
+    // (Matrix prevents sending the same reaction twice: status_code: 400, DuplicateAnnotation.)
+    let first_positive = numbers
+        .iter()
+        .find(|&&x| x > 0)
+        .and_then(|&x| if x % 11 == 0 { None } else { Some(x) });
 
     match first_positive {
-        Some(&(mut d)) => {
+        Some(mut d) => {
+            let _ = send_reaction(event_id.clone(), &cmd_ctx, MessageReaction::Clock).await;
+
+            if d % 11 == 0 {
+
+            }
+
             let mut digits = Vec::new();
          
             while d > 0 {
@@ -953,7 +1077,6 @@ async fn send_digits_reaction(
                 let _ = send_reaction(event_id.clone(), &cmd_ctx, MessageReaction::from_digit(digit_emoji)).await;
             }
 
-            let _ = send_reaction(event_id.clone(), &cmd_ctx, MessageReaction::Clock).await;
         },
         // so we can't send numbers with equal digits and send "check" emoji instead
         None => {
@@ -1008,9 +1131,9 @@ fn build_reminder_regex(
 
         regex_str.push_str(r"))(?:(?:\s+(?<prep>at|");
         regex_str.push_str(&i18n.prepositions.join("|"));
-        regex_str.push_str(r"))?\s+((?P<hour>\d{2}):(?P<min>\d{2}))|(?P<time_natural>");
+        regex_str.push_str(r"))?\s+((?P<hour>\d{2}):(?P<min>\d{2})|(?P<time_natural>");
         regex_str.push_str(&i18n.times.join("|"));
-        regex_str.push_str(r"))?+\s+(?P<text>.+)$");
+        regex_str.push_str(r")))?+\s+(?P<text>.+)$");
         //regex_str.push_str(r")|(?P<time_interval>(?<gap>\d{1,2})\s(?<step>minutes|hours)) ))?\s+(?P<text>.+)$");
 
         Regex::new(&regex_str).unwrap()
@@ -1055,6 +1178,7 @@ fn parse_reminder_data(
         (h.as_str().to_string(), m.as_str().to_string())
     } else if let Some(t_nat) = caps.name("time_natural") {
         let natural_time = NaturalTime::from_str(&t_nat.as_str().to_lowercase(), &cmd_ctx.i18n)?;
+        println!("natural time is {:?}", t_nat);
         let (h, m) = match natural_time {
             NaturalTime::Morning => &cmd_ctx.bot_config().morning.split_once(":")?,
             NaturalTime::Afternoon => &cmd_ctx.bot_config().afternoon.split_once(":")?,
