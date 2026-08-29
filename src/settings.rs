@@ -27,14 +27,15 @@ pub struct RoomTimezoneContent {
 }
 
 /// Settings for room where bot was activated.
-// When we create CommandContext, we create it for a specific user interaction in the room. 
-// When we create SettingsManager, we create it for the room with possible filtering by user.
+// When we create CommandContext, we create it for a specific user interaction in the room,
+// when we create SettingsManager, we create it for the room with possible filtering by user.
+// (The necessity of the latter is questionable.)
 #[derive(Clone, Debug)]
 pub struct SettingsManager {
     // db: Arc<Connection>,
     // room_id, key, value, updated_by, _at
     // pub room_id: OwnedRoomId,
-    pub user_id: Option<OwnedUserId>,
+    pub user_id: Option<OwnedUserId>, // The necessity is questionable
     pub room_tz: Tz,
     pub room_lang: String
 }
@@ -51,9 +52,12 @@ impl SettingsManager {
         settings
         */
 
-        // let user_id = user_id.unwrap_or(None);
+        // TODO: fill the whole structure at once.
         let room_tz = Self::fetch_room_tz(room, ctx).await;
-        
+        let room_lang = match Self::get_setting("lang", user_id.clone(), room, ctx).await {
+            Some(v) => v,
+            None => ctx.bot_config.lang.clone()
+        };
 
         /*
         let user_id = match user_id {
@@ -61,7 +65,7 @@ impl SettingsManager {
             None => None
         }*/
 
-        Self { user_id, room_tz, room_lang: ctx.bot_config.lang.clone() }
+        Self { user_id, room_tz, room_lang }
     }
 
     /// Get timezone for the room.
@@ -139,6 +143,39 @@ impl SettingsManager {
         }).await;
 
         Ok(())
+    }
+
+    /// Get the setting of the room and then the user.
+    // TODO: If there is no user_id, just find the room setting with LIMIT 1.
+    pub async fn get_setting(
+        key: &str,
+        user_id: Option<OwnedUserId>, 
+        room: &Room,
+        ctx: &Arc<super::BotContext>
+    ) -> Option<String> {
+        let user_id = match user_id {
+            Some(u) => u.to_string(),
+            None => return None
+        };
+        let room_id = room.room_id().to_string();
+        let key = key.to_string();
+
+        let value = ctx.db.call(move |c| /*-> Result<String, tokio_rusqlite::Error>*/ {
+            let value = c.query_row(
+                "SELECT value FROM settings WHERE room_id = ?1 AND user_id =?2 AND key = ?3",
+                [&room_id, &user_id, &key],
+
+                |row| {
+                    let value: String = row.get(0)?;
+                    Ok(value)
+                },
+            )?;
+
+            Ok::<_, tokio_rusqlite::Error>(value)
+            
+        }).await;
+
+        value.ok()
     }
 
     /*
