@@ -621,7 +621,7 @@ reminder.error.summer-time:
   uk: Цей час не існує у вашому часовому поясі через зміну сезону, будь ласка, виберіть інше.
 reminder.error.date-format:
   en: Invalid date format.
-  reminder.error.time-format:
+reminder.error.time-format:
   en: Invalid date format.
 reminder.error.empty-text:
   en: Empty reminder text.
