@@ -10,7 +10,7 @@
 
 [![GitHub License](https://img.shields.io/github/license/outarde/reminder-bot)](https://github.com/outarde/reminder-bot/blob/main/LICENSE) [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/outarde/reminder-bot/docker-publish.yml)](https://github.com/outarde/reminder-bot/actions) [![GitHub Tag](https://img.shields.io/github/v/tag/outarde/reminder-bot)](https://github.com/outarde/reminder-bot/releases) [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/outarde/reminder-bot)](https://github.com/outarde/reminder-bot/commits/main/)
 
-# Reminder Bot
+# Remindrix
 A lightweight chatbot for reminders on Matrix servers focused on multilingual support and user experience. Schedule reminders on the go in personal or group rooms.
 ## Key Features
 - ⏲️ Create reminders with the `/remind` command.
@@ -31,18 +31,19 @@ A lightweight chatbot for reminders on Matrix servers focused on multilingual su
 - [x] Time zone settings
 #### Commands:
 - [x] Alternative text for the bot activation command
-- [ ] Bot’s replies via reactions
+- [x] Bot’s replies via reactions
 - [ ] Deleting reminders
 - [ ] Recurring reminders
 - [ ] Sending a list of reminders
-- [ ] Creating reminders for one user for another
+- [x] Delegation of reminders
 #### Language and Translation:
 - [x] Adding languages
 - [x] Upload your own translation
+- [x] Pro/CLI mode
 - [ ] More advanced parsing of reminder date and time from user messages
-- [ ] Pro/CLI mode for user input
 #### Other:
-- [ ] Administrative module for cleaning up the reminder database
+- [ ] Database cleanup settings
+- [ ] Learn to not be late
 ## Screenshots
 <table>
   <tr>
