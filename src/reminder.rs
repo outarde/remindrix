@@ -71,7 +71,7 @@ impl From<i64> for ReminderStatus {
 /// Database initialization.
 pub async fn init_db(data_dir: &PathBuf) -> anyhow::Result<Connection> {
     // Path for DB file.
-    let path = data_dir.join("reminder-bot.db");
+    let path = data_dir.join("remindrix.db");
 
     // Open or create DB file.
     let conn = Connection::open(&path).await?;

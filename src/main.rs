@@ -36,7 +36,7 @@ rust_i18n::i18n!("locales", fallback = "en", backend = RemoteI18n::new());
 /// Folder for storing session files: session.json, database for persist session. recovery.json
 /// and app sqlite database: reminders.db
 /// Located in dirs::data_dir() directory.
-pub const APP_FOLDER: &str = "reminder_bot";
+pub const APP_FOLDER: &str = "remindrix";
 
 pub struct AppConfig {
     pub bot: config::BotConfig,
