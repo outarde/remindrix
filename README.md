@@ -11,14 +11,15 @@
 [![GitHub License](https://img.shields.io/github/license/outarde/reminder-bot)](https://github.com/outarde/reminder-bot/blob/main/LICENSE) [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/outarde/reminder-bot/docker-publish.yml)](https://github.com/outarde/reminder-bot/actions) [![GitHub Tag](https://img.shields.io/github/v/tag/outarde/reminder-bot)](https://github.com/outarde/reminder-bot/releases) [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/outarde/reminder-bot)](https://github.com/outarde/reminder-bot/commits/main/)
 
 # Remindrix
-A lightweight chatbot for reminders on Matrix servers focused on multilingual support and user experience. Schedule reminders on the go in personal or group rooms.
+A chatbot for reminders on Matrix servers focused on multilingual support and user experience. Schedule reminders on the go in personal or group rooms - Remindrix serves as your smart, quiet assistant.
 ## Key Features
-- ⏲️ Create reminders with the `/remind` command.
-- 📅 Basic date and time variability with the words `today`, `tomorrow`, `morning`, `afternoon`, `evening`, omitting the year and month.
-- 🌐 Individual time zones for rooms by `/tz` command.
-- 🔤 Multilingual support both for commands and responses, with the capability to upload custom translations.
+- ⏲️ Create reminders with the `/remind` command or without it.
+- 📅 Set natural language reminders with customizable default times.
+- 🌐 Individual time zones for rooms.
+- 🔤 Multilingual support both for commands and responses, with the capability to upload your own translations.
 - 📋 Send a summary of missed reminders in each room.
-- 🎹 Aliases for calling the bot and the ability to call the bot without a command or only by mention.
+- 🎹 Customizable command aliases, calling the bot without a command for quick reminders, and mentioning the bot in group chats to activate it.
+- 👩‍💻 "Pro" or CLI mode with flags for date, time, interval, and reminder delegation to other room.
 ## Matrix Account Features
 - Login to the bot's Matrix account with a password and token, automatic device verification and backup if this is the first device for the account, and receiving a recovery key
 - Manual verification with a recovery key if the bot account has been logged in to before, and backup enabled via the command line (CLI)
@@ -29,13 +30,14 @@ A lightweight chatbot for reminders on Matrix servers focused on multilingual su
 - [x] Optional activation of the bot without a command
 - [x] Optional requirement to mention the bot in group chats
 - [x] Time zone settings
+- [ ] Individual user settings
 #### Commands:
 - [x] Alternative text for the bot activation command
 - [x] Bot’s replies via reactions
-- [ ] Deleting reminders
-- [ ] Recurring reminders
-- [ ] Sending a list of reminders
 - [x] Delegation of reminders
+- [ ] Sending a list of reminders
+- [ ] Managing reminders through reactions
+- [ ] Recurring reminders
 #### Language and Translation:
 - [x] Adding languages
 - [x] Upload your own translation
@@ -43,6 +45,7 @@ A lightweight chatbot for reminders on Matrix servers focused on multilingual su
 - [ ] More advanced parsing of reminder date and time from user messages
 #### Other:
 - [ ] Database cleanup settings
+- [ ] Alarm mode
 - [ ] Learn to not be late
 ## Screenshots
 <table>
@@ -51,7 +54,7 @@ A lightweight chatbot for reminders on Matrix servers focused on multilingual su
 		  <img src="docs/assets/UI-Welcome-Dark.jpg" alt="First message" width="200px">
 	  </td>
 	  <td>
-		  <img src="docs/assets/UI-Chat2-Dark.jpg" alt="Interacting with the bot" width="200px">
+		  <img src="docs/assets/UI-interaction-dark.png" alt="Interacting with the bot" width="200px">
 	  </td>
 	  <td>
 		  <img src="docs/assets/UI-List1-Dark.jpg" alt="New reminder notification in chats list" width="200px">
@@ -68,13 +71,13 @@ A lightweight chatbot for reminders on Matrix servers focused on multilingual su
       <p align="center"><i>Welcome message</i></p>
     </td>
     <td>
-      <p align="center"><i>Interaction with the bot</i></p>
+      <p align="center"><i>Interacting with bot responses as reactions (digits are time until)</i></p>
     </td>
     <td>
       <p align="center"><i>New reminder</i></p>
     </td>
     <td>
-      <p align="center"><i>Summary of missed reminders</i></p>
+      <p align="center"><I>Notification with summary of missed reminders</i></p>
     </td>
     <td>
       <p align="center"><i>Setting a room's time zone</i></p>
@@ -136,4 +139,6 @@ Create a conversation with the bot or add it to a room. Send the `/remind`, `!re
 | For a full description of bot settings, see the [ configuration.md](https://github.com/outarde/reminder-bot/blob/main/docs/configuration.md) help page. | For details on using the bot, see [usage.md](https://github.com/outarde/reminder-bot/blob/main/docs/usage.md). | For information on interacting with the Matrix homeserver and managing your account, including **device verification**, see [matrix.md](https://github.com/outarde/reminder-bot/blob/main/docs/matrix.md). |
 
 ---
-I am developing this bot with a focus on users, to make communication via the Matrix protocol more convenient where it is an indispensable option for personal, non-censored communication. You can read more in [this Reddit post](https://www.reddit.com/r/matrixdotorg/comments/1vfs5s9/new_matrix_reminder_bot/). Your suggestions and issue reports are invaluable for me and the 🤖!
+I am developing this bot with a focus on users, to make communication via the Matrix protocol more convenient where it is an indispensable option for personal, non-censored communication. 
+
+You can read more about the original goals of this project in this [Reddit post](https://www.reddit.com/r/matrixdotorg/comments/1vfs5s9/new_matrix_reminder_bot/). Your suggestions and issue reports are invaluable for me and the 🤖!
