@@ -6,10 +6,10 @@ use matrix_sdk::{
     deserialized_responses::SyncOrStrippedState,
     Room,
     ruma::{
-    OwnedUserId, 
+    OwnedUserId, OwnedRoomId,
         events::{
         EmptyStateKey, macros::EventContent, 
-        room::message::{RoomMessageEventContent}
+        room::message::RoomMessageEventContent
         }
     }
 };
@@ -18,7 +18,7 @@ use tokio_rusqlite::Connection;
 use chrono::Utc;
 use chrono_tz::Tz;
 
-use crate::handlers::{I18nManager, CommandContext};
+use crate::handlers::{I18nManager, CommandContext, CliError};
 
 #[derive(Clone, Debug, Deserialize, Serialize, EventContent)]
 #[ruma_event(type = "com.reminder-bot.room_timezone", kind = State, state_key_type = EmptyStateKey)]
@@ -34,14 +34,18 @@ pub struct RoomTimezoneContent {
 pub struct SettingsManager {
     // db: Arc<Connection>,
     // room_id, key, value, updated_by, _at
-    // pub room_id: OwnedRoomId,
+    pub room_id: OwnedRoomId,
     pub user_id: Option<OwnedUserId>, // The necessity is questionable
     pub room_tz: Tz,
     pub room_lang: String
 }
 
 impl SettingsManager {
-    pub async fn new(room: &Room, user_id: Option<OwnedUserId>, ctx: &Arc<super::BotContext>) -> Self {
+    pub async fn new(
+        room: &Room, 
+        user_id: Option<OwnedUserId>, 
+        ctx: &Arc<super::BotContext>
+    ) -> Self {
         /*
         let mut settings = Self {
             room_tz: Tz::UTC,
@@ -51,6 +55,8 @@ impl SettingsManager {
         settings.fetch_room_tz().await;
         settings
         */
+
+        let room_id = room.room_id().to_owned();
 
         // TODO: fill the whole structure at once.
         let room_tz = Self::fetch_room_tz(room, ctx).await;
@@ -65,7 +71,7 @@ impl SettingsManager {
             None => None
         }*/
 
-        Self { user_id, room_tz, room_lang }
+        Self { room_id, user_id, room_tz, room_lang }
     }
 
     /// Get timezone for the room.
@@ -77,6 +83,8 @@ impl SettingsManager {
                 super::config::DEFAULT_TZ.parse::<Tz>().unwrap()
             }
         };
+
+        // let tz = Self::get_setting("timezone", user_id, room, ctx).await
 
         // Raw JSON: Option<Raw<StateEvent<C>>>
         if let Ok(Some(raw)) = room.get_state_event_static::<RoomTimezoneContent>().await {
@@ -120,7 +128,7 @@ impl SettingsManager {
         cmd_ctx.room.send_state_event(content).await?;
 
         // Save to DB.
-        let room_id = cmd_ctx.room_id.to_string();
+        let room_id = self.room_id.to_string();
         let user_id = match &self.user_id {
             Some(u) => u.to_string(),
             None => cmd_ctx.user_id.to_string()

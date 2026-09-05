@@ -17,8 +17,9 @@ use rust_i18n::t;
 use anyhow::{Context, Result};
 
 use crate::handlers::CommandContext;
+use crate::parsers::ReminderData;
 
-/// Reminder in UTC
+/// Reminder in UTC.
 #[derive(Debug, Clone)]
 pub struct ReminderUtc {
     pub id: i64,
@@ -30,7 +31,15 @@ pub struct ReminderUtc {
     pub status: ReminderStatus,
 }
 
-/// Statuses of Reminder
+/// New Reminder Structure.
+#[derive(Debug, Clone)]
+pub struct Reminder {
+    pub id: i64,
+    pub data: ReminderData,
+    pub status: ReminderStatus,
+}
+
+/// Statuses of Reminder.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i64)]
 pub enum ReminderStatus {
@@ -115,6 +124,52 @@ pub async fn init_db(data_dir: &PathBuf) -> anyhow::Result<Connection> {
     }).await?;
     
     Ok(conn)
+}
+
+/// NEW Scheduling reminder.
+pub async fn schedule_reminder(
+    ctx: Arc<super::BotContext>,
+    reminder: Reminder,
+) {
+    let now = Utc::now();
+
+    let duration_to_wait = &reminder.data.utc_dt.signed_duration_since(now);
+
+    if duration_to_wait.num_seconds() <= 0 {
+        tracing::error!("The reminder #{} time has already passed!", reminder.id);
+        return;
+    }
+
+    let std_duration = std::time::Duration::from_secs(duration_to_wait.num_seconds() as u64);
+
+    // Tokio
+    // TODO: move to the function?
+    tokio::spawn(async move {
+        tracing::info!("New reminder #{} in {} sec", reminder.id, std_duration.as_secs());
+        
+        // Asynchronic sleep
+        tokio::time::sleep(std_duration).await;
+
+        // After sleep
+        if let Some(room) = ctx.client.get_room(&reminder.data.settings.room_id) {
+            let reminder_text = t!("reminder.new", locale = &reminder.data.settings.room_lang, text = reminder.data.text);
+            // If the message was sent successfully, update the status!
+            match room.send(RoomMessageEventContent::text_markdown(reminder_text)).await {
+                Ok(_) => {
+                    let _ = ctx.db.call(move |c| {
+                        c.execute("UPDATE reminders SET status = ?1 WHERE id = ?2", [ReminderStatus::Sent as i64, reminder.id])
+                    }).await;
+                    tracing::info!("Reminder #{} was sent", reminder.id);
+                }
+                Err(e) => tracing::info!("Reminder #{} was not sent due to an error: {}", reminder.id, e)
+            }
+        } else {
+            tracing::warn!("Room {} was not found for reminder #{}", reminder.data.settings.room_id, reminder.id);
+            let _ = ctx.db.call(move |c| {
+                c.execute("UPDATE reminders SET status = ?1 WHERE id = ?2", [ReminderStatus::Missed as i64, reminder.id])
+            }).await;
+        }
+    });
 }
 
 /// Scheduling reminder.
@@ -304,10 +359,10 @@ pub async fn save_reminder_to_db_utc(
     naive_time: NaiveDateTime,
     utc_time: DateTime<Utc>,
 ) -> Result<ReminderUtc, tokio_rusqlite::Error> {
-    let room_id_clone = cmd_ctx.room_id.clone();
+    let room_id_clone = cmd_ctx.settings.room_id.clone();
     let room_tz_clone = cmd_ctx.settings.room_tz.clone();
 
-    let room_id_str = cmd_ctx.room_id.to_string();
+    let room_id_str = cmd_ctx.settings.room_id.to_string();
     let datetime_str = naive_time.format("%Y-%m-%d %H:%M:%S").to_string();
     let utc_str = utc_time.to_string();
     let tz_str = cmd_ctx.settings.room_tz.to_string();
@@ -339,42 +394,47 @@ pub async fn save_reminder_to_db_utc(
 // Was planned for delegation in the CLI processing.
 pub async fn save_reminder_to_db_extended(
     db: Arc<Connection>,
-    created_by: OwnedUserId,
-    room_id: OwnedRoomId,
-    room_tz: Tz,
-    naive_time: NaiveDateTime,
-    utc_time: DateTime<Utc>,
-    text: String,
-) -> Result<ReminderUtc, tokio_rusqlite::Error> {
-    let room_id_clone = room_id.clone();
-    let room_tz_clone = room_tz.clone();
+    reminder: ReminderData
+) -> Result<Reminder, tokio_rusqlite::Error> {
+    let room_id_clone = reminder.settings.room_id.clone();
+    let room_tz_clone = reminder.settings.room_tz.clone();
 
-    let room_id_str = room_id.to_string();
-    let datetime_str = naive_time.format("%Y-%m-%d %H:%M:%S").to_string();
-    let utc_str = utc_time.to_string();
-    let tz_str = room_tz.to_string();
-    let created_by_str = created_by.to_string();
+    let room_id_str = reminder.settings.room_id.to_string();
+    let datetime_str = reminder.naive_dt.format("%Y-%m-%d %H:%M:%S").to_string();
+    let utc_str = reminder.utc_dt.to_string();
+    let tz_str = reminder.settings.room_tz.to_string();
+    let created_by_str = reminder.created_by.to_string();
+    // let text = reminder.text;
     
     db.call(move |c| {
         c.execute(
             "INSERT INTO reminders (room_id, text, target_time, utc_time, tz, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            [&room_id_str, &text, &datetime_str, &utc_str, &tz_str, &created_by_str],
+            [&room_id_str, &reminder.text, &datetime_str, &utc_str, &tz_str, &created_by_str],
         )?;
         
-        let reminder_id = c.last_insert_rowid();
+        let id = c.last_insert_rowid();
         // let parsed_room_id = RoomId::parse(&room_id_str)
         //    .map_err(|err| tokio_rusqlite::rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
 
-        Ok(ReminderUtc {
-            id: reminder_id,
-            room_id: room_id_clone,
-            text,
-            target_time: naive_time,
-            utc_time,
-            tz: room_tz_clone,
+        Ok(Reminder {
+            id,
+            data: reminder,
             status: ReminderStatus::Pending,
         })
     }).await
+}
+
+/// Save reminder with ParsedReminder.
+pub async fn process_saving(
+    cmd_ctx: &CommandContext, 
+    reminder: ReminderData,
+) -> Result<(), tokio_rusqlite::Error> {
+    match save_reminder_to_db_extended(cmd_ctx.ctx.db.clone(), reminder).await {
+        Ok(new_reminder) => schedule_reminder(cmd_ctx.ctx.clone(), new_reminder).await,
+        Err(err) => return Err(err)
+    }
+
+    Ok(())
 }
 
 // ===== Service =====

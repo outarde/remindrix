@@ -24,6 +24,8 @@ mod cli;
 mod config;
 mod auth;
 mod handlers;
+mod parsers;
+mod reactions;
 mod reminder;
 mod settings;
 mod remote_i18n;
