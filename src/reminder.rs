@@ -20,6 +20,9 @@ use strum_macros::{Display, EnumString};
 use crate::handlers::CommandContext;
 use crate::parsers::ReminderData;
 
+/// Pragma user_version.
+pub const DB_TARGET_VERSION: i32 = 1;
+
 /// Reminder in UTC.
 #[derive(Debug, Clone)]
 pub struct ReminderUtc {
@@ -79,22 +82,6 @@ pub enum ReminderError {
     Db,
 }
 
-/*
-impl TryFrom<i64> for ReminderStatus {
-    type Error = String;
-
-    fn try_from(value: i64) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(ReminderStatus::Pending),
-            1 => Ok(ReminderStatus::Sent),
-            2 => Ok(ReminderStatus::Missed),
-            3 => Ok(ReminderStatus::Recurring),
-            4 => Ok(ReminderStatus::Cancelled),
-            _ => Err(format!("Unknown status: {}", value)),
-        }
-    }
-}
-*/
 impl From<i64> for ReminderStatus {
     fn from(value: i64) -> Self {
         // TODO: change expect()
@@ -102,9 +89,7 @@ impl From<i64> for ReminderStatus {
     }
 }
 
-//ReminderStatus::try_from(db_value).unwrap_or(ReminderStatus::Pending);
-//let status = ReminderStatus::from(db_value);
-
+// ===== DB =====
 /// Database initialization.
 pub async fn init_db(data_dir: &PathBuf) -> anyhow::Result<Connection> {
     // Path for DB file.
@@ -150,10 +135,45 @@ pub async fn init_db(data_dir: &PathBuf) -> anyhow::Result<Connection> {
         // -> Result<(), tokio_rusqlite::Error> in function result.
         Ok(())
     }).await?;
+
+    // Migrations.
+    run_migrations(&conn).await.map_err(|e| {
+        tracing::error!("An error occurred during database migration");
+        e
+    })?;
     
     Ok(conn)
 }
 
+/// DB Migration.
+async fn run_migrations(conn: &Connection) -> Result<()> {
+    let current_version: i32 = conn
+        .call(|conn| {
+            conn.query_row("PRAGMA user_version", [], |row| row.get(0))
+        }).await?;
+
+    if current_version < DB_TARGET_VERSION {
+        tracing::info!("Running DB migrations from version {} to version {}", current_version, DB_TARGET_VERSION);
+        
+        conn.call(|conn| -> Result<(), tokio_rusqlite::Error> {
+            let tx = conn.transaction()?;
+            
+            tx.execute("ALTER TABLE reminders ADD COLUMN created_by TEXT", [])?;
+            
+            tx.execute("PRAGMA user_version = 1", [])?;
+            
+            tx.commit()?;
+
+            Ok(())
+        }).await?;
+
+        tracing::info!("Migrations are completed");
+    }
+
+    Ok(())
+}
+
+// ===== Reminders =====
 /// NEW Scheduling reminder.
 pub async fn schedule_reminder(
     ctx: Arc<super::BotContext>,
