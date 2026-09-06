@@ -50,7 +50,7 @@ You don't need to enable this mode specifically: the bot tries to recognize any 
 | `-d`, `--day` | Day as a number. | No. If only a day is specified without a month, the current month is used. If the specified day has already passed in the current month, the next month is used. |
 | `-m`, `--month` | Month as a number. | No. |
 | `-y`, `--year` | Year as a number. | No. |
-| `--time` | Time as a number, without spaces. The colon character `:` is supported as a separator. | No. Overridden by the values below. If time is not specified, `morning_time` from the settings is used. If the date was also specified automatically and the reminder time is in the past, the reminder will be moved forward one day. |
+| `--time` | Time as a number, without spaces. The colon character `:` is supported as a separator. | No. Overridden by the values below. If time is not specified, default morning time from the settings is used. If the date was also specified automatically and the reminder time is in the past, the reminder will be moved forward one day. |
 | `--hour` | Hour as a number. | No. |
 | `--minute` | Minutes as a number. | No. |
 | `--to` | The room to delegate the reminder to, in the `!unique_room_code:homeserver_url` format. You can get it from the *share* in the Element X client. | No. |
