@@ -35,3 +35,27 @@ If the translation does not work as expected, adjust it in [your localization fi
 The time zone is saved as a Matrix custom events (type *state event*) for the entire room (without a *state_key* with the user id), but information about the user is also saved in the settings database. In the future, this will provide customized settings for different users in the same room.
 
 Matrix power levels are not taken into account when setting the time zone.
+
+## CLI Mode
+CLI (Command Lined Interface) or Pro mode allows you to create reminders using syntax similar to that used in the terminal. This mode avoids natural language ambiguities and implements advanced features that, if added to the *natural mode*, would make it too schematic and force users to guess the correct word order.
+
+You don't need to enable this mode specifically: the bot tries to recognize any command in this mode and if it fails, it switches to the *natural mode*.
+
+### Arguments and parameters (flags) for `remind` command
+
+| Value | Description | Required |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `text` | Reminder text. | Yes. |
+| `--date` | Reminder date as numbers, without spaces. Supported characters as separators: `.`, `/`, `-`. A day without a month or year can be specified. | No. Overridden by the values below. If no date is specified, today's day is used. |
+| `-d`, `--day` | Day as a number. | No. If only a day is specified without a month, the current month is used. If the specified day has already passed in the current month, the next month is used. |
+| `-m`, `--month` | Month as a number. | No. |
+| `-y`, `--year` | Year as a number. | No. |
+| `--time` | Time as a number, without spaces. The colon character `:` is supported as a separator. | No. Overridden by the values below. If time is not specified, `morning_time` from the settings is used. If the date was also specified automatically and the reminder time is in the past, the reminder will be moved forward one day. |
+| `--hour` | Hour as a number. | No. |
+| `--minute` | Minutes as a number. | No. |
+| `--to` | The room to delegate the reminder to, in the `!unique_room_code:homeserver_url` format. You can get it from the *share* in the Element X client. | No. |
+| `-i`, `--interval` | Use the specified time and date values as exact or interval values. | No, defaults to `false`. |
+>[!IMPORTANT]
+>Use the short form of parameters only where they are specified in the short form in the table. Time parameters do not have a short form because their first letter would either match the date parameters or the system help command `-h`.
+
+
