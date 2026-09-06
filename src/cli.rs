@@ -157,6 +157,10 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
     let quick_remind = Confirm::new("Messages to the bot without a command will try to be converted into reminders.")
         .with_help_message("The setting does not apply to group rooms to prevent false positives.")
         .with_default(true).prompt()?;
+    let remind_undated = Confirm::new("Create reminders without requiring a date or time?")
+        .with_help_message("The default morning time of this or the next day will be used. Caution: When enabled along with the quick reminder option, this will create reminders from any text sent to the bot.")
+        .with_default(false).prompt()?;
+
     let send_reactions = Confirm::new("Send reactions as bot's replies?")
         .with_help_message("The bot will send emoji reactions instead of success messages, but errors will remain in text format.")
         .with_default(true).prompt()?;
@@ -192,6 +196,7 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
         on_command_group,
         on_mention,
         quick_remind,
+        remind_undated,
         send_reactions,
         send_digits_reactions,
         tz,

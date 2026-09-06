@@ -25,6 +25,7 @@ mod config;
 mod auth;
 mod handlers;
 mod parsers;
+mod natural;
 mod reactions;
 mod reminder;
 mod settings;

@@ -70,6 +70,8 @@ pub struct BotConfig {
     pub on_mention: bool,
     #[serde(default = "BotConfig::default_quick_remind")]
     pub quick_remind: bool,
+    #[serde(default = "BotConfig::default_remind_undated")]
+    pub remind_undated: bool,
     #[serde(default = "BotConfig::default_send_reactions")]
     pub send_reactions: bool,
     #[serde(default = "BotConfig::default_send_digits_reactions")]
@@ -99,6 +101,9 @@ impl BotConfig {
     }
     fn default_quick_remind() -> bool {
         true
+    }
+    fn default_remind_undated() -> bool {
+        false
     }
     fn default_send_reactions() -> bool {
         true

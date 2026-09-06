@@ -18,19 +18,10 @@ use std::{string::ToString, sync::{OnceLock, Arc}};
 use rust_i18n::t;
 use clap::Parser;
 
-use crate::settings::{SettingsManager};
+use crate::settings::SettingsManager;
 use crate::handlers::{CommandContext, RemindArgs, CliError};
+use crate::reminder::ReminderError;
 
-/// Parsed data of user message for new reminder.
-#[derive(Debug)]
-pub struct ParsedReminder {
-    pub text: String,
-    pub year: String,
-    pub month: String,
-    pub day: String,
-    pub hour: String,
-    pub min: String,
-}
 
 #[derive(Debug, Clone)]
 pub struct ReminderData {
@@ -56,7 +47,7 @@ pub struct ParsedTime {
 }
 
 /// If we know date in CLI and want to parse it.
-pub fn resolve_date(args: &RemindArgs, room_tz: &Tz) -> Result<ParsedDate, CliError> {
+pub fn resolve_date(args: &RemindArgs, room_tz: &Tz) -> Result<ParsedDate, ReminderError> {
     let today = Utc::now().with_timezone(room_tz).date_naive();
 
     let mut is_auto: bool = false;
@@ -102,23 +93,23 @@ pub fn resolve_date(args: &RemindArgs, room_tz: &Tz) -> Result<ParsedDate, CliEr
 /// If we want to calculate an interval from days and months from CLI.
 /// We check if there is a date. if there is, we calculate the interval from it. 
 /// if not, we calculate the interval from time, and leave the date as today.
-pub fn resolve_date_interval(args: &RemindArgs, room_tz: &Tz) -> Result<ParsedDate, CliError> {
+pub fn resolve_date_interval(args: &RemindArgs, room_tz: &Tz) -> Result<ParsedDate, ReminderError> {
     // Mutability way
     let mut date = Utc::now().with_timezone(room_tz);
 
     if let Some(d) = &args.day {
         let d = d.parse::<u64>().unwrap_or(0);
-        date = date.checked_add_days(Days::new(d)).ok_or(CliError::UnsafeDateTime)?;
+        date = date.checked_add_days(Days::new(d)).ok_or(ReminderError::UnsafeDateTime)?;
     }
 
     if let Some(m) = &args.month {
         let m = m.parse::<u32>().unwrap_or(0);
-        date = date.checked_add_months(Months::new(m)).ok_or(CliError::UnsafeDateTime)?;
+        date = date.checked_add_months(Months::new(m)).ok_or(ReminderError::UnsafeDateTime)?;
     }
 
     if let Some(y) = &args.year {
         let y = y.parse::<u32>().unwrap_or(0);
-        date = date.checked_add_months(Months::new(y * 12)).ok_or(CliError::UnsafeDateTime)?;
+        date = date.checked_add_months(Months::new(y * 12)).ok_or(ReminderError::UnsafeDateTime)?;
     }
 
     Ok( ParsedDate {
@@ -132,7 +123,7 @@ pub fn resolve_date_interval(args: &RemindArgs, room_tz: &Tz) -> Result<ParsedDa
 /// If we know time in CLI and want to parse it.
 pub fn resolve_time(
     args: &RemindArgs,
-) -> Result<ParsedTime, CliError> {
+) -> Result<ParsedTime, ReminderError> {
     // let mut hour: String = String::new();
     // let mut min: String = String::new();
 
@@ -148,7 +139,7 @@ pub fn resolve_time(
                 (parts[0].to_string(), "00".to_string())
             }
             else {
-                return Err(CliError::ValidationError("reminder.error.time-format".to_string()));
+                return Err(ReminderError::InvalidTimeFormat);
             }
         },
         None => (String::new(), String::new())
@@ -176,7 +167,7 @@ pub fn resolve_time(
 }
 
 /// If we want to calculate time interval from CLI.
-pub fn resolve_time_interval(args: &RemindArgs, room_tz: &Tz) -> Result<ParsedTime, CliError> {
+pub fn resolve_time_interval(args: &RemindArgs, room_tz: &Tz) -> Result<ParsedTime, ReminderError> {
     // Get now datetime
     let now = Utc::now().with_timezone(room_tz);
     
@@ -185,14 +176,14 @@ pub fn resolve_time_interval(args: &RemindArgs, room_tz: &Tz) -> Result<ParsedTi
     // Add hours
     if let Some(h) = &args.hour {
         if let Ok(hours) = h.parse::<i64>() {
-            delta = delta + TimeDelta::try_hours(hours).ok_or(CliError::UnsafeDateTime)?;
+            delta = delta + TimeDelta::try_hours(hours).ok_or(ReminderError::UnsafeDateTime)?;
         }
     }
 
     // Add minutes
     if let Some(m) = &args.min {
         if let Ok(minutes) = m.parse::<i64>() {
-            delta = delta + TimeDelta::try_minutes(minutes).ok_or(CliError::UnsafeDateTime)?;
+            delta = delta + TimeDelta::try_minutes(minutes).ok_or(ReminderError::UnsafeDateTime)?;
         }
     }
 
@@ -220,29 +211,49 @@ pub fn resolve_target_dt(
     date: ParsedDate,
     time: ParsedTime,
     tz: &Tz
-) -> Result<(DateTime<Utc>, NaiveDateTime), CliError> {
+) -> Result<(DateTime<Utc>, NaiveDateTime), ReminderError> {
     // Set str with datetime.
     let dt_str = format!("{}-{}-{} {}:{}:00", date.year, date.month, date.day, time.hour, time.min);
     
     // Check if time can be parsed.
     let naive_dt = NaiveDateTime::parse_from_str(&dt_str, "%Y-%m-%d %H:%M:%S")
-        .map_err(|_| CliError::ValidationError("reminder.error.datetime-format".to_string()))?;
+        .map_err(|_| ReminderError::InvalidDateTimeFormat)?;
 
     // We convert it to DateTime and check that zone mapping has a single result.
     let user_dt = naive_to_datetime(naive_dt.clone(), &tz);
-    // Apply TimeDelta if it exists.
-    let user_dt = match user_dt.checked_add_signed(time.interval) {
-        Some(dt) => dt,
-        None => return Err(CliError::UnsafeDateTime)
+    // Apply TimeDelta if it exists and update NaiveDateTime.
+    let (user_dt, naive_dt) = if time.interval != TimeDelta::zero() {
+        match user_dt.checked_add_signed(time.interval) {
+            Some(dt) => {
+                (dt, dt.naive_local())
+            }
+            None => return Err(ReminderError::UnsafeDateTime)
+        }
+    } else {
+        (user_dt, naive_dt)
     };
-    let now_dt = Utc::now().with_timezone(tz);
+    // Get datetime in the UTC time zone.
+    let utc_dt = user_dt.with_timezone(&Utc);
 
+    // Checking that the time is in the future.
+    let (utc_dt, naive_dt) = if utc_dt <= Utc::now() {
+        if date.is_auto {
+            let dt = user_dt.checked_add_days(Days::new(1)).ok_or(ReminderError::UnsafeDateTime)?;
+            (dt.with_timezone(&Utc), dt.naive_local())
+        }
+        else { 
+            Err(ReminderError::TimeInPast)?
+        }
+    } else { (utc_dt, naive_dt) };
+
+    /*
+    let now_dt = Utc::now().with_timezone(tz);
     // Checking that the time is in the future.
     let user_dt = if user_dt <= now_dt {
         if date.is_auto {
-            user_dt.checked_add_days(Days::new(1)).ok_or(CliError::UnsafeDateTime)
+            user_dt.checked_add_days(Days::new(1)).ok_or(ReminderError::UnsafeDateTime)
         } else {
-            Err(CliError::ValidationError("reminder.error.past-time".to_string()))
+            Err(ReminderError::TimeInPast)
         }?
     } else { user_dt };
 
@@ -251,6 +262,7 @@ pub fn resolve_target_dt(
 
     // Set naive again.
     let naive_dt = user_dt.naive_local();
+    */
 
     Ok((utc_dt, naive_dt))
 }
@@ -260,16 +272,16 @@ pub fn resolve_target_dt(
 /// for the room for which the reminder was delegated.
 // NOTE: Can be changed to try_get_target_context if we need more information 
 // and don't want to transfer it to the settings (I18nManager, Room entity, OwnedRoomId)
-pub async fn try_get_target_settings(to: &str, cmd_ctx: &CommandContext) -> Result<SettingsManager, CliError> {
+pub async fn try_get_target_settings(to: &str, cmd_ctx: &CommandContext) -> Result<SettingsManager, ReminderError> {
     let room_to: OwnedRoomId = to.try_into()
-        .map_err(|_| CliError::ValidationError("reminder.delegation-room-format".to_string()))?;
+        .map_err(|_| ReminderError::InvalidDelegationRoomFormat)?;
 
     let target_settings = match cmd_ctx.ctx.client.get_room(&room_to) {
         Some(room) => {
             SettingsManager::new(&room, None, &cmd_ctx.ctx).await
         },
         None => {
-            return Err(CliError::ValidationError("reminder.error.delegation-no-room".to_string()));
+            return Err(ReminderError::NoDelegatedRoom);
         }
     };
 
@@ -291,14 +303,14 @@ pub fn naive_to_datetime(dt_naive: NaiveDateTime, tz: &Tz) -> DateTime<Tz> {
 }
 
 /// Helper function to get the same day a month from d_str.
-fn adjust_month_for_day(d_str: &str, today: &NaiveDate) -> Result<(String, String, String), CliError> {
+fn adjust_month_for_day(d_str: &str, today: &NaiveDate) -> Result<(String, String, String), ReminderError> {
     // Get date number.
     let d = d_str.parse::<u32>().unwrap_or(1);
 
     let target_month_year = if d < today.day() { 
         match today.checked_add_months(Months::new(1)) {
             Some(d) => d,
-            None => return Err(CliError::UnsafeDateTime)
+            None => return Err(ReminderError::UnsafeDateTime)
         }
     } else { 
         today.clone()

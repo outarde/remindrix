@@ -15,6 +15,7 @@ use std::{
 };
 use rust_i18n::t;
 use anyhow::{Context, Result};
+use strum_macros::{Display, EnumString};
 
 use crate::handlers::CommandContext;
 use crate::parsers::ReminderData;
@@ -49,6 +50,33 @@ pub enum ReminderStatus {
     Missed = 2,
     // Recurring = 3,
     // Cancelled = 4,
+}
+
+/// Keys of i18n for reply in case of error.
+#[derive(Debug, Display)]
+pub enum ReminderError {
+    #[strum(serialize = "reminder.error.month")]
+    InvalidMonth,
+    #[strum(serialize = "reminder.error.past-time")]
+    TimeInPast,
+    #[strum(serialize = "reminder.error.time")]
+    InvalidTime,
+    #[strum(serialize = "reminder.error.summer-time")]
+    SummerTime,
+    #[strum(serialize = "reminder.error.unsafe-datetime")]
+    UnsafeDateTime,
+    #[strum(serialize = "error.date-format")]
+    InvalidDateFormat,
+    #[strum(serialize = "error.time-format")]
+    InvalidTimeFormat,
+    #[strum(serialize = "error.datetime-format")]
+    InvalidDateTimeFormat,
+    #[strum(serialize = "error.delegation-room-format")]
+    InvalidDelegationRoomFormat,
+    #[strum(serialize = "error.delegation-no-room")]
+    NoDelegatedRoom,
+    #[strum(serialize = "error.db")]
+    Db,
 }
 
 /*
