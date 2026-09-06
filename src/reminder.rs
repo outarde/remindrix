@@ -5,7 +5,7 @@ use matrix_sdk::{
         events::room::message::{RoomMessageEventContent},
     },
 };
-use tokio_rusqlite::Connection;
+use tokio_rusqlite::{params, Connection};
 use chrono::{Local, TimeZone, NaiveDateTime, NaiveTime, DateTime, Utc};
 use chrono_tz::Tz;
 use std::{
@@ -100,7 +100,7 @@ pub async fn init_db(data_dir: &PathBuf) -> anyhow::Result<Connection> {
     
     // Create table.
     conn.call(|c| -> Result<(), tokio_rusqlite::Error> {
-        let _ = c.execute(
+        c.execute(
             "CREATE TABLE IF NOT EXISTS reminders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 room_id TEXT NOT NULL,
@@ -113,8 +113,8 @@ pub async fn init_db(data_dir: &PathBuf) -> anyhow::Result<Connection> {
                 status INTEGER DEFAULT 0
             )",
             [],
-        );
-        let _ = c.execute(
+        )?;
+        c.execute(
             "CREATE TABLE IF NOT EXISTS settings (
             room_id TEXT NOT NULL,
             user_id TEXT NOT NULL,
@@ -125,11 +125,11 @@ pub async fn init_db(data_dir: &PathBuf) -> anyhow::Result<Connection> {
             PRIMARY KEY (room_id, user_id, key)
             )",
             [],
-        );
-        let _ = c.execute(
+        )?;
+        c.execute(
             "CREATE INDEX IF NOT EXISTS idx_reminders_status ON reminders(status)",
             [],
-        );
+        )?;
         // Ok::<_, tokio_rusqlite::Error>(())
         // We can use OK(()) without turbo-fish if we specify
         // -> Result<(), tokio_rusqlite::Error> in function result.
@@ -152,15 +152,21 @@ async fn run_migrations(conn: &Connection) -> Result<()> {
             conn.query_row("PRAGMA user_version", [], |row| row.get(0))
         }).await?;
 
+    // Check.
     if current_version < DB_TARGET_VERSION {
         tracing::info!("Running DB migrations from version {} to version {}", current_version, DB_TARGET_VERSION);
         
         conn.call(|conn| -> Result<(), tokio_rusqlite::Error> {
             let tx = conn.transaction()?;
             
+            // v1.1.0
+            /*
             tx.execute("ALTER TABLE reminders ADD COLUMN created_by TEXT", [])?;
+            */
             
-            tx.execute("PRAGMA user_version = 1", [])?;
+            // Set Pragma.
+            let pragma_query = format!("PRAGMA user_version = {}", DB_TARGET_VERSION);
+            tx.execute(&pragma_query, [])?;
             
             tx.commit()?;
 
@@ -356,12 +362,10 @@ async fn summary_missed(
     missed_by_room: HashMap<OwnedRoomId, Vec<ReminderUtc>>
 ) -> anyhow::Result<()> {
     for (room_id, reminders) in missed_by_room {
-        //let room_id_cloned = RoomId::parse(&room_id).clone()?;
-        let client_clone = ctx.client.clone();
-        let db_clone = ctx.db.clone();
+        let ctx_clone = ctx.clone();
 
         tokio::spawn(async move {
-            if let Some(room) = client_clone.get_room(&room_id) {
+            if let Some(room) = ctx_clone.client.get_room(&room_id) {
                 // Sorting by time and combining into a summary, can also be numbered.
                 let mut sorted = reminders.clone();
                 sorted.sort_by_key(|r| r.target_time);
@@ -381,17 +385,21 @@ async fn summary_missed(
 
                 let message = t!("reminder.missed", sum = summary);
 
-                // todo urgent: change to UPDATE! one method!
                 if room.send(RoomMessageEventContent::text_plain(message)).await.is_ok() {
                     let ids: Vec<i64> = reminders.iter().map(|r| r.id).collect();
-                    let _ = db_clone.call(move |c| -> Result<(), tokio_rusqlite::Error> {
+                    let _ = ctx_clone.db.call(move |c| -> Result<(), tokio_rusqlite::Error> {
                         for id in ids {
-                            c.execute("DELETE FROM reminders WHERE id = ?1", [id])?;
-                            tracing::info!("Reminder #{} deleted from DB", id);
+                            c.execute("UPDATE reminders SET status = ?1 WHERE id = ?2", [ReminderStatus::Sent as i64, id])?;
+                            tracing::info!("Missed reminder #{} has been sent", id);
                         }
                         Ok(())
                     }).await;
                 }
+            } else {
+                tracing::warn!("Room {} was not found for the summary. All reminders in this room have been marked as missed.", &room_id);
+                let _ = ctx_clone.db.call(move |c| {
+                    c.execute("UPDATE reminders SET status = ?1 WHERE room_id = ?2", params![ReminderStatus::Missed as i64, &room_id.as_str()])
+                }).await;
             }
         });
     }
