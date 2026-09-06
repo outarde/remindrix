@@ -563,7 +563,7 @@ reminder.missed:
   uk: |
     ⚠️ Пропущені нагадування у цій кімнаті: 
     %{sum}
-reminder.error.month:
+error.month:
   en: Unable to determine the reminder month.
   de: Der Erinnerungsmonat kann nicht ermittelt werden.
   fr: Impossible de déterminer le mois de rappel.
@@ -577,7 +577,7 @@ reminder.error.month:
   zh: 无法确定提醒月份。
   ru: Не получилось определить месяц напоминания.
   uk: Не вдалося визначити місяць нагадування.
-reminder.error.past-time:
+error.past-time:
   en: The reminder time has already passed.
   de: Die Erinnerungsfrist ist bereits abgelaufen.
   fr: L'heure de rappel est déjà passée.
@@ -591,7 +591,7 @@ reminder.error.past-time:
   zh: 提醒时间已过。
   ru: Время напоминания уже прошло.
   uk: Час нагадування вже минув.
-reminder.error.time:
+error.time:
   en: Wrong time.
   de: Falsche Zeit.
   fr: Mauvais moment.
@@ -605,7 +605,7 @@ reminder.error.time:
   zh: 时间不对。
   ru: Неправильное время.
   uk: Неправильний час.
-reminder.error.summer-time:
+error.summer-time:
   en: This time does not exist in your time zone due to seasonal change, please choose another one.
   de: Dieser Zeitpunkt existiert in Ihrer Zeitzone aufgrund jahreszeitlicher Veränderungen nicht. Bitte wählen Sie einen anderen.
   fr: Cette heure n'est pas disponible dans votre fuseau horaire en raison du changement de saison, veuillez en choisir une autre.
@@ -619,20 +619,157 @@ reminder.error.summer-time:
   zh: 由于季节变化，您所在时区不存在此时间，请选择其他时间。
   ru: Это время не существует в вашем часовом поясе из-за смены сезона, пожалуйста, выберите другое.
   uk: Цей час не існує у вашому часовому поясі через зміну сезону, будь ласка, виберіть інше.
-reminder.error.date-format:
+
+error.unsafe-datetime:
+  en: This time and date are over limits.
+  de: Diese Zeit und dieses Datum liegen außerhalb der Grenzen.
+  fr: Cette date et cette heure dépassent les limites.
+  it: Questo orario e questa data sono fuori limite.
+  es: Esta hora y fecha exceden los límites.
+  sv: Denna tid och detta datum ligger utanför gränserna.
+  pl: Ten czas i data wykraczają poza limity.
+  cs: Tento čas a datum jsou mimo limity.
+  fi: Tämä aika ja päivämäärä ovat rajojen ulkopuolella.
+  ja: この時刻と日付は制限を超えています。
+  zh: 此时间和日期超出限制。
+  ru: Это время и дата выходят за пределы допустимых значений.
+  uk: Це час і дата виходять за межі допустимих значень.
+
+error.datetime-format:
+  en: Invalid format of date or time.
+  de: Ungültiges Datums- oder Zeitformat.
+  fr: Format de date ou d'heure invalide.
+  it: Formato di data o ora non valido.
+  es: Formato de fecha o hora no válido.
+  sv: Ogiltigt datum- eller tidsformat.
+  pl: Nieprawidłowy format daty lub czasu.
+  cs: Neplatný formát data nebo času.
+  fi: Virheellinen päivämäärän tai kellonmuoto.
+  ja: 日付または時刻の形式が不正です。
+  zh: 日期或时间格式无效。
+  ru: Неверный формат даты или времени.
+  uk: Невірний формат дати або часу.
+
+error.date-format:
   en: Invalid date format.
-reminder.error.time-format:
-  en: Invalid date format.
-reminder.error.empty-text:
+  de: Ungültiges Datumsformat.
+  fr: Format de date invalide.
+  it: Formato data non valido.
+  es: Formato de fecha no válido.
+  sv: Ogiltigt datumformat.
+  pl: Nieprawidłowy format daty.
+  cs: Neplatný formát daty.
+  fi: Virheellinen päivämäärän muoto.
+  ja: 日付形式が正しくありません。
+  zh: 日期格式无效。
+  ru: Неверный формат даты.
+  uk: Невірний формат дати.
+
+error.time-format:
+  en: Invalid time format.
+  de: Ungültiges Zeitformat.
+  fr: Format d'heure invalide.
+  it: Formato ora non valido.
+  es: Formato de hora no válido.
+  sv: Ogiltigt tidsformat.
+  pl: Nieprawidłowy format czasu.
+  cs: Neplatný formát času.
+  fi: Virheellinen kellonmuoto.
+  ja: 時刻形式が正しくありません。
+  zh: 时间格式无效。
+  ru: Неверный формат времени.
+  uk: Невірний формат часу.
+
+error.empty-text:
   en: Empty reminder text.
-reminder.error.delegation:
+  de: Leerer Erinnerungstext.
+  fr: Texte de rappel vide.
+  it: Testo del promemoria vuoto.
+  es: Texto de recordatorio vacío.
+  sv: Tom text i påminnelsen.
+  pl: Pusty tekst przypomnienia.
+  cs: Prázdný text připomínky.
+  fi: Tyhjä muistutusteksti.
+  ja: リマインダーのテキストが空です。
+  zh: 提醒文本为空。
+  ru: Текст напоминания пуст.
+  uk: Текст нагадування порожній.
+
+error.delegation:
   en: Invalid room format or room not found.
-reminder.error.delegation-room-format:
+  de: Ungültiges Raumformat oder Raum nicht gefunden.
+  fr: Format de salle invalide ou salle non trouvée.
+  it: Formato stanza non valido o stanza non trovata.
+  es: Formato de sala no válido o sala no encontrada.
+  sv: Ogiltigt rumsformat eller rummet hittades inte.
+  pl: Nieprawidłowy format pokoju lub pokój nie został znaleziony.
+  cs: Neplatný formát místnosti nebo místnost nebyla nalezena.
+  fi: Virheellinen huoneen muoto tai huonetta ei löytynyt.
+  ja: ルーム形式が無効か、ルームが見つかりません。
+  zh: 房间格式无效或未找到房间。
+  ru: Неверный формат комнаты или комната не найдена.
+  uk: Невірний формат кімнати або кімнату не знайдено.
+
+error.delegation-room-format:
   en: Invalid room format.
-reminder.error.delegation-no-room:
+  de: Ungültiges Raumformat.
+  fr: Format de salle invalide.
+  it: Formato stanza non valido.
+  es: Formato de sala no válido.
+  sv: Ogiltigt rumsformat.
+  pl: Nieprawidłowy format pokoju.
+  cs: Neplatný formát místnosti.
+  fi: Virheellinen huoneen muoto.
+  ja: ルーム形式が不正です。
+  zh: 房间格式无效。
+  ru: Неверный формат комнаты.
+  uk: Невірний формат кімнати.
+
+error.delegation-no-room:
   en: Room not found.
-reminder.error.delegation-denied:
+  de: Raum nicht gefunden.
+  fr: Salle non trouvée.
+  it: Stanza non trovata.
+  es: Sala no encontrada.
+  sv: Rummet hittades inte.
+  pl: Nie znaleziono pokoju.
+  cs: Místnost nebyla nalezena.
+  fi: Huonetta ei löytynyt.
+  ja: ルームが見つかりません。
+  zh: 未找到房间。
+  ru: Комната не найдена.
+  uk: Кімнату не знайдено.
+
+error.delegation-denied:
   en: The room is not allowed to delegate reminders.
+  de: Die Gruppe darf keine Erinnerungen delegieren.
+  fr: La salle n'est pas autorisée à déléguer des rappels.
+  it: La stanza non è autorizzata a delegare i promemoria.
+  es: La sala no tiene permiso para delegar recordatorios.
+  sv: Rummet har inte tillåtelse att delegera påminnelser.
+  pl: Pokój nie ma uprawnień do delegowania przypomnień.
+  cs: Místnost nemá povolení k delegování připomínek.
+  fi: Huoneella ei ole oikeutta delegoida muistutuksia.
+  ja: このルームはリマインダーの委任が許可されていません。
+  zh: 该房间不允许委任提醒。
+  ru: Комнатам запрещено делегировать напоминания.
+  uk: Кімнатам заборонено делегувати нагадування.
+
+error.db:
+  en: Saving to database failed.
+  de: Speichern in der Datenbank fehlgeschlagen.
+  fr: Échec de l'enregistrement dans la base de données.
+  it: Salvataggio nel database fallito.
+  es: Error al guardar en la base de datos.
+  sv: Spara i databasen misslyckades.
+  pl: Błąd zapisu w bazie danych.
+  cs: Uložení do databáze selhalo.
+  fi: Tietokantaan tallentaminen epäonnistui.
+  ja: データベースへの保存に失敗しました。
+  zh: 保存到数据库失败。
+  ru: Ошибка при сохранении в базу данных.
+  uk: Помилка при збереженні в базу даних.
+
 tz.current:
   en: Room time zone is **%{tz}**.
   de: Die Zeitzone des Raumes ist **%{tz}**.
