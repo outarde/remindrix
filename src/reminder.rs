@@ -55,18 +55,18 @@ pub enum ReminderStatus {
     // Cancelled = 4,
 }
 
-/// Keys of i18n for reply in case of error.
+/// Keys of i18n for erros.
 #[derive(Debug, Display)]
 pub enum ReminderError {
-    #[strum(serialize = "reminder.error.month")]
+    #[strum(serialize = "error.month")]
     InvalidMonth,
-    #[strum(serialize = "reminder.error.past-time")]
+    #[strum(serialize = "error.past-time")]
     TimeInPast,
-    #[strum(serialize = "reminder.error.time")]
+    #[strum(serialize = "error.time")]
     InvalidTime,
-    #[strum(serialize = "reminder.error.summer-time")]
+    #[strum(serialize = "error.summer-time")]
     SummerTime,
-    #[strum(serialize = "reminder.error.unsafe-datetime")]
+    #[strum(serialize = "error.unsafe-datetime")]
     UnsafeDateTime,
     #[strum(serialize = "error.date-format")]
     InvalidDateFormat,
