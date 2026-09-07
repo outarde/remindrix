@@ -1,12 +1,13 @@
 # Bot's Usage
 ## Actions Overview
-### Create a Reminder
+### Create a Reminder in a Natural Mode
 Example commands:
 - `/remind 19.08.2026 at 10:00 buy milk`
 - `/remind 19/08 pet a cactus` - create a reminder for August 19th of this year at 9am.
 - `/remind 19 August 21:30 plant a tree`
-- `/remind tomorrow evening be kind with people` - create a reminder with predefined `evening` time.
-- `19 feb afternoon to have a fantasy` - create a reminder if the creation of reminders only on command (`on_command` in `config.yml`) is `false`.
+- `remind tomorrow evening be kind with people` - create a reminder with predefined `evening` time. The slash is not used if the option `on_command` is disabled in the settings.
+- `19 feb afternoon to have a fantasy` - create a reminder if the `quick_remind` option in the settings is on.
+- `/errinern einen Stuhl reparieren` - creates a reminder for the localized (German) command, if that language is selected, for 9am this or the next day, since neither time nor date is specified and, as expected, `remind_undated` is on in the settings.
 
 > [!WARNING]
 > Currently, the American format of writing the month and then the day are not supported, as is the 12-hour system.
@@ -57,5 +58,10 @@ You don't need to enable this mode specifically: the bot tries to recognize any 
 | `-i`, `--interval` | Use the specified time and date values as exact or interval values. | No, defaults to `false`. |
 >[!IMPORTANT]
 >Use the short form of parameters only where they are specified in the short form in the table. Time parameters do not have a short form because their first letter would either match the date parameters or the system help command `-h`.
+
+Example commands:
+- `remind --date=12.10.2026 make hot chocolate`
+- `remind -d 1 -m 11 --time 00:00 Halloween` - creates a reminder on November 1st at midnight.
+- `remind --hour 1 -i Check the pie in the oven` - creates a reminder one hour from the current time.
 
 
