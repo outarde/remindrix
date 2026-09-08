@@ -20,7 +20,7 @@ use anyhow::{Context, Result};
 use strum_macros::{Display, EnumString};
 
 use crate::handlers::CommandContext;
-use crate::parsers::ReminderData;
+use crate::settings::SettingsManager;
 
 /// Pragma user_version.
 pub const DB_TARGET_VERSION: i32 = 1;
@@ -32,17 +32,70 @@ pub struct ReminderUtc {
     pub room_id: OwnedRoomId,
     pub text: String,
     pub target_time: CivilDateTime,
-    pub utc_time: Zoned,
+    pub utc_time: Timestamp,
     pub tz: TimeZone,
     pub status: ReminderStatus,
 }
 
-/// New Reminder Structure.
+/// Reminder Structure with ReminderData.
 #[derive(Debug, Clone)]
 pub struct Reminder {
     pub id: i64,
     pub data: ReminderData,
     pub status: ReminderStatus,
+}
+
+/// ReminderData
+#[derive(Debug, Clone)]
+pub struct ReminderData {
+    pub utc_dt: Timestamp,
+    pub civil_dt: CivilDateTime,
+    pub text: String,
+    pub created_by: OwnedUserId,
+    pub settings: SettingsManager
+}
+
+impl ReminderData {
+    /// Save ReminderData to DB and return Reminder.
+    pub async fn save(self, db: Arc<Connection>) -> anyhow::Result<Reminder> {
+        // Clone data.
+        let room_id_str = self.settings.room_id.to_string();
+        // let datetime_str = reminder.civil_dt.strftime("%Y-%m-%d %H:%M:%S").to_string();
+        let datetime_str = self.civil_dt.to_string();
+        let utc_str = self.utc_dt.to_string();
+        let tz_str = self.settings.room_tz.iana_name().unwrap().to_string();
+        let created_by_str = self.created_by.to_string();
+        let text = self.text.clone();
+        
+        // Insert to DB.
+        let result = db.call(move |c| -> Result<Reminder, tokio_rusqlite::Error>{
+            c.execute(
+                "INSERT INTO reminders (room_id, text, target_time, utc_time, tz, created_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                [&room_id_str, &text, &datetime_str, &utc_str, &tz_str, &(Timestamp::now().to_string()), &created_by_str],
+            )?;
+            
+            let id = c.last_insert_rowid();
+
+            Ok(Reminder {
+                id,
+                data: self,
+                status: ReminderStatus::Pending,
+            })
+        }).await;
+
+        // Map Result to anyhow::Result
+        result.map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+/// Structure for restoring reminders from DB.
+struct RawReminder {
+    id: i64,
+    room_id: String,
+    text: String,
+    target_time: String,
+    utc_time: String,
+    tz: String,
 }
 
 /// Statuses of Reminder.
@@ -177,7 +230,7 @@ async fn run_migrations(conn: &Connection) -> Result<()> {
 }
 
 // ===== Reminders =====
-/// NEW Scheduling reminder.
+/// Schedule Reminder.
 pub async fn schedule_reminder(
     ctx: Arc<super::BotContext>,
     reminder: Reminder,
@@ -185,7 +238,7 @@ pub async fn schedule_reminder(
     let now = Timestamp::now();
 
     // Get Span.
-    let span = reminder.data.utc_dt.timestamp().until(now).unwrap_or(0.seconds());
+    let span = now.until(reminder.data.utc_dt).unwrap_or(0.seconds());
     let seconds = span.total(Unit::Second).unwrap() as i64;
 
     if seconds <= 0 {
@@ -225,7 +278,7 @@ pub async fn schedule_reminder(
     });
 }
 
-/// Scheduling reminder.
+/// Scheduling ReminderUtc.
 pub async fn schedule_reminder_utc(
     ctx: Arc<super::BotContext>,
     reminder: ReminderUtc,
@@ -233,7 +286,7 @@ pub async fn schedule_reminder_utc(
     let now = Timestamp::now();
 
     // Get Span.
-    let span = reminder.utc_time.timestamp().until(now).unwrap_or(0.seconds());
+    let span = now.until(reminder.utc_time).unwrap_or(0.seconds());
     let seconds = span.total(Unit::Second).unwrap() as i64;
 
     if seconds <= 0 {
@@ -271,62 +324,18 @@ pub async fn schedule_reminder_utc(
 /// Restores all future (or missed) reminders from the database.
 pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()> {
     // Get reminders
-    let bot_tz = ctx.bot_config.tz.clone();
-    let reminders: Vec<ReminderUtc> = ctx.db.call(move |c| {
+    let raw_reminders: Vec<RawReminder> = ctx.db.call(move |c| {
         let mut stmt = c.prepare("SELECT id, room_id, text, target_time, utc_time, tz FROM reminders WHERE status = 0")?;
         
+        // Get rows with a RawReminder
         let mapped_rows = stmt.query_map([], |row| {
-            let id: i64 = row.get(0)?;
-            let room_id_str: String = row.get(1)?;
-            let text: String = row.get(2)?;
-            let target_time_str: String = row.get(3)?;
-            let utc_time_str: String = row.get(4)?;
-            let room_tz_str: String = row.get(5)?;
-            let status = ReminderStatus::Pending;
-
-            // Parse strings to matrix RoomId and NaiveDateTime
-            let room_id = RoomId::parse(&room_id_str)
-                .map_err(|err| tokio_rusqlite::rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
-                
-            // Parse to CivilDateTime
-            let parts: Vec<&str> = target_time_str.split(|c| c == '-' || c == ' ' || c == ':').collect();
-            tracing::debug!("Parts {:?}", parts);
-            if parts.len() < 5 {
-                return Err(tokio_rusqlite::rusqlite::Error::ToSqlConversionFailure(
-                    "Datetime error".into()
-                )); 
-            }
-            
-            let target_time = CivilDateTime::new(
-                parts[0].parse().unwrap(), 
-                parts[1].parse().unwrap(), 
-                parts[2].parse().unwrap(),
-                parts[3].parse().unwrap(), 
-                parts[4].parse().unwrap(),
-                0,
-                0
-            ).map_err(|_| tokio_rusqlite::rusqlite::Error::ToSqlConversionFailure(
-                    "Datetime parsing error".into()
-                ))?;
-
-            let tz = super::settings::parse_tz_or_default(&room_tz_str, &bot_tz);
-
-            // Get Utc via Timestamp
-            let timestamp: Timestamp = utc_time_str
-                .parse()
-                .map_err(|_| tokio_rusqlite::rusqlite::Error::ToSqlConversionFailure(
-                    "Date error".into()
-                ))?;
-            let utc_time: Zoned = timestamp.to_zoned(TimeZone::UTC);
-
-            Ok(ReminderUtc {
-                id,
-                room_id,
-                text,
-                target_time,
-                utc_time,
-                tz,
-                status,
+            Ok(RawReminder {
+                id: row.get(0)?,
+                room_id: row.get(1)?,
+                text: row.get(2)?,
+                target_time: row.get(3)?,
+                utc_time: row.get(4)?,
+                tz: row.get(5)?,
             })
         })?;
 
@@ -338,12 +347,68 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
         Ok::<_, tokio_rusqlite::Error>(res)
     }).await?;
 
+    // Make a Vec for reminders.
+    let reminders: Vec<ReminderUtc> = raw_reminders.into_iter().map(|raw| {
+        let id: i64 = raw.id;
+        let room_id_str = raw.room_id.to_string();
+        let text = raw.text;
+        let target_time_str = raw.target_time;
+        let utc_time_str = raw.utc_time;
+        let room_tz_str = raw.tz;
+
+        // Parse strings to OwnedRoomId and CivilDateTime
+        let room_id = RoomId::parse(&room_id_str)?;
+
+        // Get TZ
+        let tz = super::settings::parse_tz_or_default(&room_tz_str, &ctx.bot_config.tz);
+
+        // Parse Utc as Timestamp
+        let timestamp: Timestamp = match utc_time_str.parse() {
+            Ok(t) => t,
+            // DateTime for the legacy (chrono) format of utc_time as 2026-09-06 04:00:00 UTC
+            Err(_) => {
+                let parts: Vec<&str> = utc_time_str.split(|c| c == '-' || c == ' ' || c == ':').collect();
+                if parts.len() < 5 {
+                    return Err(anyhow::anyhow!("Err"));
+                }
+
+                let target_time = CivilDateTime::new(
+                    parts[0].parse().unwrap(), 
+                    parts[1].parse().unwrap(), 
+                    parts[2].parse().unwrap(),
+                    parts[3].parse().unwrap(), 
+                    parts[4].parse().unwrap(),
+                    0,
+                    0
+                )?;
+
+                let utc_time: Zoned = target_time.to_zoned(TimeZone::UTC)?;
+                utc_time.timestamp()
+            }
+        };
+
+        // Parse Civil from Timestamp -> Zoned
+        // let target_zoned = timestamp.in_tz(&room_tz_str);
+        let target_zoned = timestamp.to_zoned(tz.clone());
+        let target_time = target_zoned.datetime();
+
+        Ok(ReminderUtc {
+            id,
+            room_id,
+            text,
+            target_time,
+            utc_time: timestamp,
+            tz,
+            status: ReminderStatus::Pending,
+        })
+    }).collect::<anyhow::Result<Vec<_>>>()?;
+
     // HashMap for missed reminders
     let mut missed_by_room: HashMap<OwnedRoomId, Vec<ReminderUtc>> = HashMap::new();
 
     // Distribute reminders into scheduled and missed ones
     for reminder in reminders {
-        if reminder.utc_time > Zoned::now().with_time_zone(TimeZone::UTC) {
+        if reminder.utc_time > Timestamp::now() {
             schedule_reminder_utc(
                 ctx.clone(), 
                 reminder.clone()
@@ -417,12 +482,13 @@ async fn summary_missed(
 }
 
 // ===== DB =====
-/// Save reminder to DB
+/*
+/// Save reminder to DB and return ReminderUtc.
 pub async fn save_reminder_to_db_utc(
     cmd_ctx: &CommandContext,
     text: String,
     civil_time: CivilDateTime,
-    utc_time: Zoned,
+    utc_time: Timestamp,
 ) -> Result<ReminderUtc, tokio_rusqlite::Error> {
     let room_id_clone = cmd_ctx.settings.room_id.clone();
     let room_tz_clone = cmd_ctx.settings.room_tz.clone();
@@ -455,12 +521,11 @@ pub async fn save_reminder_to_db_utc(
     }).await
 }
 
-/// Save reminder to DB with extended arguments. 
-// Was planned for delegation in the CLI processing.
-pub async fn save_reminder_to_db_extended(
+/// Save ReminderData to DB and return Reminder.
+pub async fn save_reminder_data(
     db: Arc<Connection>,
     reminder: ReminderData
-) -> Result<Reminder, tokio_rusqlite::Error> {
+) -> anyhow::Result<Reminder> {
     // let room_id_clone = reminder.settings.room_id.clone();
     // let room_tz_clone = reminder.settings.room_tz.clone();
 
@@ -472,36 +537,24 @@ pub async fn save_reminder_to_db_extended(
     let created_by_str = reminder.created_by.to_string();
     // let text = reminder.text;
     
-    db.call(move |c| {
+    let result = db.call(move |c| -> Result<Reminder, tokio_rusqlite::Error>{
         c.execute(
             "INSERT INTO reminders (room_id, text, target_time, utc_time, tz, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             [&room_id_str, &reminder.text, &datetime_str, &utc_str, &tz_str, &created_by_str],
         )?;
         
         let id = c.last_insert_rowid();
-        // let parsed_room_id = RoomId::parse(&room_id_str)
-        //    .map_err(|err| tokio_rusqlite::rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
 
         Ok(Reminder {
             id,
             data: reminder,
             status: ReminderStatus::Pending,
         })
-    }).await
-}
+    }).await;
 
-/// Save reminder with ParsedReminder.
-pub async fn process_saving(
-    cmd_ctx: &CommandContext, 
-    reminder: ReminderData,
-) -> Result<(), tokio_rusqlite::Error> {
-    match save_reminder_to_db_extended(cmd_ctx.ctx.db.clone(), reminder).await {
-        Ok(new_reminder) => schedule_reminder(cmd_ctx.ctx.clone(), new_reminder).await,
-        Err(err) => return Err(err)
-    }
-
-    Ok(())
+    result.map_err(|e| anyhow::anyhow!(e))
 }
+*/
 
 // ===== Service =====
 /// Check if reminder time as string can be parsed. Used in the cli.rs.

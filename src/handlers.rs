@@ -28,10 +28,10 @@ use clap::Parser;
 
 // app crates
 use crate::config::BotConfig;
-use crate::reminder::{ReminderStatus, ReminderError};
+use crate::reminder::{ReminderData, ReminderStatus, ReminderError};
 use crate::settings::{RoomTimezoneContent, SettingsManager};
 use crate::parsers::{
-    ReminderData, ParsedDate, ParsedTime,
+    ParsedDate, ParsedTime,
     resolve_date, resolve_date_interval, resolve_time, resolve_time_interval, resolve_target_dt,
     try_get_target_settings
 };
@@ -268,6 +268,12 @@ impl From<tokio_rusqlite::Error> for CliError {
         CliError::Reminder(ReminderError::Db)
     }
 }
+impl From<anyhow::Error> for CliError {
+    fn from(err: anyhow::Error) -> Self {
+        // TODO
+        CliError::Reminder(ReminderError::Db)
+    }
+}
 impl From<ReminderError> for CliError {
     fn from(err: ReminderError) -> Self {
         CliError::Reminder(err)
@@ -420,7 +426,7 @@ pub async fn process_cli_reminder(
     let (utc_dt, civil_dt) = resolve_target_dt(date, time, &room_tz)?;
 
     // Fill a structure.
-    let reminder = ReminderData {
+    let reminder_data = ReminderData {
         utc_dt,
         civil_dt,
         text,
@@ -429,10 +435,14 @@ pub async fn process_cli_reminder(
     };
 
     // Saving.
-    super::reminder::process_saving(&cmd_ctx, reminder.clone()).await?;
+    let reminder = reminder_data.save(cmd_ctx.ctx.db.clone()).await?;
+    // let reminder = super::reminder::save_reminder_data(cmd_ctx.ctx.db.clone(), reminder_data.clone()).await?;
+
+    // Scheduling.
+    super::reminder::schedule_reminder(cmd_ctx.ctx.clone(), reminder.clone()).await;
         
     // Send success reaction or message to the room.
-    super::reactions::send_success(event, &cmd_ctx, reminder, args.interval).await;
+    super::reactions::send_success(event, &cmd_ctx, reminder.data, args.interval).await;
 
     Ok(())
 }
@@ -450,7 +460,7 @@ async fn handle_tz(
         let input_tz = match super::settings::parse_tz(&body) {
             Ok(tz) => tz,
             Err(err) => {
-                let err_msg = ReminderError::InvalidTzFormat.to_string(); 
+                let err_msg = t!(ReminderError::InvalidTzFormat.to_string()); 
                 let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(err_msg)).await;
                 
                 tracing::error!("Invalid user timezone: {err:?}");

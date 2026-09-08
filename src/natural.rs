@@ -16,7 +16,7 @@ use matrix_sdk::{
 use anyhow::Result;
 use tokio::time::{Duration, sleep};
 use jiff::{
-    Zoned, Span, ToSpan, tz::TimeZone, 
+    Zoned, Span, ToSpan, tz::TimeZone, Timestamp,
     civil::{DateTime as CivilDateTime, Date}
 };
 use tokio_rusqlite::Connection;
@@ -27,7 +27,7 @@ use strum_macros::{Display, EnumString};
 
 // app crates
 use crate::config::BotConfig;
-use crate::reminder::{ReminderStatus, ReminderError};
+use crate::reminder::{ReminderStatus, ReminderError, ReminderData, Reminder};
 use crate::settings::{RoomTimezoneContent, SettingsManager};
 use crate::handlers::{
     CommandContext, I18nManager
@@ -99,7 +99,7 @@ pub async fn process_natural_reminder(
     args_str: &str,
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
-) {
+) -> anyhow::Result<()> {
     // Make regular expression
     let re = build_reminder_regex(&cmd_ctx.ctx, &cmd_ctx.i18n);
 
@@ -114,7 +114,7 @@ pub async fn process_natural_reminder(
             Ok(data) => data,
             Err(e) => {
                 tracing::error!("Error: {} while parsing regex: {:?}", e, caps);
-                return;
+                return Ok(());
             }
         };
 
@@ -126,10 +126,30 @@ pub async fn process_natural_reminder(
                 let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
                 
                 tracing::error!("Date and time validation error: {:?} for {:?}", err, reminder_data);
-                return;
+                return Ok(());
             }
         };
 
+        let reminder_data = ReminderData {
+            utc_dt,
+            civil_dt,
+            text: reminder_data.text,
+            created_by: cmd_ctx.user_id.clone(),
+            settings: cmd_ctx.settings.clone()
+        };
+
+        // Saving.
+        let reminder = reminder_data.save(cmd_ctx.ctx.db.clone()).await?;
+
+        // Scheduling.
+        super::reminder::schedule_reminder(cmd_ctx.ctx.clone(), reminder.clone()).await;
+            
+        // Send success reaction or message to the room.
+        super::reactions::send_success(event, &cmd_ctx, reminder.data, false).await;
+
+        // Ok(())
+
+        /*
         // Save to DB.
         match super::reminder::save_reminder_to_db_utc(
             &cmd_ctx, 
@@ -162,12 +182,15 @@ pub async fn process_natural_reminder(
                 tracing::error!("SQLite error: {:?}", err);
             }
         }
+        */
     } 
     // Welcome message.
     else {
         let _ = send_reaction(event.event_id.clone(), &cmd_ctx, MessageReaction::Cross).await;
         send_welcome_message(cmd_ctx).await;
     }
+
+    Ok(())
 }
 
 // ===== Parsers and Constructions Methods for Reminders =====
@@ -271,7 +294,7 @@ fn parse_reminder_data(
 fn build_datetime_utc(
     data: &ParsedReminder, 
     cmd_ctx: &CommandContext
-) -> Result<(Zoned, CivilDateTime), ReminderError> {
+) -> Result<(Timestamp, CivilDateTime), ReminderError> {
     // Parse to get month number.
     let month = if let Some(m) = cmd_ctx.i18n.parse_month(data.month.as_str()) {
         m
@@ -291,13 +314,14 @@ fn build_datetime_utc(
 
     // Convert it to Zoned.
     let user_dt = civil_dt.to_zoned(cmd_ctx.settings.room_tz.clone()).map_err(|_| ReminderError::UnsafeDateTime)?;
-    let utc_dt = user_dt.with_time_zone(TimeZone::UTC);
+    // let utc_dt = user_dt.with_time_zone(TimeZone::UTC);
+    let utc_dt = user_dt.timestamp();
 
     // Checking that the time is in the future.
-    let (utc_dt, civil_dt) = if utc_dt <= Zoned::now().with_time_zone(TimeZone::UTC) {
+    let (utc_dt, civil_dt) = if utc_dt <= Timestamp::now() {
         if data.is_auto {
             let dt = user_dt.checked_add(1.days())?;
-            (dt.with_time_zone(TimeZone::UTC), dt.datetime())
+            (dt.timestamp(), dt.datetime())
         }
         else { 
             Err(ReminderError::TimeInPast)?

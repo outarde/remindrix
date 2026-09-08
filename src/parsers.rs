@@ -6,7 +6,7 @@ use matrix_sdk::{
 use anyhow::Result;
 use tokio::time::{Duration, sleep};
 use jiff::{
-    Zoned, Span, ToSpan, tz::TimeZone, 
+    Zoned, Span, ToSpan, tz::TimeZone, Timestamp,
     civil::{DateTime as CivilDateTime, Date}
 };
 use tokio_rusqlite::Connection;
@@ -17,16 +17,6 @@ use rust_i18n::t;
 use crate::settings::SettingsManager;
 use crate::handlers::{CommandContext, RemindArgs, CliError};
 use crate::reminder::ReminderError;
-
-
-#[derive(Debug, Clone)]
-pub struct ReminderData {
-    pub utc_dt: Zoned,
-    pub civil_dt: CivilDateTime,
-    pub text: String,
-    pub created_by: OwnedUserId,
-    pub settings: SettingsManager
-}
 
 pub struct ParsedDate {
     pub day: String,
@@ -197,7 +187,7 @@ pub fn resolve_target_dt(
     date: ParsedDate,
     time: ParsedTime,
     tz: &TimeZone
-) -> Result<(Zoned, CivilDateTime), ReminderError> {
+) -> Result<(Timestamp, CivilDateTime), ReminderError> {
     // Set CivilDateTime.
     let y = date.year.parse::<i16>().map_err(|_| ReminderError::InvalidDateFormat)?;
     let m = date.month.parse::<i8>().map_err(|_| ReminderError::InvalidDateFormat)?;
@@ -228,13 +218,13 @@ pub fn resolve_target_dt(
     };
 
     // Get datetime in the UTC time zone.
-    let utc_dt = user_dt.with_time_zone(TimeZone::UTC);
+    let utc_dt = user_dt.timestamp();
 
     // Checking that the time is in the future.
-    let (utc_dt, civil_dt) = if utc_dt <= Zoned::now().with_time_zone(TimeZone::UTC) {
+    let (utc_dt, civil_dt) = if utc_dt <= Timestamp::now() {
         if date.is_auto {
             let dt = user_dt.checked_add(1.days())?;
-            (dt.with_time_zone(TimeZone::UTC), dt.datetime())
+            (dt.timestamp(), dt.datetime())
         }
         else { 
             Err(ReminderError::TimeInPast)?

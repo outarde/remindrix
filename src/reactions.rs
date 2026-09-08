@@ -14,7 +14,7 @@ use jiff::{
     civil::{DateTime as CivilDateTime, Date}
 };
 use crate::handlers::CommandContext;
-use crate::parsers::ReminderData;
+use crate::reminder::ReminderData;
 
 // #[derive(strum_macros::Display)]
 // #[strum(to_string = "")]
@@ -139,7 +139,7 @@ pub async fn send_success(
     if cmd_ctx.bot_config().send_reactions {
         // Send digits reaction or one emoji if it is not an interval.
         if cmd_ctx.bot_config().send_digits_reactions && !interval {
-            let digits = calculate_durations(reminder.utc_dt.timestamp());
+            let digits = calculate_durations(reminder.utc_dt);
             let _ = send_digits_reaction(event.event_id.clone(), &cmd_ctx, digits).await;
         }
         else {
