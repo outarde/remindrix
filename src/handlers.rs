@@ -15,13 +15,10 @@ use matrix_sdk::{
 };
 use anyhow::Result;
 use tokio::time::{Duration, sleep};
-use chrono::{
-    Days, Months,
-    NaiveDateTime, NaiveDate, NaiveTime,
-    DateTime, Utc, TimeDelta, TimeZone, 
-    Datelike, Timelike, LocalResult
+use jiff::{
+    Zoned, Span, tz::TimeZone, 
+    civil::{DateTime as CivilDateTime, Date}
 };
-use chrono_tz::Tz;
 use tokio_rusqlite::Connection;
 use regex::Regex;
 use std::{string::ToString, sync::{OnceLock, Arc}};
@@ -36,7 +33,7 @@ use crate::settings::{RoomTimezoneContent, SettingsManager};
 use crate::parsers::{
     ReminderData, ParsedDate, ParsedTime,
     resolve_date, resolve_date_interval, resolve_time, resolve_time_interval, resolve_target_dt,
-    naive_to_datetime, try_get_target_settings
+    try_get_target_settings
 };
 use crate::natural::{
     process_natural_reminder
@@ -142,9 +139,9 @@ impl I18nManager {
     }
 
     // User Input -> Month Number
-    pub fn parse_month(&self, input: &str) -> Option<u8> {
+    pub fn parse_month(&self, input: &str) -> Option<i8> {
         // If number
-        if let Ok(m) = input.parse::<u8>() {
+        if let Ok(m) = input.parse::<i8>() {
             if (1..=12).contains(&m) {
                 return Some(m);
             }
@@ -156,7 +153,7 @@ impl I18nManager {
                 (name == input || name.starts_with(input)) && input.len() >= 3
             })?;
 
-        Some((idx + 1) as u8)
+        Some((idx + 1) as i8)
     }
 
     // Number -> Month name, short name
@@ -215,11 +212,11 @@ pub struct RemindArgs {
     pub date: Option<String>,
 
     #[arg(long)]
+    pub time: Option<String>,
+    #[arg(long)]
     pub hour: Option<String>,
     #[arg(long)]
     pub min: Option<String>,
-    #[arg(long)]
-    pub time: Option<String>,
     
     pub text: Vec<String>,
 
@@ -256,7 +253,6 @@ impl RemindArgs {
 pub enum CliError {
     ClapError(clap::Error),
     NaturalFallback,
-    ValidationError(String),
     Reminder(ReminderError),
 }
 
@@ -266,15 +262,10 @@ impl From<clap::Error> for CliError {
         CliError::ClapError(err)
     }
 }
-impl From<chrono::ParseError> for CliError {
-    fn from(_err: chrono::ParseError) -> Self {
-        CliError::ValidationError("reminder.error.date-format".to_string())
-    }
-}
 impl From<tokio_rusqlite::Error> for CliError {
     fn from(err: tokio_rusqlite::Error) -> Self {
         tracing::error!("SQLite error while saving reminder: {:?}", err);
-        CliError::ValidationError("reminder.error.db".to_string())
+        CliError::Reminder(ReminderError::Db)
     }
 }
 impl From<ReminderError> for CliError {
@@ -376,10 +367,6 @@ pub async fn handle_remind(
         Err(CliError::NaturalFallback) => {
             process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await;
         },
-        Err(CliError::ValidationError(err)) => {
-            let err_msg = t!(err); 
-            let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
-        }
         Err(CliError::Reminder(err)) => {
             let err_msg = t!(err.to_string()); 
             let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
@@ -403,7 +390,7 @@ pub async fn process_cli_reminder(
 
     // Check if text is empty.
     if args.text.len() == 0 {
-        return Err(CliError::ValidationError("reminder.error.empty-text".to_string()));
+        return Err(CliError::Reminder(ReminderError::EmptyText));
     }
     let text = args.text.join(" ").to_string();
 
@@ -413,7 +400,7 @@ pub async fn process_cli_reminder(
     } else { cmd_ctx.settings.clone() };
 
     // Set room_tz from settings.
-    let room_tz = target_settings.room_tz;
+    let room_tz = target_settings.room_tz.clone();
 
     // Parse date.
     let date: ParsedDate = if args.interval {
@@ -430,12 +417,12 @@ pub async fn process_cli_reminder(
     };
 
     // Get times.
-    let (utc_dt, naive_dt) = resolve_target_dt(date, time, &room_tz)?;
+    let (utc_dt, civil_dt) = resolve_target_dt(date, time, &room_tz)?;
 
     // Fill a structure.
     let reminder = ReminderData {
         utc_dt,
-        naive_dt,
+        civil_dt,
         text,
         created_by: cmd_ctx.user_id.clone(),
         settings: target_settings
@@ -455,18 +442,19 @@ async fn handle_tz(
     body: &str,
     ev: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
-) {
+) -> anyhow::Result<()> {
     // Update timezone if we have one in the input.
     if !body.is_empty() {
         // Parse user's input timezone code
+        // let input_tz = match super::settings::parse_tz(&body).map_err(ReminderError::InvalidTzFormat)?;
         let input_tz = match super::settings::parse_tz(&body) {
             Ok(tz) => tz,
             Err(err) => {
-                let err_msg = t!("tz.invalid-format"); 
+                let err_msg = ReminderError::InvalidTzFormat.to_string(); 
                 let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(err_msg)).await;
                 
                 tracing::error!("Invalid user timezone: {err:?}");
-                return;
+                return Ok(());
             }
         };
 
@@ -476,21 +464,23 @@ async fn handle_tz(
             let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(msg)).await;
         }
         else {
-            let _ = cmd_ctx.settings.set_room_tz(&cmd_ctx, input_tz).await;
+            let input_tz_name = cmd_ctx.settings.set_room_tz(&cmd_ctx, input_tz).await?;
 
             if cmd_ctx.bot_config().send_reactions {
                 let _ = send_reaction(ev.event_id.clone(), &cmd_ctx, MessageReaction::Check).await;
             } else {
-                let msg = t!("tz.set", tz = input_tz.to_string()); 
+                let msg = t!("tz.set", tz = input_tz_name); 
                 let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(msg)).await;
             }
         }
     }
     // Send current timezone.
     else {
-        let msg = t!("tz.current", tz = &cmd_ctx.settings.room_tz.to_string());
+        let msg = t!("tz.current", tz = &cmd_ctx.settings.room_tz_name);
         let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(msg)).await;
     }
+
+    Ok(())
 }
 
 /// Auto-join.

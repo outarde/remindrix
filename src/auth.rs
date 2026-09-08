@@ -1,5 +1,4 @@
 use std::{
-    //io::{self, Write},
     path::{Path, PathBuf},
 };
 
@@ -13,11 +12,12 @@ use matrix_sdk::{
         device_id,
     },
 };
-//use anyhow::{Context, Result};
+use jiff::{
+    Timestamp
+};
 use rand::{RngExt, distr::Alphanumeric, rng};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
-use chrono::{Local};
 use colored::Colorize;
 
 // app crates
@@ -530,7 +530,7 @@ pub async fn reset_recovery_with_backup(
 async fn save_recovery_key(recovery_key: &str) -> anyhow::Result<()> {
     let data = config::RecoveryConfig {
         recovery_key: recovery_key.to_string(),
-        created_at: Local::now().to_string(),
+        created_at: Timestamp::now().to_string(),
     };
 
     let data_dir = dirs::data_dir().expect("No data_dir directory found").join(super::APP_FOLDER);

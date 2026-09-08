@@ -22,8 +22,7 @@ dotenvy = "0.15.7"
 envy = "0.4.2"
 serde_yaml_ng = "0.10.0"
 tokio-rusqlite = { version = "0.7", features = ["bundled"] }
-chrono = { version = "0.4", features = ["serde"] }
-chrono-tz = "0.10.4"
+jiff = "0.2.35"
 regex = "1"
 colored = "^3.1.1"
 # temps = { version = "^4", features = ["chrono"] }

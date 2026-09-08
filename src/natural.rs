@@ -15,19 +15,15 @@ use matrix_sdk::{
 };
 use anyhow::Result;
 use tokio::time::{Duration, sleep};
-use chrono::{
-    Days, Months,
-    NaiveDateTime, NaiveDate, NaiveTime,
-    DateTime, Utc, TimeDelta, TimeZone, 
-    Datelike, Timelike, LocalResult
+use jiff::{
+    Zoned, Span, ToSpan, tz::TimeZone, 
+    civil::{DateTime as CivilDateTime, Date}
 };
-use chrono_tz::Tz;
 use tokio_rusqlite::Connection;
 use regex::Regex;
 use std::{string::ToString, sync::{OnceLock, Arc}};
 use rust_i18n::t;
 use strum_macros::{Display, EnumString};
-use clap::Parser;
 
 // app crates
 use crate::config::BotConfig;
@@ -35,9 +31,6 @@ use crate::reminder::{ReminderStatus, ReminderError};
 use crate::settings::{RoomTimezoneContent, SettingsManager};
 use crate::handlers::{
     CommandContext, I18nManager
-};
-use crate::parsers::{
-    naive_to_datetime
 };
 use crate::reactions::{
     MessageReaction, 
@@ -118,16 +111,16 @@ pub async fn process_natural_reminder(
             &caps, 
             &cmd_ctx
         ) {
-            Some(data) => data,
-            None => {
-                tracing::error!("Error parsing regex: {:?}", caps);
+            Ok(data) => data,
+            Err(e) => {
+                tracing::error!("Error: {} while parsing regex: {:?}", e, caps);
                 return;
             }
         };
 
         // Times
-        let (utc_dt, naive_dt) = match build_datetime_utc(&reminder_data, &cmd_ctx) {
-            Ok((ut, nt)) => (ut, nt),
+        let (utc_dt, civil_dt) = match build_datetime_utc(&reminder_data, &cmd_ctx) {
+            Ok((ut, ct)) => (ut, ct),
             Err(err) => {
                 let err_msg = t!(err.to_string()); 
                 let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
@@ -141,7 +134,7 @@ pub async fn process_natural_reminder(
         match super::reminder::save_reminder_to_db_utc(
             &cmd_ctx, 
             reminder_data.text, 
-            naive_dt.clone(), 
+            civil_dt.clone(), 
             utc_dt.clone()
         ).await {
             Ok(new_reminder) => {
@@ -152,15 +145,16 @@ pub async fn process_natural_reminder(
                 if cmd_ctx.bot_config().send_reactions {
                     // Send digits reaction or one emoji.
                     if cmd_ctx.bot_config().send_digits_reactions {
-                        let digits = calculate_durations(&utc_dt);
-                        let _ = send_digits_reaction(event.event_id.clone(), &cmd_ctx, digits).await;
+                        return;
+                        // let digits = calculate_durations(&utc_dt);
+                        // let _ = send_digits_reaction(event.event_id.clone(), &cmd_ctx, digits).await;
                     }
                     else {
                         let _ = send_reaction(event.event_id.clone(), &cmd_ctx, MessageReaction::Timer).await;
                     }
                 } else {
-                    let date_str = naive_dt.format("%d.%m.%Y");
-                    let reminder_mes = t!("reminder.saved", date = date_str, hour = reminder_data.hour, min = reminder_data.min);
+                    let date_str = civil_dt.strftime("%d.%m.%Y").to_string();
+                    let reminder_mes = t!("reminder.saved", date = &date_str, hour = reminder_data.hour, min = reminder_data.min);
                     let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(reminder_mes)).await;
                 }
             }
@@ -186,6 +180,7 @@ fn build_reminder_regex(
         let mut regex_str = String::with_capacity(256); 
         
         // [^\.\-\s]{1,15} in ?P<month> can be replaced with white list of months names
+        // if we do not need shortenings.
         regex_str.push_str(r"^(?i)(?:(?P<datetime>(?P<day>\d{1,2})(?:\s|\.|\/|-)(?P<month>[^\.\-\s]{1,15}|\d{2})(?:\s|\.|\/|-)?(?P<year>\d{4})?)|(?P<day_natural>");
         regex_str.push_str(&i18n.days.join("|"));
         regex_str.push_str(r")\s+)");
@@ -212,44 +207,48 @@ fn parse_reminder_data(
     //bot_config: &BotConfig,
     //room_tz: &Tz,
     //i18n: &Arc<I18nManager>,
-) -> Option<ParsedReminder> {
+) -> Result<ParsedReminder, ReminderError> {
     // Get current date for user's timezone
-    let now_in_tz = Utc::now().with_timezone(&cmd_ctx.settings.room_tz);
-    let today_date = now_in_tz.date_naive();
-
+    let now = Zoned::now().with_time_zone(cmd_ctx.settings.room_tz.clone());
+    // If date is set to default
     let mut is_auto = false;
     
     // Day and month
     let (day, month) = if let (Some(d), Some(m)) = (caps.name("day"), caps.name("month")) {
         (d.as_str().to_string(), m.as_str().to_lowercase())
     } else if let Some(d_nat) = caps.name("day_natural") {
-        let natural_day = NaturalDay::from_str(d_nat.as_str(), &cmd_ctx.i18n.today, &cmd_ctx.i18n.tomorrow)?;
+        let natural_day = NaturalDay::from_str(d_nat.as_str(), &cmd_ctx.i18n.today, &cmd_ctx.i18n.tomorrow);
         match natural_day {
-            NaturalDay::Today => (today_date.format("%d").to_string(), today_date.format("%m").to_string()),
-            NaturalDay::Tomorrow => {
-                let tomorrow = today_date + Days::new(1);
-                (tomorrow.format("%d").to_string(), tomorrow.format("%m").to_string())
-            }
+            Some(NaturalDay::Today) => (now.day().to_string(), now.month().to_string()),
+            Some(NaturalDay::Tomorrow) => {
+                let tomorrow = now.checked_add(1.days())?.date();
+                (tomorrow.day().to_string(), tomorrow.month().to_string())
+            },
+            None => return Err(ReminderError::InvalidDateFormat)
         }
     } else {
         is_auto = true;
-        (today_date.format("%d").to_string(), today_date.format("%m").to_string())
+        (now.day().to_string(), now.month().to_string())
     };
 
     // Year
     let year = caps.name("year")
         .map(|y| y.as_str().to_string())
-        .unwrap_or_else(|| today_date.format("%Y").to_string());
+        .unwrap_or_else(|| now.year().to_string());
 
     // Time
     let (hour, min) = if let (Some(h), Some(m)) = (caps.name("hour"), caps.name("min")) {
         (h.as_str().to_string(), m.as_str().to_string())
     } else if let Some(t_nat) = caps.name("time_natural") {
-        let natural_time = NaturalTime::from_str(&t_nat.as_str().to_lowercase(), &cmd_ctx.i18n)?;
+        let natural_time = NaturalTime::from_str(&t_nat.as_str().to_lowercase(), &cmd_ctx.i18n);
         let (h, m) = match natural_time {
-            NaturalTime::Morning => &cmd_ctx.bot_config().morning.split_once(":")?,
-            NaturalTime::Afternoon => &cmd_ctx.bot_config().afternoon.split_once(":")?,
-            NaturalTime::Evening => &cmd_ctx.bot_config().evening.split_once(":")?,
+            Some(NaturalTime::Morning) => &cmd_ctx.bot_config().morning.split_once(":")
+                .unwrap_or(super::config::DEFAULT_MORNING_TIME.split_once(":").unwrap()),
+            Some(NaturalTime::Afternoon) => &cmd_ctx.bot_config().afternoon.split_once(":")
+                .unwrap_or(super::config::DEFAULT_AFTERNOON_TIME.split_once(":").unwrap()),
+            Some(NaturalTime::Evening) => &cmd_ctx.bot_config().evening.split_once(":")
+                .unwrap_or(super::config::DEFAULT_EVENING_TIME.split_once(":").unwrap()),
+            None => return Err(ReminderError::InvalidTimeFormat)
         };
         (h.to_string(), m.to_string())
     } else {
@@ -263,41 +262,47 @@ fn parse_reminder_data(
     };
 
     // Reminder's text
-    let text = caps.name("text")?.as_str().to_string();
+    let text = caps.name("text").ok_or(ReminderError::EmptyText)?.as_str().to_string();
 
-    Some(ParsedReminder { text, year, month, day, hour, min, is_auto })
+    Ok(ParsedReminder { text, year, month, day, hour, min, is_auto })
 }
 
 /// Build final UTC DateTime for DB and validate its time in the future.
 fn build_datetime_utc(
     data: &ParsedReminder, 
     cmd_ctx: &CommandContext
-) -> Result<(DateTime<Utc>, NaiveDateTime), ReminderError> {
+) -> Result<(Zoned, CivilDateTime), ReminderError> {
     // Parse to get month number.
     let month = if let Some(m) = cmd_ctx.i18n.parse_month(data.month.as_str()) {
-        m.to_string()
+        m
     } else {
         return Err(ReminderError::InvalidMonth);
     };
 
-    let datetime_string = format!("{}-{}-{} {}:{}:00", data.year, month.as_str(), data.day, data.hour, data.min);
-    
-    // Check if time can be parsed.
-    let naive_dt = NaiveDateTime::parse_from_str(&datetime_string, "%Y-%m-%d %H:%M:%S")
-        .map_err(|_| ReminderError::InvalidTime)?;
+    // Set CivilDateTime.
+    let y = data.year.parse::<i16>().map_err(|_| ReminderError::InvalidDateFormat)?;
+    let m = month;
+    let d = data.day.parse::<i8>().map_err(|_| ReminderError::InvalidDateFormat)?;
+    let hh = data.hour.parse::<i8>().map_err(|_| ReminderError::InvalidTimeFormat)?;
+    let mm = data.min.parse::<i8>().map_err(|_| ReminderError::InvalidTimeFormat)?;
 
-    // We convert it to DateTime and check that zone mapping has a single result.
-    let user_dt = naive_to_datetime(naive_dt.clone(), &cmd_ctx.settings.room_tz);
-    let utc_dt = user_dt.with_timezone(&Utc);
+    let civil_dt = CivilDateTime::new(y, m, d, hh, mm, 0, 0)
+        .map_err(|_| ReminderError::InvalidDateTimeFormat)?;
+
+    // Convert it to Zoned.
+    let user_dt = civil_dt.to_zoned(cmd_ctx.settings.room_tz.clone()).map_err(|_| ReminderError::UnsafeDateTime)?;
+    let utc_dt = user_dt.with_time_zone(TimeZone::UTC);
 
     // Checking that the time is in the future.
-    let (utc_dt, naive_dt) = if utc_dt <= Utc::now() {
+    let (utc_dt, civil_dt) = if utc_dt <= Zoned::now().with_time_zone(TimeZone::UTC) {
         if data.is_auto {
-            let dt = user_dt.checked_add_days(Days::new(1)).ok_or(ReminderError::UnsafeDateTime)?;
-            (dt.with_timezone(&Utc), dt.naive_local())
+            let dt = user_dt.checked_add(1.days())?;
+            (dt.with_time_zone(TimeZone::UTC), dt.datetime())
         }
-        else { return Err(ReminderError::TimeInPast); }
-    } else { (utc_dt, naive_dt) };
+        else { 
+            Err(ReminderError::TimeInPast)?
+        }
+    } else { (utc_dt, civil_dt) };
 
-    Ok((utc_dt, naive_dt))
+    Ok((utc_dt, civil_dt))
 }

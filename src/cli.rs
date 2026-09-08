@@ -288,8 +288,8 @@ fn validate_config_time(input: &str) -> Result<Validation, inquire::error::Custo
 /// Validate TZ for CLI setup
 fn validate_config_tz(input: &str) -> Result<Validation, inquire::error::CustomUserError> {
     match super::settings::parse_tz(input) {
-        Ok(tz) => Ok(Validation::Valid),
-        Err(err) => {
+        Ok(_tz) => Ok(Validation::Valid),
+        Err(_err) => {
             Ok(Validation::Invalid("Use IANA Time Zone Database, like Europe/Paris.".into()))
         }
     }

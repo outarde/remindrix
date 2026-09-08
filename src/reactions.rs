@@ -7,16 +7,12 @@ use matrix_sdk::{
         }
     }
 };
-use chrono::{
-    Days, Months,
-    NaiveDateTime, NaiveDate, NaiveTime,
-    DateTime, Utc, TimeDelta, TimeZone, 
-    Datelike, Timelike, LocalResult
-};
-use chrono_tz::Tz;
 use rust_i18n::t;
 use strum_macros::{Display, EnumString};
-
+use jiff::{
+    Zoned, Span, ToSpan, tz::TimeZone, Timestamp,
+    civil::{DateTime as CivilDateTime, Date}
+};
 use crate::handlers::CommandContext;
 use crate::parsers::ReminderData;
 
@@ -98,9 +94,11 @@ impl MessageReaction {
 
 // ===== Special Messages =====
 /// Send welcome message with help to the room.
-pub async fn send_welcome_message(cmd_ctx: CommandContext) {
-    let tomorrow = Utc::now().with_timezone(&cmd_ctx.settings.room_tz).date_naive() + Days::new(1);
-    let (month_str, month_str_truncated) = &cmd_ctx.i18n.format_month(&tomorrow.month()).unwrap();
+pub async fn send_welcome_message(cmd_ctx: CommandContext) -> anyhow::Result<()> {
+    let tomorrow = Zoned::now()
+        .with_time_zone(cmd_ctx.settings.room_tz.clone())
+        .checked_add(1.days())?;
+    let (month_str, month_str_truncated) = &cmd_ctx.i18n.format_month(&(tomorrow.month() as u32)).unwrap();
 
     let welcome_type = if cmd_ctx.ctx.bot_config.quick_remind {
         "welcome.on_command_off"
@@ -111,10 +109,10 @@ pub async fn send_welcome_message(cmd_ctx: CommandContext) {
         cmd_local = &cmd_ctx.i18n.cmd_remind,
         cmd_list = &cmd_ctx.ctx.bot_config.remind_commands.join("|"),
         cmd_tz_list = &cmd_ctx.ctx.bot_config.tz_commands.join("|"),
-        date = tomorrow.format("%d.%m.%Y").to_string(),
-        date_slash = tomorrow.format("%d/%m/%Y").to_string(),
-        date_hyphen = tomorrow.format("%d-%m").to_string(),
-        date_d = tomorrow.format("%d").to_string(),
+        date = tomorrow.strftime("%d.%m.%Y").to_string(),
+        date_slash = tomorrow.strftime("%d/%m/%Y").to_string(),
+        date_hyphen = tomorrow.strftime("%d-%m").to_string(),
+        date_d = tomorrow.day().to_string(),
         month = month_str,
         month_truncated = month_str_truncated,
         today = &cmd_ctx.i18n.today,
@@ -127,6 +125,8 @@ pub async fn send_welcome_message(cmd_ctx: CommandContext) {
     // let welcome_msg_html = markdown_to_html(&welcome_msg).await;
 
     let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(welcome_msg)).await.unwrap();
+
+    Ok(())
 }
 
 /// Send a message or reaction about a successfully created reminder to the room.
@@ -139,16 +139,16 @@ pub async fn send_success(
     if cmd_ctx.bot_config().send_reactions {
         // Send digits reaction or one emoji if it is not an interval.
         if cmd_ctx.bot_config().send_digits_reactions && !interval {
-            let digits = calculate_durations(&reminder.utc_dt);
+            let digits = calculate_durations(reminder.utc_dt.timestamp());
             let _ = send_digits_reaction(event.event_id.clone(), &cmd_ctx, digits).await;
         }
         else {
             let _ = send_reaction(event.event_id.clone(), &cmd_ctx, MessageReaction::Timer).await;
         }
     } else {
-        let date_str = reminder.naive_dt.format("%d.%m.%Y");
-        let hour_str = reminder.naive_dt.format("%H");
-        let min_str = reminder.naive_dt.format("%M");
+        let date_str = reminder.civil_dt.strftime("%d.%m.%Y").to_string();
+        let hour_str = reminder.civil_dt.strftime("%H").to_string();
+        let min_str = reminder.civil_dt.strftime("%M").to_string();
         let reminder_mes = t!("reminder.saved", date = date_str, hour = hour_str, min = min_str);
         let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(reminder_mes)).await;
     }
@@ -173,7 +173,7 @@ pub async fn send_reaction(
 pub async fn send_digits_reaction(
     event_id: OwnedEventId, 
     cmd_ctx: &CommandContext,
-    numbers: Vec<i64>
+    numbers: Vec<i32>
 ) {
     // First positive number, whose remainder when divided by 11 is not 0.
     // (Matrix prevents sending the same reaction twice: status_code: 400, DuplicateAnnotation.)
@@ -243,14 +243,14 @@ pub async fn send_digits_reaction(
 
 //===== Time and Date Calculation =====
 /// Calculate weeks, days, hours and minutes before some time
-pub fn calculate_durations(utc_time: &DateTime<Utc>) -> Vec<i64> {
-    let duration_to_wait = utc_time.signed_duration_since(Utc::now());
+pub fn calculate_durations(utc_time: Timestamp) -> Vec<i32> {
+    let duration_to_wait = utc_time.since(Timestamp::now()).unwrap();
     let numbers = vec![
-        duration_to_wait.num_weeks() / 4,
-        duration_to_wait.num_weeks(), 
-        duration_to_wait.num_days(), 
-        duration_to_wait.num_hours(),
-        duration_to_wait.num_minutes()
+        duration_to_wait.get_months(),
+        duration_to_wait.get_weeks(), 
+        duration_to_wait.get_days(), 
+        duration_to_wait.get_hours(),
+        duration_to_wait.get_minutes().try_into().unwrap()
     ];
     return numbers;
 }

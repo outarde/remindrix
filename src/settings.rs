@@ -15,8 +15,10 @@ use matrix_sdk::{
 };
 use serde::{Deserialize, Serialize};
 use tokio_rusqlite::Connection;
-use chrono::Utc;
-use chrono_tz::Tz;
+use jiff::{
+    Zoned, Span, ToSpan, tz::TimeZone, Timestamp,
+    civil::{DateTime as CivilDateTime, Date}
+};
 
 use crate::handlers::{I18nManager, CommandContext, CliError};
 
@@ -36,7 +38,8 @@ pub struct SettingsManager {
     // room_id, key, value, updated_by, _at
     pub room_id: OwnedRoomId,
     pub user_id: Option<OwnedUserId>, // The necessity is questionable
-    pub room_tz: Tz,
+    pub room_tz: TimeZone,
+    pub room_tz_name: String,
     pub room_lang: String
 }
 
@@ -60,6 +63,7 @@ impl SettingsManager {
 
         // TODO: fill the whole structure at once.
         let room_tz = Self::fetch_room_tz(room, ctx).await;
+        let room_tz_name = room_tz.iana_name().unwrap().to_string();
         let room_lang = match Self::get_setting("lang", user_id.clone(), room, ctx).await {
             Some(v) => v,
             None => ctx.bot_config.lang.clone()
@@ -71,18 +75,12 @@ impl SettingsManager {
             None => None
         }*/
 
-        Self { room_id, user_id, room_tz, room_lang }
+        Self { room_id, user_id, room_tz, room_tz_name, room_lang }
     }
 
     /// Get timezone for the room.
-    pub async fn fetch_room_tz(room: &Room, ctx: &Arc<super::BotContext>) -> Tz {
-        let default_tz = match parse_tz(&ctx.bot_config.tz) {
-            Ok(t) => t,
-            Err(err) => {
-                tracing::warn!("Default timezone from config.yaml is incorrect: {}", err);
-                super::config::DEFAULT_TZ.parse::<Tz>().unwrap()
-            }
-        };
+    pub async fn fetch_room_tz(room: &Room, ctx: &Arc<super::BotContext>) -> TimeZone {
+        let default_tz = parse_tz_or_default(&ctx.bot_config.tz, &ctx.bot_config.tz);
 
         // let tz = Self::get_setting("timezone", user_id, room, ctx).await
 
@@ -113,14 +111,17 @@ impl SettingsManager {
         // &mut self,
         &self,
         cmd_ctx: &CommandContext,
-        tz: Tz,
-    ) -> Result<()> {
-        // We can update it if we'll create it mutable in CommandContext,
-        // but it isn't necessarily now.
+        tz: TimeZone,
+    ) -> anyhow::Result<String> {
+        // We can update it if we'll create it mutable in CommandContext.
         // self.room_tz = tz;
 
+        // TimeZone has been parsed and can't panic
+        // let tz_name = tz.iana_name().ok_or(ReminderError::InvalidTzFormat)?.to_string();
+        let tz_name = tz.iana_name().unwrap().to_string();
+
         let content = RoomTimezoneContent {
-            timezone: tz.to_string(),
+            timezone: tz_name.clone(),
         };
 
         // Save as a custom state.
@@ -133,7 +134,7 @@ impl SettingsManager {
             Some(u) => u.to_string(),
             None => cmd_ctx.user_id.to_string()
         };
-        let tz_clone = tz.to_string();
+        let tz_name_clone = tz_name.clone();
 
         let _ = cmd_ctx.ctx.db.call(move |c| -> Result<(), tokio_rusqlite::Error> {
             c.execute(
@@ -141,7 +142,7 @@ impl SettingsManager {
                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
                 ON CONFLICT(room_id, user_id, key) 
                 DO UPDATE SET value=excluded.value, updated_by=excluded.updated_by, updated_at=excluded.updated_at;",
-                [&room_id, &user_id, "timezone", &tz_clone, &user_id, &Utc::now().to_string()]
+                [&room_id, &user_id, "timezone", &tz_name_clone, &user_id, &Timestamp::now().to_string()]
             )?;
             
             // We can use OK(()) without turbo-fish if we specify
@@ -150,7 +151,7 @@ impl SettingsManager {
             
         }).await;
 
-        Ok(())
+        Ok(tz_name)
     }
 
     /// Get the setting of the room and then the user.
@@ -204,6 +205,20 @@ impl SettingsManager {
 }
 
 /// Parse user input to Tz
-pub fn parse_tz(tz_str: &str) -> Result<Tz> {
-    tz_str.parse::<Tz>().with_context(|| format!("Invalid user timezone: {tz_str:?}"))
+pub fn parse_tz(tz_str: &str) -> Result<TimeZone> {
+    TimeZone::get(tz_str).with_context(|| format!("Invalid user timezone: {tz_str:?}"))
+}
+
+/// Return parsed Timezone from &tz_str, or BotConfig &tz, or DEFAULT_TZ.
+pub fn parse_tz_or_default(tz_str: &str, config_tz: &str) -> TimeZone {
+    match TimeZone::get(tz_str) {
+        Ok(t) => t,
+        Err(_) => {
+            TimeZone::get(&config_tz)
+                .unwrap_or_else(|_| {
+                    tracing::warn!("Default time zone from config.yaml is invalid");
+                    TimeZone::get(super::config::DEFAULT_TZ).unwrap()
+                })
+        }
+    }
 }
