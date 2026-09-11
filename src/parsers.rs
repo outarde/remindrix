@@ -1,4 +1,5 @@
 use matrix_sdk::{
+    Room,
     ruma::{
         OwnedRoomId, OwnedUserId
     }
@@ -14,7 +15,7 @@ use regex::Regex;
 use std::{string::ToString, sync::{OnceLock, Arc}};
 use rust_i18n::t;
 
-use crate::settings::SettingsManager;
+use crate::settings::{SettingsManager, ReminderSettings};
 use crate::handlers::{CommandContext, RemindArgs, CliError};
 use crate::reminder::ReminderError;
 
@@ -235,24 +236,13 @@ pub fn resolve_target_dt(
 }
 
 // ===== Service =====
-/// Try to get SettingsManager with target room_id, room settings
-/// for the room for which the reminder was delegated.
-// NOTE: Can be changed to try_get_target_context if we need more information 
-// and don't want to transfer it to the settings (I18nManager, Room entity, OwnedRoomId)
-pub async fn try_get_target_settings(to: &str, cmd_ctx: &CommandContext) -> Result<SettingsManager, ReminderError> {
-    let room_to: OwnedRoomId = to.try_into()
+/// Get OwnedRoomId and return Room from &str. Used for delegation in process_cli().
+pub async fn parse_room(to: &str, cmd_ctx: &CommandContext) -> Result<Room, ReminderError> {
+    let parsed_room: OwnedRoomId = to.try_into()
         .map_err(|_| ReminderError::InvalidDelegationRoomFormat)?;
-
-    let target_settings = match cmd_ctx.ctx.client.get_room(&room_to) {
-        Some(room) => {
-            SettingsManager::new(&room, None, &cmd_ctx.ctx).await
-        },
-        None => {
-            return Err(ReminderError::NoDelegatedRoom);
-        }
-    };
-
-    Ok(target_settings)
+    let room = cmd_ctx.ctx.client.get_room(&parsed_room)
+        .ok_or(ReminderError::NoDelegatedRoom)?;
+    Ok(room)
 }
 
 /// Helper function to get the same day a month from d_str.

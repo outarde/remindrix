@@ -14,12 +14,13 @@ use matrix_sdk::{
     }
 };
 use serde::{Deserialize, Serialize};
-use tokio_rusqlite::Connection;
+use tokio_rusqlite::{params, Connection};
+
 use jiff::{
     Zoned, Span, ToSpan, tz::TimeZone, Timestamp,
     civil::{DateTime as CivilDateTime, Date}
 };
-
+use crate::reminder::{ReminderError};
 use crate::handlers::{I18nManager, CommandContext, CliError};
 
 #[derive(Clone, Debug, Deserialize, Serialize, EventContent)]
@@ -43,6 +44,42 @@ pub struct SettingsManager {
     pub room_lang: String
 }
 
+/// Lightweight structure for settings in ReminderData
+#[derive(Clone, Debug)]
+pub struct ReminderSettings {
+    pub room_id: OwnedRoomId,
+    pub room_tz: TimeZone,
+    pub room_lang: String,
+}
+
+impl ReminderSettings {
+    pub async fn load(
+        room_id: OwnedRoomId, 
+        room_tz: TimeZone, 
+        ctx: &Arc<super::BotContext>
+    ) -> Self {
+        let room_lang = get_setting("lang", None, &room_id, ctx).await
+            .unwrap_or_else(|| ctx.bot_config.lang.clone());
+
+        Self {
+            room_id,
+            room_tz,
+            room_lang,
+        }
+    }
+}
+
+// From SettingsManager to ReminderSettings
+impl From<SettingsManager> for ReminderSettings {
+    fn from(manager: SettingsManager) -> Self {
+        Self {
+            room_id: manager.room_id,
+            room_tz: manager.room_tz,
+            room_lang: manager.room_lang,
+        }
+    }
+}
+
 impl SettingsManager {
     pub async fn new(
         room: &Room, 
@@ -64,7 +101,7 @@ impl SettingsManager {
         // TODO: fill the whole structure at once.
         let room_tz = Self::fetch_room_tz(room, ctx).await;
         let room_tz_name = room_tz.iana_name().unwrap().to_string();
-        let room_lang = match Self::get_setting("lang", user_id.clone(), room, ctx).await {
+        let room_lang = match get_setting("lang", user_id.clone(), &room_id, ctx).await {
             Some(v) => v,
             None => ctx.bot_config.lang.clone()
         };
@@ -154,39 +191,6 @@ impl SettingsManager {
         Ok(tz_name)
     }
 
-    /// Get the setting of the room and then the user.
-    // TODO: If there is no user_id, just find the room setting with LIMIT 1.
-    pub async fn get_setting(
-        key: &str,
-        user_id: Option<OwnedUserId>, 
-        room: &Room,
-        ctx: &Arc<super::BotContext>
-    ) -> Option<String> {
-        let user_id = match user_id {
-            Some(u) => u.to_string(),
-            None => return None
-        };
-        let room_id = room.room_id().to_string();
-        let key = key.to_string();
-
-        let value = ctx.db.call(move |c| /*-> Result<String, tokio_rusqlite::Error>*/ {
-            let value = c.query_row(
-                "SELECT value FROM settings WHERE room_id = ?1 AND user_id =?2 AND key = ?3",
-                [&room_id, &user_id, &key],
-
-                |row| {
-                    let value: String = row.get(0)?;
-                    Ok(value)
-                },
-            )?;
-
-            Ok::<_, tokio_rusqlite::Error>(value)
-            
-        }).await;
-
-        value.ok()
-    }
-
     /*
     /// Universal get
     pub async fn get_room_setting<T>(&self, room: &Room, default: T) -> T 
@@ -204,9 +208,49 @@ impl SettingsManager {
     */
 }
 
+/// Get the setting of the room and then the user.
+pub async fn get_setting(
+    key: &str,
+    user_id: Option<OwnedUserId>, 
+    room_id: &OwnedRoomId,
+    ctx: &Arc<super::BotContext>
+) -> Option<String> {
+    let room_id = room_id.to_string();
+    let key = key.to_string();
+    // Modify the query based on the presence of the user ID.
+    let (statement, params) = match user_id {
+        Some(u) => {
+            let user_id = u.to_string();
+            let st = "SELECT value FROM settings WHERE room_id = ?1 AND user_id =?2 AND key = ?3";
+            (st, vec![room_id, user_id, key])
+        }
+        None => {
+            let st = "SELECT value FROM settings WHERE room_id = ?1 AND key = ?3 ORDER BY updated_at LIMIT 1";
+            (st, vec![room_id, key])
+        }
+    };
+
+    let value = ctx.db.call(move |c| /*-> Result<String, tokio_rusqlite::Error>*/ {
+        let value = c.query_row(
+            statement,
+            tokio_rusqlite::params_from_iter(params.iter()),
+
+            |row| {
+                let value: String = row.get(0)?;
+                Ok(value)
+            },
+        )?;
+
+        Ok::<_, tokio_rusqlite::Error>(value)
+        
+    }).await;
+
+    value.ok()
+}
+
 /// Parse user input to Tz
-pub fn parse_tz(tz_str: &str) -> Result<TimeZone> {
-    TimeZone::get(tz_str).with_context(|| format!("Invalid user timezone: {tz_str:?}"))
+pub fn parse_tz(tz_str: &str) -> Result<TimeZone, ReminderError> {
+    TimeZone::get(tz_str).map_err(|_| ReminderError::InvalidTzFormat)
 }
 
 /// Return parsed Timezone from &tz_str, or BotConfig &tz, or DEFAULT_TZ.

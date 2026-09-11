@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 matrix-sdk = { version = "0.18.0", features = ["markdown"] }
 tokio = { version = "1.52.3", features = ["full"] }
 anyhow = "1.0"
+thiserror = "2.0.20"
 tracing-subscriber = "0.3"
 tracing = "0.1"
 clap = { version = "4.6.6", features = ["derive"] }
@@ -21,7 +22,8 @@ serde_json = "1.0.150"
 dotenvy = "0.15.7"
 envy = "0.4.2"
 serde_yaml_ng = "0.10.0"
-tokio-rusqlite = { version = "0.7", features = ["bundled"] }
+tokio-rusqlite = { version = "0.7.0", features = ["bundled"] }
+# rusqlite = { version = "0.37.0", features = ["bundled"] }
 jiff = "0.2.35"
 regex = "1"
 colored = "^3.1.1"

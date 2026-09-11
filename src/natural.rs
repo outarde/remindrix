@@ -28,7 +28,7 @@ use strum_macros::{Display, EnumString};
 // app crates
 use crate::config::BotConfig;
 use crate::reminder::{ReminderStatus, ReminderError, ReminderData, Reminder};
-use crate::settings::{RoomTimezoneContent, SettingsManager};
+use crate::settings::{RoomTimezoneContent, SettingsManager, ReminderSettings};
 use crate::handlers::{
     CommandContext, I18nManager
 };
@@ -135,7 +135,7 @@ pub async fn process_natural_reminder(
             civil_dt,
             text: reminder_data.text,
             created_by: cmd_ctx.user_id.clone(),
-            settings: cmd_ctx.settings.clone()
+            settings: cmd_ctx.settings.clone().into()
         };
 
         // Saving.
@@ -146,48 +146,11 @@ pub async fn process_natural_reminder(
             
         // Send success reaction or message to the room.
         super::reactions::send_success(event, &cmd_ctx, reminder.data, false).await;
-
-        // Ok(())
-
-        /*
-        // Save to DB.
-        match super::reminder::save_reminder_to_db_utc(
-            &cmd_ctx, 
-            reminder_data.text, 
-            civil_dt.clone(), 
-            utc_dt.clone()
-        ).await {
-            Ok(new_reminder) => {
-                // Schedule it.
-                super::reminder::schedule_reminder_utc(cmd_ctx.ctx.clone(), new_reminder).await;
-
-                // Send success reaction or message to the room.
-                if cmd_ctx.bot_config().send_reactions {
-                    // Send digits reaction or one emoji.
-                    if cmd_ctx.bot_config().send_digits_reactions {
-                        return;
-                        // let digits = calculate_durations(&utc_dt);
-                        // let _ = send_digits_reaction(event.event_id.clone(), &cmd_ctx, digits).await;
-                    }
-                    else {
-                        let _ = send_reaction(event.event_id.clone(), &cmd_ctx, MessageReaction::Timer).await;
-                    }
-                } else {
-                    let date_str = civil_dt.strftime("%d.%m.%Y").to_string();
-                    let reminder_mes = t!("reminder.saved", date = &date_str, hour = reminder_data.hour, min = reminder_data.min);
-                    let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(reminder_mes)).await;
-                }
-            }
-            Err(err) => {
-                tracing::error!("SQLite error: {:?}", err);
-            }
-        }
-        */
     } 
     // Welcome message.
     else {
         let _ = send_reaction(event.event_id.clone(), &cmd_ctx, MessageReaction::Cross).await;
-        send_welcome_message(cmd_ctx).await;
+        let _ = send_welcome_message(cmd_ctx).await;
     }
 
     Ok(())

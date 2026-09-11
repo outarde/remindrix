@@ -33,7 +33,7 @@ use crate::settings::{RoomTimezoneContent, SettingsManager};
 use crate::parsers::{
     ParsedDate, ParsedTime,
     resolve_date, resolve_date_interval, resolve_time, resolve_time_interval, resolve_target_dt,
-    try_get_target_settings
+    parse_room
 };
 use crate::natural::{
     process_natural_reminder
@@ -262,6 +262,7 @@ impl From<clap::Error> for CliError {
         CliError::ClapError(err)
     }
 }
+/*
 impl From<tokio_rusqlite::Error> for CliError {
     fn from(err: tokio_rusqlite::Error) -> Self {
         tracing::error!("SQLite error while saving reminder: {:?}", err);
@@ -274,6 +275,7 @@ impl From<anyhow::Error> for CliError {
         CliError::Reminder(ReminderError::Db)
     }
 }
+*/
 impl From<ReminderError> for CliError {
     fn from(err: ReminderError) -> Self {
         CliError::Reminder(err)
@@ -329,23 +331,29 @@ pub async fn on_room_message(
         }
     }
 
-    // Parse command
+    // Parse a command
     let Some((command, args)) = BotCommand::parse(&body, &cmd_ctx) else { 
         return;
     };
 
-    match command {
+    // Call the command
+    let result = match command {
         BotCommand::Remind => {
-            handle_remind(&args, event.clone(), cmd_ctx).await;
+            handle_remind(&args, event.clone(), cmd_ctx.clone()).await
         }
         BotCommand::List => {
-            // handle_list(&room, &db).await;
-            return;
+            Ok(())
         }
         BotCommand::Tz => {
-            handle_tz(&args, event.clone(), cmd_ctx).await;
-            return;
+            handle_tz(&args, event.clone(), cmd_ctx.clone()).await
         }
+    };
+
+    // If there is an error
+    if let Err(err) = result {
+        // super::reactions::send_error(err, &cmd_ctx);
+        let err_msg = t!(err.to_string()); 
+        let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
     }
 }
 
@@ -355,7 +363,7 @@ pub async fn handle_remind(
     args_str: &str,
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
-) {
+) -> anyhow::Result<()> {
 
     let args: Vec<&str> = args_str.split_whitespace().collect();
     // clap requires some command at the first place
@@ -366,16 +374,15 @@ pub async fn handle_remind(
     // try_parse_from() from clap only throws an error when there is a parsing error, 
     // not when there are empty values, so we put it in another function.
     match process_cli_reminder(clap_input, event.clone(), cmd_ctx.clone()).await {
-        Ok(_) => return,
+        Ok(_) => Ok(()),
         Err(CliError::ClapError(_err)) => {
-            process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await;
+            process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await
         },
         Err(CliError::NaturalFallback) => {
-            process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await;
+            process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await
         },
         Err(CliError::Reminder(err)) => {
-            let err_msg = t!(err.to_string()); 
-            let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
+            Err(err.into())
         }
     }
 }
@@ -402,7 +409,8 @@ pub async fn process_cli_reminder(
 
     // Settings for the room for which the reminder was delegated or intended.
     let target_settings = if let Some(to) = args.to.as_deref() {
-        try_get_target_settings(&to, &cmd_ctx).await?
+        let room = parse_room(&to, &cmd_ctx).await?;
+        SettingsManager::new(&room, None, &cmd_ctx.ctx).await
     } else { cmd_ctx.settings.clone() };
 
     // Set room_tz from settings.
@@ -431,7 +439,7 @@ pub async fn process_cli_reminder(
         civil_dt,
         text,
         created_by: cmd_ctx.user_id.clone(),
-        settings: target_settings
+        settings: target_settings.into()
     };
 
     // Saving.
@@ -456,17 +464,7 @@ async fn handle_tz(
     // Update timezone if we have one in the input.
     if !body.is_empty() {
         // Parse user's input timezone code
-        // let input_tz = match super::settings::parse_tz(&body).map_err(ReminderError::InvalidTzFormat)?;
-        let input_tz = match super::settings::parse_tz(&body) {
-            Ok(tz) => tz,
-            Err(err) => {
-                let err_msg = t!(ReminderError::InvalidTzFormat.to_string()); 
-                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(err_msg)).await;
-                
-                tracing::error!("Invalid user timezone: {err:?}");
-                return Ok(());
-            }
-        };
+        let input_tz = super::settings::parse_tz(&body)?;
 
         // If user's input timezone is equal to current room timezone
         if input_tz == cmd_ctx.settings.room_tz {
@@ -526,7 +524,7 @@ pub async fn on_stripped_state_member(
 
         // Send welcome message.
         let cmd_ctx = CommandContext::new(room_member.sender, room, ctx).await;
-        send_welcome_message(cmd_ctx).await;
+        let _ = send_welcome_message(cmd_ctx).await;
 
         // let _ = room.send(RoomMessageEventContent::text_plain("/remind")).await.unwrap();
     });

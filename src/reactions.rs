@@ -154,6 +154,13 @@ pub async fn send_success(
     }
 }
 
+/*
+async fn send_error(err: &ReminderError, cmd_ctx: &CommandContext) {
+    let err_msg = t!(&err.to_string()); 
+    let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
+}
+*/
+
 // ===== Reactions =====
 /// Send reaction to the related event (message).
 pub async fn send_reaction(
