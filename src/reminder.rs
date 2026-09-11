@@ -488,7 +488,13 @@ async fn summary_missed(
                 Some(r) => r,
                 None => {
                     tracing::warn!("Room {} was not found for the summary. All reminders in this room have been marked as missed", &room_id);
-                    update_room_reminder_status(ctx_clone.db.clone(), room_id.to_string(), ReminderStatus::Missed).await;
+                    if let Err(e) = update_room_reminder_status(
+                        ctx_clone.db.clone(), 
+                        room_id.to_string(), 
+                        ReminderStatus::Missed
+                    ).await {
+                        tracing::error!("Failed to update missed status for room {}: {:?}", room_id, e);
+                    }
 
                     return;
                 }
@@ -525,7 +531,9 @@ async fn summary_missed(
             if room.send(RoomMessageEventContent::text_markdown(message)).await.is_ok() {
                 let ids: Vec<i64> = reminders.iter().map(|r| r.id).collect();
                 tracing::info!("Missed reminders #{:#?} has been sent", ids);
-                update_reminders_status(ctx_clone.db.clone(), ids, ReminderStatus::Sent).await;
+                if let Err(e) = update_reminders_status(ctx_clone.db.clone(), ids, ReminderStatus::Sent).await {
+                    tracing::error!("Failed to update sent status for room {}: {:?}", room_id, e);
+                }
             }
         });
     }
@@ -608,24 +616,29 @@ pub async fn save_reminder_data(
 }
 */
 
-async fn update_room_reminder_status(db: Arc<Connection>, room_id: String, status: ReminderStatus) {
-    let _ = db.call(move |c| {
+async fn update_room_reminder_status(
+    db: Arc<Connection>, 
+    room_id: String, 
+    status: ReminderStatus
+) -> Result<(), tokio_rusqlite::Error> {
+    db.call(move |c| {
         c.execute("UPDATE reminders SET status = ?1 WHERE room_id = ?2", params![status as i64, &room_id])
-    });
+    }).await?;
+    Ok(())
 }
 
-async fn update_reminders_status(db: Arc<Connection>, ids: Vec<i64>, status: ReminderStatus) {
-    /*
-    let _ = db.call(move |c| {
-        c.execute("UPDATE reminders SET status = ?1 WHERE id = ?2", params![status as i64, &id])
-    });
-    */
-    let _ = db.call(move |c| -> Result<(), tokio_rusqlite::Error> {
+async fn update_reminders_status(
+    db: Arc<Connection>, 
+    ids: Vec<i64>, 
+    status: ReminderStatus
+) -> Result<(), tokio_rusqlite::Error> {
+    db.call(move |c| {
         for id in ids {
             c.execute("UPDATE reminders SET status = ?1 WHERE id = ?2", [status as i64, id])?;
         }
         Ok(())
-    });
+    }).await?;
+    Ok(())
 }
 
 // ===== Service =====
