@@ -203,34 +203,48 @@ impl CommandContext {
     }
 }
 
-/// CLI commands for new reminders.
+/// **CLI** (Command Lined Interface) or **Pro** mode allows you to create reminders 
+/// using syntax similar to that used in the terminal.
 #[derive(Parser, Debug)]
 // #[command(no_binary_name = true)]
 pub struct RemindArgs {
+    /// Day as a number.
     #[arg(short, long)]
     pub day: Option<String>,
+    /// Month as a number.
     #[arg(short, long)]
     pub month: Option<String>,
+    /// Year as a number.
     #[arg(short, long)]
     pub year: Option<String>,
+    /// Reminder date as numbers, without spaces. 
+    /// Supported characters as separators: `.`, `/`, `-`. A day without a month or year can be specified.
     #[arg(long)]
     pub date: Option<String>,
 
+    /// Time as a number, without spaces. The colon character `:` is supported as a separator.
     #[arg(long)]
     pub time: Option<String>,
+    /// Hour as a number.
     #[arg(long)]
     pub hour: Option<String>,
+    /// Minutes as a number.
     #[arg(long)]
     pub min: Option<String>,
     
+    /// Reminder text.
     pub text: Vec<String>,
 
+    /// The room to delegate the reminder to, in the `!unique_room_code:homeserver_url` format. 
+    /// You can get it from the share in the Element X client.
     #[arg(long)]
     pub to: Option<String>,
+    /// Use the specified time and date values as exact or interval values.
     #[arg(short, long)]
     pub interval: bool,
-    #[arg(short, long)]
-    pub repeat: Option<String>,
+
+    // #[arg(short, long)]
+    // pub repeat: Option<String>,
 }
 
 impl RemindArgs {
@@ -368,7 +382,7 @@ pub async fn handle_remind(
             // If user wants to print --help
             if clap_err.kind() == clap::error::ErrorKind::DisplayHelp {
                 let help_text = clap_err.render().to_string();
-                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(help_text)).await;
+                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(help_text)).await;
                 Ok(())
             }
             else { process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await }
