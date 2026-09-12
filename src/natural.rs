@@ -171,7 +171,7 @@ fn build_reminder_regex(
         
         // [^\.\-\s]{1,15} in ?P<month> can be replaced with white list of months names
         // if we do not need shortenings.
-        regex_str.push_str(r"^(?i)(?:(?P<datetime>(?P<day>\d{1,2})(?:\s|\.|\/|-)(?P<month>[^\.\-\s]{1,15}|\d{2})(?:\s|\.|\/|-)?(?P<year>\d{4})?)|(?P<day_natural>");
+        regex_str.push_str(r"^(?i)(?:(?P<datetime>(?P<day>\d{1,2})(?:\s|\.|\/|-)(?P<month>[^\.\-\s]{1,15}|\d{2})(?:\s|\.|\/|-)?(?P<year>\d{4})?)\s+|(?P<day_natural>");
         regex_str.push_str(&i18n.days.join("|"));
         regex_str.push_str(r")\s+)");
 
