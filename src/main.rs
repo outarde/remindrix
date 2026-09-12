@@ -27,6 +27,7 @@ mod handlers;
 mod parsers;
 mod natural;
 mod reactions;
+mod db;
 mod reminder;
 mod settings;
 mod remote_i18n;
@@ -166,12 +167,12 @@ pub struct BotManager {
 
 impl BotManager {
     pub async fn new(runtime: &BotRuntime, config: &AppConfig) -> Result<Self> {
-        let db_conn = Arc::new(reminder::init_db(&config.data_dir).await?);
+        let db = Arc::new(db::init_db(&config.data_dir).await?);
 
         let context = Arc::new(BotContext {
             client: runtime.client.clone(),
             bot_id: runtime.bot_id.clone(),
-            db: db_conn,
+            db,
             bot_config: config.bot.clone(),
             i18n_cache: Arc::new(RwLock::new(HashMap::new())),
         });
