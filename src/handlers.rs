@@ -260,7 +260,7 @@ impl RemindArgs {
             self.min.as_ref(),
             self.time.as_ref(),
             self.to.as_ref(),
-            self.repeat.as_ref(),
+            // self.repeat.as_ref(),
         ];
 
         options.iter().find(|opt| opt.is_some()).is_some()
