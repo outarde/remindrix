@@ -34,6 +34,7 @@ mod remote_i18n;
 
 use crate::remote_i18n::RemoteI18n;
 use crate::handlers::I18nManager;
+use crate::db::ReminderRepository;
 
 rust_i18n::i18n!("locales", fallback = "en", backend = RemoteI18n::new());
 
@@ -133,6 +134,7 @@ struct BotContext {
     pub db: Arc<Connection>,
     pub bot_config: config::BotConfig,
     pub i18n_cache: Arc<RwLock<HashMap<String, Arc<I18nManager>>>>,
+    pub reminders: Arc<ReminderRepository>,
 }
 
 impl BotContext {
@@ -168,6 +170,7 @@ pub struct BotManager {
 impl BotManager {
     pub async fn new(runtime: &BotRuntime, config: &AppConfig) -> Result<Self> {
         let db = Arc::new(db::init_db(&config.data_dir).await?);
+        let reminders = Arc::new(ReminderRepository::new(db.clone()));
 
         let context = Arc::new(BotContext {
             client: runtime.client.clone(),
@@ -175,6 +178,7 @@ impl BotManager {
             db,
             bot_config: config.bot.clone(),
             i18n_cache: Arc::new(RwLock::new(HashMap::new())),
+            reminders,
         });
 
         Ok(Self { context })

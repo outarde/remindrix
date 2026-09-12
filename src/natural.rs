@@ -103,55 +103,59 @@ pub async fn process_natural_reminder(
     // Make regular expression
     let re = build_reminder_regex(&cmd_ctx.ctx, &cmd_ctx.i18n);
 
-    // If regular expression found some groups
-    if let Some(caps) = re.captures(args_str) {
+    // Check if regular expression found some groups
+    let caps = match re.captures(args_str) {
+        Some(c) => c,
+        None => {
+            // Send cross emoji and welcome message.
+            let _ = send_reaction(event.event_id.clone(), &cmd_ctx, MessageReaction::Cross).await;
+            let _ = send_welcome_message(cmd_ctx).await;
 
-        // Parsed Data
-        let reminder_data = match parse_reminder_data(
-            &caps, 
-            &cmd_ctx
-        ) {
-            Ok(data) => data,
-            Err(e) => {
-                tracing::error!("Error: {} while parsing regex: {:?}", e, caps);
-                return Ok(());
-            }
-        };
+            return Ok(());
+        }
+    };
 
-        // Times
-        let (utc_dt, civil_dt) = match build_datetime_utc(&reminder_data, &cmd_ctx) {
-            Ok((ut, ct)) => (ut, ct),
-            Err(err) => {
-                let err_msg = t!(err.to_string()); 
-                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
-                
-                tracing::error!("Date and time validation error: {:?} for {:?}", err, reminder_data);
-                return Ok(());
-            }
-        };
+    // Parsed Data
+    let reminder_data = match parse_reminder_data(
+        &caps, 
+        &cmd_ctx
+    ) {
+        Ok(data) => data,
+        Err(e) => {
+            tracing::error!("Error: {} while parsing regex: {:?}", e, caps);
+            return Ok(());
+        }
+    };
 
-        let reminder_data = ReminderData {
-            utc_dt,
-            civil_dt,
-            text: reminder_data.text,
-            created_by: cmd_ctx.user_id.clone(),
-            settings: cmd_ctx.settings.clone().into()
-        };
-
-        // Saving.
-        let reminder = reminder_data.save(cmd_ctx.ctx.db.clone()).await?;
-
-        // Scheduling.
-        super::reminder::schedule_reminder(cmd_ctx.ctx.clone(), reminder.clone()).await;
+    // Times
+    let (utc_dt, civil_dt) = match build_datetime_utc(&reminder_data, &cmd_ctx) {
+        Ok((ut, ct)) => (ut, ct),
+        Err(err) => {
+            let err_msg = t!(err.to_string()); 
+            let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
             
-        // Send success reaction or message to the room.
-        super::reactions::send_success(event, &cmd_ctx, reminder.data, false).await;
-    } 
-    // Welcome message.
-    else {
-        let _ = send_reaction(event.event_id.clone(), &cmd_ctx, MessageReaction::Cross).await;
-        let _ = send_welcome_message(cmd_ctx).await;
-    }
+            tracing::error!("Date and time validation error: {:?} for {:?}", err, reminder_data);
+            return Ok(());
+        }
+    };
+
+    let reminder_data = ReminderData {
+        utc_dt,
+        civil_dt,
+        text: reminder_data.text,
+        created_by: cmd_ctx.user_id.clone(),
+        settings: cmd_ctx.settings.clone().into()
+    };
+
+    // Saving.
+    let reminder = cmd_ctx.reminders().save_reminder(reminder_data).await?;
+    tracing::info!("Reminder {} saved", reminder.id);
+
+    // Scheduling.
+    super::reminder::schedule_reminder(cmd_ctx.ctx.clone(), reminder.clone()).await;
+        
+    // Send success reaction or message to the room.
+    super::reactions::send_success(event, &cmd_ctx, reminder.data, false).await;
 
     Ok(())
 }

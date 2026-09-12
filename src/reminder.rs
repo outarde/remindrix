@@ -99,38 +99,6 @@ pub struct ReminderData {
     pub settings: ReminderSettings
 }
 
-impl ReminderData {
-    /// Save ReminderData to DB and return Reminder.
-    pub async fn save(self, db: Arc<Connection>) -> Result<Reminder, ReminderError> {
-        // Clone data.
-        let room_id_str = self.settings.room_id.to_string();
-        // let datetime_str = reminder.civil_dt.strftime("%Y-%m-%d %H:%M:%S").to_string();
-        let datetime_str = self.civil_dt.to_string();
-        let utc_str = self.utc_dt.to_string();
-        let tz_str = self.settings.room_tz.iana_name().unwrap().to_string();
-        let created_by_str = self.created_by.to_string();
-        let text = self.text.clone();
-        
-        // Insert to DB.
-        let result = db.call(move |c| {
-            c.execute(
-                "INSERT INTO reminders (room_id, text, target_time, utc_time, tz, created_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                [&room_id_str, &text, &datetime_str, &utc_str, &tz_str, &(Timestamp::now().to_string()), &created_by_str],
-            )?;
-            
-            let id = c.last_insert_rowid();
-
-            Ok(Reminder {
-                id,
-                data: self,
-                status: ReminderStatus::Pending,
-            })
-        }).await;
-
-        result.map_err(|e| ReminderError::Db(e))
-    }
-}
-
 // ===== Reminders =====
 /// Schedule Reminder.
 pub async fn schedule_reminder(

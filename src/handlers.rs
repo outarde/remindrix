@@ -28,6 +28,7 @@ use clap::Parser;
 
 // app crates
 use crate::config::BotConfig;
+use crate::db::ReminderRepository;
 use crate::reminder::{ReminderData, ReminderStatus, ReminderError};
 use crate::settings::{RoomTimezoneContent, SettingsManager};
 use crate::parsers::{
@@ -192,6 +193,9 @@ impl CommandContext {
     // cmd_ctx.ctx.bot_config
     pub fn bot_config(&self) -> &super::config::BotConfig {
         &self.ctx.bot_config
+    }
+    pub fn reminders(&self) -> Arc<ReminderRepository> {
+        self.ctx.reminders.clone()
     }
     // Check if room has more than 2 active (joined and invitees) members
     pub fn is_room_group(&self) -> bool {
@@ -443,7 +447,9 @@ pub async fn process_cli_reminder(
     };
 
     // Saving.
-    let reminder = reminder_data.save(cmd_ctx.ctx.db.clone()).await?;
+    let reminder = cmd_ctx.reminders().save_reminder(reminder_data).await?;
+    tracing::info!("Reminder {} saved", reminder.id);
+    // let reminder = reminder_data.save(cmd_ctx.ctx.db.clone()).await?;
     // let reminder = super::reminder::save_reminder_data(cmd_ctx.ctx.db.clone(), reminder_data.clone()).await?;
 
     // Scheduling.
