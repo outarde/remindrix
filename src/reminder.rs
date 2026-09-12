@@ -23,9 +23,6 @@ use thiserror::Error;
 use crate::handlers::CommandContext;
 use crate::settings::{SettingsManager, ReminderSettings};
 
-/// Pragma user_version.
-pub const DB_TARGET_VERSION: i32 = 1;
-
 /// Structure for restoring reminders from DB.
 struct RawReminder {
     id: i64,
@@ -115,7 +112,7 @@ impl ReminderData {
         let text = self.text.clone();
         
         // Insert to DB.
-        let result = db.call(move |c| /*-> Result<Reminder, rusqlite::Error>*/ {
+        let result = db.call(move |c| {
             c.execute(
                 "INSERT INTO reminders (room_id, text, target_time, utc_time, tz, created_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 [&room_id_str, &text, &datetime_str, &utc_str, &tz_str, &(Timestamp::now().to_string()), &created_by_str],
@@ -132,96 +129,6 @@ impl ReminderData {
 
         result.map_err(|e| ReminderError::Db(e))
     }
-}
-
-// ===== DB =====
-/// Database initialization.
-pub async fn init_db(data_dir: &PathBuf) -> anyhow::Result<Connection> {
-    // Path for DB file.
-    let path = data_dir.join("remindrix.db");
-
-    // Open or create DB file.
-    let conn = Connection::open(&path).await?;
-    
-    // Create table.
-    conn.call(|c| -> Result<(), tokio_rusqlite::Error> {
-        c.execute(
-            "CREATE TABLE IF NOT EXISTS reminders (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                room_id TEXT NOT NULL,
-                text TEXT NOT NULL,
-                target_time TEXT NOT NULL,
-                utc_time TEXT NOT NULL,
-                tz TEXT NOT NULL,
-                created_at TEXT DEFAULT (datetime('now')),
-                created_by TEXT NOT NULL,
-                status INTEGER DEFAULT 0
-            )",
-            [],
-        )?;
-        c.execute(
-            "CREATE TABLE IF NOT EXISTS settings (
-            room_id TEXT NOT NULL,
-            user_id TEXT NOT NULL,
-            key TEXT NOT NULL,
-            value TEXT NOT NULL,
-            updated_by TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            PRIMARY KEY (room_id, user_id, key)
-            )",
-            [],
-        )?;
-        c.execute(
-            "CREATE INDEX IF NOT EXISTS idx_reminders_status ON reminders(status)",
-            [],
-        )?;
-        // Ok::<_, tokio_rusqlite::Error>(())
-        // We can use OK(()) without turbo-fish if we specify
-        // -> Result<(), tokio_rusqlite::Error> in function result.
-        Ok(())
-    }).await?;
-
-    // Migrations.
-    run_migrations(&conn).await.map_err(|e| {
-        tracing::error!("An error occurred during database migration");
-        e
-    })?;
-    
-    Ok(conn)
-}
-
-/// DB Migration.
-async fn run_migrations(conn: &Connection) -> Result<()> {
-    let current_version: i32 = conn
-        .call(|conn| {
-            conn.query_row("PRAGMA user_version", [], |row| row.get(0))
-        }).await?;
-
-    // Check.
-    if current_version < DB_TARGET_VERSION {
-        tracing::info!("Running DB migrations from version {} to version {}", current_version, DB_TARGET_VERSION);
-        
-        conn.call(|conn| -> Result<(), tokio_rusqlite::Error> {
-            let tx = conn.transaction()?;
-            
-            // v1.1.0
-            /*
-            tx.execute("ALTER TABLE reminders ADD COLUMN created_by TEXT", [])?;
-            */
-            
-            // Set Pragma.
-            let pragma_query = format!("PRAGMA user_version = {}", DB_TARGET_VERSION);
-            tx.execute(&pragma_query, [])?;
-            
-            tx.commit()?;
-
-            Ok(())
-        }).await?;
-
-        tracing::info!("Migrations are completed");
-    }
-
-    Ok(())
 }
 
 // ===== Reminders =====
@@ -244,7 +151,6 @@ pub async fn schedule_reminder(
     let std_duration = std::time::Duration::from_secs(seconds as u64);
 
     // Tokio
-    // TODO: move to the function
     tokio::spawn(async move {
         tracing::info!("New reminder #{} in {} sec", reminder.id, std_duration.as_secs());
         
@@ -252,23 +158,34 @@ pub async fn schedule_reminder(
         tokio::time::sleep(std_duration).await;
 
         // After sleep
-        if let Some(room) = ctx.client.get_room(&reminder.data.settings.room_id) {
-            let reminder_text = t!("reminder.new", locale = &reminder.data.settings.room_lang, text = reminder.data.text);
-            // If the message was sent successfully, update the status!
-            match room.send(RoomMessageEventContent::text_markdown(reminder_text)).await {
-                Ok(_) => {
-                    let _ = ctx.db.call(move |c| {
-                        c.execute("UPDATE reminders SET status = ?1 WHERE id = ?2", [ReminderStatus::Sent as i64, reminder.id])
-                    }).await;
-                    tracing::info!("Reminder #{} was sent", reminder.id);
+        let room = match ctx.client.get_room(&reminder.data.settings.room_id) {
+            Some(r) => r,
+            None => {
+                tracing::warn!("Room {} was not found for reminder #{}", &reminder.data.settings.room_id, &reminder.id);
+            
+                if let Err(e) = update_reminder_status(ctx.db.clone(), reminder.id, ReminderStatus::Missed).await {
+                    tracing::error!("Failed to update status for reminder: {:?}", e);
                 }
-                Err(e) => tracing::info!("Reminder #{} was not sent due to an error: {}", reminder.id, e)
+
+                // End of the spawn.
+                return;
             }
-        } else {
-            tracing::warn!("Room {} was not found for reminder #{}", reminder.data.settings.room_id, reminder.id);
-            let _ = ctx.db.call(move |c| {
-                c.execute("UPDATE reminders SET status = ?1 WHERE id = ?2", [ReminderStatus::Missed as i64, reminder.id])
-            }).await;
+        };
+
+        let reminder_text = t!(
+            "reminder.new", 
+            locale = &reminder.data.settings.room_lang, 
+            text = reminder.data.text
+        );
+
+        // If the message was sent successfully, update the status!
+        match room.send(RoomMessageEventContent::text_markdown(reminder_text)).await {
+            Ok(_) => {
+                if let Err(e) = update_reminder_status(ctx.db.clone(), reminder.id, ReminderStatus::Sent).await {
+                    tracing::error!("Failed to update status for reminder: {:?}", e);
+                }
+            }
+            Err(e) => tracing::info!("Reminder #{} was not sent due to an error: {}", reminder.id, e)
         }
     });
 }
@@ -489,10 +406,27 @@ async fn update_reminders_status(
     ids: Vec<i64>, 
     status: ReminderStatus
 ) -> Result<(), tokio_rusqlite::Error> {
+    let placeholders: String = std::iter::repeat("?")
+        .take(ids.len())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let query = format!("UPDATE reminders SET status = ?1 WHERE id IN ({})", placeholders);
+
+    db.call(move |c| {        
+        let params = tokio_rusqlite::params_from_iter(ids.iter());
+        c.execute(&query, params)?;
+        Ok(())
+    }).await?;
+    Ok(())
+}
+
+async fn update_reminder_status(
+    db: Arc<Connection>, 
+    id: i64, 
+    status: ReminderStatus
+) -> Result<(), tokio_rusqlite::Error> {
     db.call(move |c| {
-        for id in ids {
-            c.execute("UPDATE reminders SET status = ?1 WHERE id = ?2", [status as i64, id])?;
-        }
+        c.execute("UPDATE reminders SET status = ?1 WHERE id = ?2", [status as i64, id])?;
         Ok(())
     }).await?;
     Ok(())
