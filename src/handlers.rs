@@ -205,6 +205,7 @@ impl CommandContext {
 
 /// CLI commands for new reminders.
 #[derive(Parser, Debug)]
+// #[command(no_binary_name = true)]
 pub struct RemindArgs {
     #[arg(short, long)]
     pub day: Option<String>,
@@ -252,34 +253,18 @@ impl RemindArgs {
     }
 }
 
-/// Erros for CLi proccesing.
+/// Erros in the CLi processing.
 #[derive(Debug, Display)]
 pub enum CliError {
     ClapError(clap::Error),
     NaturalFallback,
     Reminder(ReminderError),
 }
-
-// From for operator ?
 impl From<clap::Error> for CliError {
     fn from(err: clap::Error) -> Self {
         CliError::ClapError(err)
     }
 }
-/*
-impl From<tokio_rusqlite::Error> for CliError {
-    fn from(err: tokio_rusqlite::Error) -> Self {
-        tracing::error!("SQLite error while saving reminder: {:?}", err);
-        CliError::Reminder(ReminderError::Db)
-    }
-}
-impl From<anyhow::Error> for CliError {
-    fn from(err: anyhow::Error) -> Self {
-        // TODO
-        CliError::Reminder(ReminderError::Db)
-    }
-}
-*/
 impl From<ReminderError> for CliError {
     fn from(err: ReminderError) -> Self {
         CliError::Reminder(err)
@@ -379,8 +364,14 @@ pub async fn handle_remind(
     // not when there are empty values, so we put it in another function.
     match process_cli_reminder(clap_input, event.clone(), cmd_ctx.clone()).await {
         Ok(_) => Ok(()),
-        Err(CliError::ClapError(_err)) => {
-            process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await
+        Err(CliError::ClapError(clap_err)) => {
+            // If user wants to print --help
+            if clap_err.kind() == clap::error::ErrorKind::DisplayHelp {
+                let help_text = clap_err.render().to_string();
+                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(help_text)).await;
+                Ok(())
+            }
+            else { process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await }
         },
         Err(CliError::NaturalFallback) => {
             process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await
