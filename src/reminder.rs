@@ -120,7 +120,7 @@ pub async fn schedule_reminder(
 
     // Tokio
     tokio::spawn(async move {
-        tracing::info!("New reminder #{} in {} sec", reminder.id, std_duration.as_secs());
+        tracing::info!("New reminder #{} in {} sec at {}", reminder.id, std_duration.as_secs(), reminder.data.utc_dt);
         
         // Asynchronic sleep
         tokio::time::sleep(std_duration).await;
@@ -255,15 +255,18 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
 
     // HashMap for missed reminders
     let mut missed_by_room: HashMap<OwnedRoomId, Vec<Reminder>> = HashMap::new();
+    let len = reminders.len();
 
-    // Distribute reminders into scheduled and missed ones
+    // Distribute reminders into scheduled and missed ones.
     for reminder in reminders {
+        // In the future, not missed.
         if reminder.data.utc_dt > Timestamp::now() {
             schedule_reminder(
                 ctx.clone(), 
                 reminder.clone()
             ).await;
         } else {
+            // In the past, missed.
             missed_by_room
                 .entry(reminder.data.settings.room_id.clone())
                 .or_default()
@@ -271,16 +274,18 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
         }
     }
 
+    let missed_len = missed_by_room.len();
+
+    tracing::info!("Restored reminders: {}", len - missed_len);
+
     // If we have missed reminders in HashMap
-    if missed_by_room.is_empty() {
+    if missed_len == 0 {
         tracing::info!("No missed reminders");
         return Ok(());
     }
 
-    let len = missed_by_room.len();
-    
+    tracing::info!("Sending a summary for {} missed reminders", missed_len);
     summary_missed(ctx.clone(), missed_by_room).await?;
-    tracing::info!("Sending missed reminders by room numbers: {}", len);
 
     Ok(())
 }
@@ -306,7 +311,7 @@ async fn summary_missed(
                         room_id.to_string(), 
                         ReminderStatus::Missed
                     ).await {
-                        tracing::error!("Failed to update missed status for room {}: {:?}", room_id, e);
+                        tracing::error!("Failed to update status to missed for room {}: {:?}", room_id, e);
                     }
 
                     // End of the spawn.
@@ -344,9 +349,9 @@ async fn summary_missed(
             // Update status for the sent reminders.
             if room.send(RoomMessageEventContent::text_markdown(message)).await.is_ok() {
                 let ids: Vec<i64> = reminders.iter().map(|r| r.id).collect();
-                tracing::info!("Missed reminders #{:#?} has been sent", ids);
+                tracing::info!("Missed reminders #{:?} has been sent", ids);
                 if let Err(e) = update_reminders_status(ctx_clone.db.clone(), ids, ReminderStatus::Sent).await {
-                    tracing::error!("Failed to update sent status for room {}: {:?}", room_id, e);
+                    tracing::error!("Failed to update status to sent for ids {}: {:?}", room_id, e);
                 }
             }
         });
@@ -374,14 +379,18 @@ async fn update_reminders_status(
     ids: Vec<i64>, 
     status: ReminderStatus
 ) -> Result<(), tokio_rusqlite::Error> {
+    // let placeholders = vec!["?"; ids.len()].join(", ");
     let placeholders: String = std::iter::repeat("?")
         .take(ids.len())
         .collect::<Vec<_>>()
         .join(", ");
     let query = format!("UPDATE reminders SET status = ?1 WHERE id IN ({})", placeholders);
 
-    db.call(move |c| {        
-        let params = tokio_rusqlite::params_from_iter(ids.iter());
+    db.call(move |c| {
+        let mut all_params: Vec<_> = vec![status as i64];
+        all_params.extend(ids.iter());
+
+        let params = tokio_rusqlite::params_from_iter(all_params);
         c.execute(&query, params)?;
         Ok(())
     }).await?;

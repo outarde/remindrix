@@ -6,7 +6,7 @@ use tokio_rusqlite::Connection;
 use anyhow::{Result, Context};
 
 use crate::reminder::{Reminder, ReminderData, ReminderStatus, ReminderError};
-use jiff::Timestamp;
+use jiff::{Timestamp, Unit};
 
 struct Migration {
     version: i32,
@@ -91,7 +91,7 @@ impl ReminderRepository {
         let utc_time = data.utc_dt.to_string();
         let tz = data.settings.room_tz.iana_name().unwrap_or("UTC").to_string();
         let created_by = data.created_by.to_string();
-        let created_at = Timestamp::now().to_string();
+        let created_at = Timestamp::now().round(Unit::Second)?.to_string();
 
         let result = conn.call(move |c| {
             c.execute(
