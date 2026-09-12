@@ -12,6 +12,7 @@ WORKDIR /app
 ARG TARGETARCH
 COPY artifacts/bot-${TARGETARCH} /app/bot
 COPY locales ./locales
+COPY migrations ./migrations
 
 RUN mkdir -p /app/data && chown -R appuser:appuser /app
 
