@@ -10,7 +10,8 @@ use matrix_sdk::{
                 member::StrippedRoomMemberEvent, 
                 message::{MessageType, OriginalSyncRoomMessageEvent, RoomMessageEventContent},
             }
-        }
+        },
+        api::client::typing::create_typing_event::v3::Typing
     }
 };
 use anyhow::Result;
@@ -339,6 +340,9 @@ pub async fn on_room_message(
         return;
     };
 
+    // Turning on the typing indicator.
+    let _ = room.typing_notice(true).await;
+
     // Call the command
     let result = match command {
         BotCommand::Remind => {
@@ -351,6 +355,10 @@ pub async fn on_room_message(
             handle_tz(&args, event.clone(), cmd_ctx.clone()).await
         }
     };
+
+    // Turning off the typing indicator.
+    tokio::time::sleep(Duration::from_millis(0_400)).await;
+    let _ = room.typing_notice(false).await;
 
     // If there is an error
     if let Err(err) = result {
@@ -403,15 +411,10 @@ pub async fn process_cli_reminder(
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
 ) -> Result<(), CliError> {
-    println!("{:?}", args_str);
-
     let args = RemindArgs::try_parse_from(args_str)?;
-
-    println!("{:?}", args);
 
     // Without this check, the parser will perceive any text as a --text parameter.
     if !args.enough_options_are_some() {
-        println!("Not enough");
         return Err(CliError::NaturalFallback);
     }
 
@@ -457,16 +460,14 @@ pub async fn process_cli_reminder(
     };
 
     // Saving.
-    // let reminder = cmd_ctx.reminders().save_reminder(reminder_data).await?;
-    // tracing::info!("Reminder {} saved", reminder.id);
-    // let reminder = reminder_data.save(cmd_ctx.ctx.db.clone()).await?;
-    // let reminder = super::reminder::save_reminder_data(cmd_ctx.ctx.db.clone(), reminder_data.clone()).await?;
+    let reminder = cmd_ctx.reminders().save_reminder(reminder_data).await?;
+    tracing::info!("Reminder #{} saved", reminder.id);
 
     // Scheduling.
-    // super::reminder::schedule_reminder(cmd_ctx.ctx.clone(), reminder.clone()).await;
+    super::reminder::schedule_reminder(cmd_ctx.ctx.clone(), reminder.clone()).await;
         
     // Send success reaction or message to the room.
-    // super::reactions::send_success(event, &cmd_ctx, reminder.data, args.interval).await;
+    super::reactions::send_success(event, &cmd_ctx, reminder.data, args.interval).await;
 
     Ok(())
 }
