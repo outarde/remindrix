@@ -156,7 +156,7 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
         .with_default(false).prompt()?;
     let quick_remind = Confirm::new("Messages to the bot without a command will try to be converted into reminders.")
         .with_help_message("The setting does not apply to group rooms to prevent false positives.")
-        .with_default(true).prompt()?;
+        .with_default(false).prompt()?;
     let remind_undated = Confirm::new("Create reminders without requiring a date or time?")
         .with_help_message("The default morning time of this or the next day will be used. Caution: When enabled along with the quick reminder option, this will create reminders from any text sent to the bot.")
         .with_default(false).prompt()?;
@@ -168,7 +168,7 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
         .with_help_message("The bot will send reactions in the form of a number of the longest duration before the reminder time.")
         .with_default(true).prompt()?;
 
-    let tz = Text::new("Default timezone in IANA format:")
+    let tz = Text::new("Default time zone in IANA format:")
         .with_help_message("This time zone will be applied in rooms where users have not specified their own.")
         .with_default(config::DEFAULT_TZ)
         .with_validator(validate_config_tz)

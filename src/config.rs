@@ -100,7 +100,7 @@ impl BotConfig {
         false
     }
     fn default_quick_remind() -> bool {
-        true
+        false
     }
     fn default_remind_undated() -> bool {
         false

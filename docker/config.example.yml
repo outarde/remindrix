@@ -1,20 +1,37 @@
+# None of these parameters are mandatory; default values will be used if they are not specified.
 # For a description of the fields, see 
 # https://github.com/outarde/reminder-bot/tree/main/docs/configuration.md
-# or use interactive setup via <config-setup> command
+# or use interactive setup via <config-setup> command.
 
 # Message parsing and sending language.
 lang: en
-
-# Override default commands aliases.
-remind_commands: [ "remind" ]
-list_commands: [ "list" ]
-tz_commands: [ "tz" ]
-
-# Bot activation only on command.
+# Commands aliases in addition to localized ones.
+remind_commands:
+  - "remind"
+list_commands:
+  - "list"
+tz_commands:
+  - "tz"
+# The bot will only respond to messages with the prefix </> or <!>.
 on_command: true
-# Bot activation only when mentioned.
+# The same but for rooms with more than two active or invited participants.
+on_command_group: true
+# The bot will only respond when mentioned in group rooms.
 on_mention: false
-
+# If the bot does not recognize a command, it will attempt to interpret any incoming text 
+# as a new reminder by looking for a date, time, and the reminder text.
+quick_remind: false
+# Create reminders even if the date and time are not specified (default values will be used).
+remind_undated: false
+# Send emoji reactions as bot's success replies?
+send_reactions: true
+# Send emoji reactions with the time digits until the reminder.
+# This does not work for numbers with two identical digits due to the 
+# Matrix protocol's limitations on the number of identical reactions.
+send_digits_reactions: true
+# Default time zone in IANA format. 
+# You can change the time zone for each room using a command <tz> in the room.
+tz: "Europe/Paris"
 # Default time values.
 morning: "09:00"
 afternoon: "14:00"
