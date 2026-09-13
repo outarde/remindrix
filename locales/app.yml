@@ -661,20 +661,20 @@ error.unsafe-datetime:
   ru: Это время и дата выходят за пределы допустимых значений.
   uk: Це час і дата виходять за межі допустимих значень.
 
-error.datetime-format:
-  en: Invalid format of date or time.
-  de: Ungültiges Datums- oder Zeitformat.
-  fr: Format de date ou d'heure invalide.
-  it: Formato di data o ora non valido.
-  es: Formato de fecha o hora no válido.
-  sv: Ogiltigt datum- eller tidsformat.
-  pl: Nieprawidłowy format daty lub czasu.
-  cs: Neplatný formát data nebo času.
-  fi: Virheellinen päivämäärän tai kellonmuoto.
-  ja: 日付または時刻の形式が不正です。
-  zh: 日期或时间格式无效。
-  ru: Неверный формат даты или времени.
-  uk: Невірний формат дати або часу.
+error.datetime:
+  en: Invalid date or time.
+  de: Ungültiges Datum oder ungültige Uhrzeit.
+  fr: Date ou heure invalide.
+  it: Data o ora non valida.
+  es: Fecha u hora no válida.
+  sv: Ogiltigt datum eller tid.
+  pl: Nieprawidłowa data lub godzina.
+  cs: Neplatné datum nebo čas.
+  fi: Virheellinen päivämäärä tai kellonaika.
+  ja: 無効な日付または時刻です。
+  zh: 日期或时间无效。
+  ru: Неверные дата и время.
+  uk: Недійсна дата або час.
 
 error.date-format:
   en: Invalid date format.
