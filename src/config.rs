@@ -267,6 +267,20 @@ impl AppConfig {
                 .map_err(|e| anyhow::anyhow!("Environment error: {}", e))?
         };
 
+        // Check default times
+        check_times(vec![&bot.morning, &bot.afternoon, &bot.evening])?;
+        tracing::info!("Default times are valid");
+
         Ok(Self { auth, recovery, bot })
     }
+}
+
+/// Just checks if time &str is valid via method in the reminder.rs module.
+fn check_times(times: Vec<&str>) -> anyhow::Result<()> {
+    for t in times {
+        if !super::reminder::is_time_valid(t) {
+            return Err(anyhow::anyhow!("Defaul time {} has invalid format", t));
+        }
+    }
+    Ok(())
 }

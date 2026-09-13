@@ -110,15 +110,7 @@ impl SettingsManager {
             None => ctx.bot_config.lang.clone()
         };
 
-        let default_time = match ctx.bot_config.morning.split_once(":").map(|(h, m)| (h.to_string(), m.to_string())) {
-            Some((h, m)) => (h, m),
-            None => {
-                super::config::DEFAULT_MORNING_TIME
-                    .split_once(":")
-                    .map(|(h, m)| (h.to_string(), m.to_string()))
-                    .unwrap()
-            }
-        };
+        let default_time = ctx.bot_config.morning.split_once(":").map(|(h, m)| (h.to_string(), m.to_string())).unwrap();
         let default_morning = default_time.clone();
         let default_afternoon = ctx.bot_config.afternoon.split_once(":").map(|(h, m)| (h.to_string(), m.to_string())).unwrap();
         let default_evening = ctx.bot_config.evening.split_once(":").map(|(h, m)| (h.to_string(), m.to_string())).unwrap();

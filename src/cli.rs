@@ -278,7 +278,7 @@ pub async fn run(config: &mut AppConfig) -> Result<()> {
 /// Validate default time for CLI setup
 // also as error: Box<dyn std::error::Error + Send + Sync>
 fn validate_config_time(input: &str) -> Result<Validation, inquire::error::CustomUserError> {
-    if is_time_valid(input, "%H:%M") {
+    if is_time_valid(input) {
         Ok(Validation::Valid)
     } else {
         Ok(Validation::Invalid("Use %H:%M format, like 09:00.".into()))

@@ -411,7 +411,7 @@ async fn update_reminder_status(
 
 // ===== Service =====
 /// Check if reminder time as string can be parsed. Used in the cli.rs.
-pub fn is_time_valid(time_str: &str, _time_format: &str) -> bool {
+pub fn is_time_valid(time_str: &str) -> bool {
     let parts: Vec<&str> = time_str.split(':').collect();
     if parts.len() != 2 { return false; }
     let h = parts[0].parse::<u8>().unwrap_or(99);
