@@ -1,27 +1,22 @@
 use std::{
     sync::Arc
 };
-use anyhow::{Result, Context, anyhow};
+use anyhow::{Result};
 use matrix_sdk::{
     deserialized_responses::SyncOrStrippedState,
     Room,
     ruma::{
     OwnedUserId, OwnedRoomId,
         events::{
-        EmptyStateKey, macros::EventContent, 
-        room::message::RoomMessageEventContent
+        EmptyStateKey, macros::EventContent,
         }
     }
 };
 use serde::{Deserialize, Serialize};
-use tokio_rusqlite::{params, Connection};
 
-use jiff::{
-    Zoned, Span, ToSpan, tz::TimeZone, Timestamp,
-    civil::{DateTime as CivilDateTime, Date}
-};
+use jiff::{tz::TimeZone, Timestamp};
 use crate::reminder::{ReminderError};
-use crate::handlers::{I18nManager, CommandContext, CliError};
+use crate::handlers::{CommandContext};
 
 #[derive(Clone, Debug, Deserialize, Serialize, EventContent)]
 #[ruma_event(type = "com.reminder-bot.room_timezone", kind = State, state_key_type = EmptyStateKey)]

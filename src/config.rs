@@ -275,7 +275,7 @@ impl AppConfig {
     }
 }
 
-/// Just checks if time &str is valid via method in the reminder.rs module.
+/// Just checks if string slices have valid time format via method in the reminder.rs module.
 fn check_times(times: Vec<&str>) -> anyhow::Result<()> {
     for t in times {
         if !super::reminder::is_time_valid(t) {
