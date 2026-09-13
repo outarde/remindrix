@@ -208,6 +208,10 @@ impl CommandContext {
 #[derive(Parser, Debug)]
 // #[command(no_binary_name = true)]
 pub struct RemindArgs {
+    /// Reminder date as numbers, without spaces. 
+    /// Supported characters as separators: `.`, `/`, `-`. A day without a month or year can be specified.
+    #[arg(long)]
+    pub date: Option<String>,
     /// Day as a number.
     #[arg(short, long)]
     pub day: Option<String>,
@@ -217,10 +221,6 @@ pub struct RemindArgs {
     /// Year as a number.
     #[arg(short, long)]
     pub year: Option<String>,
-    /// Reminder date as numbers, without spaces. 
-    /// Supported characters as separators: `.`, `/`, `-`. A day without a month or year can be specified.
-    #[arg(long)]
-    pub date: Option<String>,
 
     /// Time as a number, without spaces. The colon character `:` is supported as a separator.
     #[arg(long)]
