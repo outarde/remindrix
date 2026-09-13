@@ -62,7 +62,7 @@ pub enum ReminderError {
     #[error("error.unsafe-datetime")] UnsafeDateTime,
     #[error("error.date-format")] InvalidDateFormat,
     #[error("error.time-format")] InvalidTimeFormat,
-    #[error("error.datetime-format")] InvalidDateTimeFormat,
+    #[error("error.datetime")] InvalidDateTime,
     #[error("error.delegation-room-format")] InvalidDelegationRoomFormat,
     #[error("error.delegation-no-room")] NoDelegatedRoom,
     #[error("tz.invalid-format")] InvalidTzFormat,

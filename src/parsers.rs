@@ -48,8 +48,7 @@ pub fn resolve_date(args: &RemindArgs, room_tz: &TimeZone) -> Result<ParsedDate,
             [d, m] => (d.to_string(), m.to_string(), today.year().to_string()),
             [d] => adjust_month_for_day(d, &today, &room_tz)?,
             _ => {
-                is_auto = true;
-                (today.day().to_string(), today.month().to_string(), today.year().to_string())
+                return Err(ReminderError::InvalidDateFormat);
             }
         }
     } else {
@@ -112,10 +111,8 @@ pub fn resolve_date_interval(args: &RemindArgs, room_tz: &TimeZone) -> Result<Pa
 /// If we know time in CLI and want to parse it.
 pub fn resolve_time(
     args: &RemindArgs,
+    default_time: (String, String),
 ) -> Result<ParsedTime, ReminderError> {
-    // let mut hour: String = String::new();
-    // let mut min: String = String::new();
-
     // Try to get from --time
     let (hour, min) = match &args.time {
         Some(time_str) => {
@@ -138,17 +135,22 @@ pub fn resolve_time(
     let (hour, min) = match (&args.hour, &args.min) {
         (Some(h), Some(m)) => (h.clone(), m.clone()),
         (Some(h), None) => (h.clone(), "00".to_string()),
-        (None, Some(m)) => ("09".to_string(), m.clone()),
+        (None, Some(m)) => {
+            // Destructurization. Also we can use: (default_time.0, default_time.1)
+            // I chose this method to remember it.
+            let (h, ..) = default_time;
+            (h, m.clone())
+        },
         (None, None) => {
             // Check if the time has already been written to prevent overwriting.
             if hour.is_empty() {
-                // TODO: change to default morning time.
-                ("09".to_string(), "00".to_string())
+                let (h, m) = default_time;
+                (h, m)
             } else { (hour, min) }
         },
     };
 
-    Ok( ParsedTime {
+    Ok(ParsedTime {
         hour,
         min, 
         interval: Span::new()
@@ -197,7 +199,7 @@ pub fn resolve_target_dt(
     let mm = time.min.parse::<i8>().map_err(|_| ReminderError::InvalidTimeFormat)?;
 
     let civil_dt = CivilDateTime::new(y, m, d, hh, mm, 0, 0)
-        .map_err(|_| ReminderError::InvalidDateTimeFormat)?;
+        .map_err(|_| ReminderError::InvalidDateTime)?;
 
     // Convert it to Zoned.
     let user_dt = civil_dt.to_zoned(tz.clone())?;
@@ -248,7 +250,9 @@ pub async fn parse_room(to: &str, cmd_ctx: &CommandContext) -> Result<Room, Remi
 /// Helper function to get the same day a month from d_str.
 fn adjust_month_for_day(d_str: &str, today: &Date, room_tz: &TimeZone) -> Result<(String, String, String), ReminderError> {
     // Get date number.
-    let d = d_str.parse::<i8>().unwrap_or(1);
+    // We do not check whether such a date exists (or it is 32th), 
+    // so that we can verify everything at resolve_target_dt() later.
+    let d = d_str.parse::<i8>().map_err(|_| ReminderError::InvalidDateFormat)?;
 
     let target_date = if d < today.day() {
         let current_moment = Zoned::now().with_time_zone(room_tz.clone());

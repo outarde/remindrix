@@ -41,7 +41,11 @@ pub struct SettingsManager {
     pub user_id: Option<OwnedUserId>, // The necessity is questionable
     pub room_tz: TimeZone,
     pub room_tz_name: String,
-    pub room_lang: String
+    pub room_lang: String,
+    pub default_time: (String, String),
+    pub default_morning: (String, String),
+    pub default_afternoon: (String, String),
+    pub default_evening: (String, String),
 }
 
 /// Lightweight structure for settings in ReminderData
@@ -106,13 +110,30 @@ impl SettingsManager {
             None => ctx.bot_config.lang.clone()
         };
 
-        /*
-        let user_id = match user_id {
-            Some(u) => u,
-            None => None
-        }*/
+        let default_time = match ctx.bot_config.morning.split_once(":").map(|(h, m)| (h.to_string(), m.to_string())) {
+            Some((h, m)) => (h, m),
+            None => {
+                super::config::DEFAULT_MORNING_TIME
+                    .split_once(":")
+                    .map(|(h, m)| (h.to_string(), m.to_string()))
+                    .unwrap()
+            }
+        };
+        let default_morning = default_time.clone();
+        let default_afternoon = ctx.bot_config.afternoon.split_once(":").map(|(h, m)| (h.to_string(), m.to_string())).unwrap();
+        let default_evening = ctx.bot_config.evening.split_once(":").map(|(h, m)| (h.to_string(), m.to_string())).unwrap();
 
-        Self { room_id, user_id, room_tz, room_tz_name, room_lang }
+        Self { 
+            room_id, 
+            user_id, 
+            room_tz, 
+            room_tz_name, 
+            room_lang, 
+            default_time,
+            default_morning,
+            default_afternoon,
+            default_evening
+        }
     }
 
     /// Get timezone for the room.

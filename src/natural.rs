@@ -232,23 +232,15 @@ fn parse_reminder_data(
     } else if let Some(t_nat) = caps.name("time_natural") {
         let natural_time = NaturalTime::from_str(&t_nat.as_str().to_lowercase(), &cmd_ctx.i18n);
         let (h, m) = match natural_time {
-            Some(NaturalTime::Morning) => &cmd_ctx.bot_config().morning.split_once(":")
-                .unwrap_or(super::config::DEFAULT_MORNING_TIME.split_once(":").unwrap()),
-            Some(NaturalTime::Afternoon) => &cmd_ctx.bot_config().afternoon.split_once(":")
-                .unwrap_or(super::config::DEFAULT_AFTERNOON_TIME.split_once(":").unwrap()),
-            Some(NaturalTime::Evening) => &cmd_ctx.bot_config().evening.split_once(":")
-                .unwrap_or(super::config::DEFAULT_EVENING_TIME.split_once(":").unwrap()),
+            Some(NaturalTime::Morning) => cmd_ctx.settings.default_morning.clone(),
+            Some(NaturalTime::Afternoon) => cmd_ctx.settings.default_afternoon.clone(),
+            Some(NaturalTime::Evening) => cmd_ctx.settings.default_evening.clone(),
             None => return Err(ReminderError::InvalidTimeFormat)
         };
         (h.to_string(), m.to_string())
     } else {
-        // TODO: Return +1 hour if day, month are today
-        // let f_t = Local::now().checked_add_signed(TimeDelta::hours(1)).unwrap();
-        // (f_t.format("%H").to_string(), f_t.format("%M").to_string())
-        super::config::DEFAULT_MORNING_TIME
-            .split_once(":")
-            .map(|(h, m)| (h.to_string(), m.to_string()))
-            .unwrap()
+        // TODO: return custom time interval
+        cmd_ctx.settings.default_time.clone()
     };
 
     // Reminder's text
@@ -277,7 +269,7 @@ fn build_datetime_utc(
     let mm = data.min.parse::<i8>().map_err(|_| ReminderError::InvalidTimeFormat)?;
 
     let civil_dt = CivilDateTime::new(y, m, d, hh, mm, 0, 0)
-        .map_err(|_| ReminderError::InvalidDateTimeFormat)?;
+        .map_err(|_| ReminderError::InvalidDateTime)?;
 
     // Convert it to Zoned.
     let user_dt = civil_dt.to_zoned(cmd_ctx.settings.room_tz.clone()).map_err(|_| ReminderError::UnsafeDateTime)?;
