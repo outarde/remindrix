@@ -7,10 +7,12 @@ use matrix_sdk::{
         }
     }
 };
+use tokio::time::{Duration, sleep};
 use rust_i18n::t;
 use strum_macros::{Display, EnumString};
 use jiff::{
-    Zoned, Span, ToSpan, tz::TimeZone, Timestamp,
+    Zoned, Span, ToSpan, SpanTotal, SpanRound,
+    tz::TimeZone, Timestamp, Unit,
     civil::{DateTime as CivilDateTime, Date}
 };
 use crate::handlers::CommandContext;
@@ -137,6 +139,8 @@ pub async fn send_success(
     interval: bool
 ) {
     if cmd_ctx.bot_config().send_reactions {
+        let _ = cmd_ctx.room.typing_notice(false).await;
+
         // Send digits reaction or one emoji if it is not an interval.
         if cmd_ctx.bot_config().send_digits_reactions && !interval {
             let digits = calculate_durations(reminder.utc_dt);
@@ -146,6 +150,11 @@ pub async fn send_success(
             let _ = send_reaction(event.event_id.clone(), &cmd_ctx, MessageReaction::Timer).await;
         }
     } else {
+        // Disable typing indicator.
+        tokio::time::sleep(Duration::from_millis(0_300)).await;
+        let _ = cmd_ctx.room.typing_notice(false).await;
+        tokio::time::sleep(Duration::from_millis(0_100)).await;
+
         let date_str = reminder.civil_dt.strftime("%d.%m.%Y").to_string();
         let hour_str = reminder.civil_dt.strftime("%H").to_string();
         let min_str = reminder.civil_dt.strftime("%M").to_string();
@@ -251,13 +260,22 @@ pub async fn send_digits_reaction(
 //===== Time and Date Calculation =====
 /// Calculate weeks, days, hours and minutes before some time
 pub fn calculate_durations(utc_time: Timestamp) -> Vec<i32> {
-    let duration_to_wait = utc_time.since(Timestamp::now()).unwrap();
+    let now = Timestamp::now();
+    let relative = now.to_zoned(TimeZone::UTC);
+    
+    // Get span
+    let span = utc_time.since(now).unwrap();
+    
+    // Round for minutes with relative point to count months, too
+    // let span = span.round(SpanRound::new().smallest(Unit::Minute).relative(&zdt_now)).unwrap();
+
     let numbers = vec![
-        duration_to_wait.get_months(),
-        duration_to_wait.get_weeks(), 
-        duration_to_wait.get_days(), 
-        duration_to_wait.get_hours(),
-        duration_to_wait.get_minutes().try_into().unwrap()
+        span.total((Unit::Month, &relative)).unwrap() as i32,
+        span.total((Unit::Week, &relative)).unwrap() as i32, 
+        span.total((Unit::Day, &relative)).unwrap() as i32,
+        span.total((Unit::Hour, &relative)).unwrap() as i32,
+        span.total((Unit::Minute, &relative)).unwrap() as i32
     ];
+    // let numbers = numbers.iter().map(|&n| n as i32).collect();
     return numbers;
 }
