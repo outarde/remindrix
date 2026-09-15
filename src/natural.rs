@@ -1,40 +1,28 @@
 use matrix_sdk::{
-    deserialized_responses::SyncOrStrippedState,
-    Client, Room, RoomState,
     ruma::{
-        room_id,
-        OwnedUserId, RoomId, OwnedRoomId, OwnedEventId,
         events::{
-            reaction::ReactionEventContent, relation::Annotation,
             room::{
-                member::StrippedRoomMemberEvent, 
-                message::{MessageType, OriginalSyncRoomMessageEvent, RoomMessageEventContent},
+                message::{OriginalSyncRoomMessageEvent},
             }
         }
     }
 };
 use anyhow::Result;
-use tokio::time::{Duration, sleep};
 use jiff::{
-    Zoned, Span, ToSpan, tz::TimeZone, Timestamp,
-    civil::{DateTime as CivilDateTime, Date}
+    Zoned, ToSpan, Timestamp,
+    civil::{DateTime as CivilDateTime}
 };
-use tokio_rusqlite::Connection;
 use regex::Regex;
 use std::{string::ToString, sync::{OnceLock, Arc}};
-use rust_i18n::t;
 use strum_macros::{Display, EnumString};
 
 // app crates
-use crate::config::BotConfig;
-use crate::reminder::{ReminderStatus, ReminderError, ReminderData, Reminder};
-use crate::settings::{RoomTimezoneContent, SettingsManager, ReminderSettings};
-use crate::handlers::{
+use crate::reminder::{ReminderError, ReminderData};
+use crate::context::{
     CommandContext, I18nManager
 };
 use crate::messaging::{
     MessageReaction,
-    calculate_durations, send_reaction, send_digits_reaction
 };
 
 // Compile regex only once
@@ -107,7 +95,7 @@ pub async fn process_natural_reminder(
         Some(c) => c,
         // Send cross emoji and welcome message if none
         None => {
-            let _ = send_reaction(event.event_id.clone(), &cmd_ctx.room, MessageReaction::Cross).await;
+            cmd_ctx.msng.react(event.event_id.clone(), MessageReaction::Cross).await;
             cmd_ctx.send_welcome_message().await;
 
             return Ok(());

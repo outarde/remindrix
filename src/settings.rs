@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use jiff::{tz::TimeZone, Timestamp};
 use crate::reminder::{ReminderError};
-use crate::handlers::{CommandContext};
+use crate::context::{CommandContext};
 
 #[derive(Clone, Debug, Deserialize, Serialize, EventContent)]
 #[ruma_event(type = "com.reminder-bot.room_timezone", kind = State, state_key_type = EmptyStateKey)]

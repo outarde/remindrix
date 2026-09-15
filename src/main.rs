@@ -23,6 +23,7 @@ use tokio_rusqlite::Connection;
 mod cli;
 mod config;
 mod auth;
+mod context;
 mod handlers;
 mod parsers;
 mod natural;
@@ -33,7 +34,7 @@ mod settings;
 mod remote_i18n;
 
 use crate::remote_i18n::RemoteI18n;
-use crate::handlers::I18nManager;
+use crate::context::I18nManager;
 use crate::db::ReminderRepository;
 
 rust_i18n::i18n!("locales", fallback = "en", backend = RemoteI18n::new());

@@ -20,7 +20,7 @@ use anyhow::{Context, Result};
 use strum_macros::{Display, EnumString};
 use thiserror::Error;
 
-use crate::handlers::CommandContext;
+use crate::context::CommandContext;
 use crate::settings::{SettingsManager, ReminderSettings};
 
 /// Structure for restoring reminders from DB.

@@ -8,7 +8,7 @@ use matrix_sdk::{
         }
     }
 };
-use std::sync::Arc;
+use std::{sync::Arc, iter::once};
 use tokio::time::{Duration, sleep};
 use rust_i18n::t;
 use strum_macros::{Display, EnumString};
@@ -17,7 +17,7 @@ use jiff::{
     tz::TimeZone, Timestamp, Unit,
     civil::{DateTime as CivilDateTime, Date}
 };
-use crate::handlers::{CommandContext, I18nManager};
+use crate::context::{CommandContext, I18nManager};
 use crate::reminder::ReminderData;
 
 // #[derive(strum_macros::Display)]
@@ -152,8 +152,8 @@ impl RoomMessenger {
         event_id: OwnedEventId,
         emojis: Vec<MessageReaction>
     ) {
-        for k in emojis {
-            let annotation = Annotation::new(event_id.clone(), k.to_string());
+        for e in emojis {
+            let annotation = Annotation::new(event_id.clone(), e.to_string());
             let content = ReactionEventContent::new(annotation);
             
             let _ = self.room.send(content).await;
@@ -179,68 +179,30 @@ async fn send_error(err: &ReminderError, cmd_ctx: &CommandContext) {
 */
 
 // ===== Reactions =====
-/// Send reaction to the related event (message).
-pub async fn send_reaction(
-    event_id: OwnedEventId, 
-    room: &Room, 
-    emoji_key: MessageReaction
-) {
-    let annotation = Annotation::new(event_id, emoji_key.to_string());
-    let content = ReactionEventContent::new(annotation);
-    
-    let _ = room.send(content).await;
-}
-
-/// Send reactions with digits emoji with to the related event (message).
-/// Calculates the time until an event occurs and selects the number of the 
-/// largest non-empty dimension (days -> hours -> minutes).
-pub async fn send_digits_reaction(
-    event_id: OwnedEventId, 
-    room: &Room,
-    numbers: Vec<i32>
-) {
-    // First positive number, whose remainder when divided by 11 is not 0.
-    // (Matrix prevents sending the same reaction twice: status_code: 400, DuplicateAnnotation.)
-    let first_positive = numbers
-        .iter()
-        .enumerate()
-        .find(|&(_, &x)| x > 0 && x < 100)
-        .and_then(|(idx, &x)| if x % 11 == 0 { None } else { Some((idx, x)) });
-
-    match first_positive {
-        Some((idx, mut d)) => {
-            let _ = send_reaction(event_id.clone(), room, MessageReaction::from_digit_time_type(idx as u32)).await;
-
-            let mut digits = Vec::new();
-         
-            while d > 0 {
-                digits.push((d % 10) as u32);
-                d /= 10;
-            }
-            // we don't need reverse vector as Matrix clients
-            // display new reactions at the left of message bubble.
-            // digits.reverse();
-
-            for digit_emoji in digits {
-                let _ = send_reaction(event_id.clone(), room, MessageReaction::from_digit(digit_emoji)).await;
-            }
-
-        },
-        // so we can't send numbers with equal digits and send "check" emoji instead
-        None => {
-            let _ = send_reaction(event_id.clone(), room, MessageReaction::Timer).await;
-        }
-    }
-}
-
-// ====== ======
-/// Calculates the time until an event occurs and selects the number of the 
-/// largest non-empty dimension (days -> hours -> minutes).
-pub async fn get_digits_emogi(
-    event_id: OwnedEventId, 
-    room: &Room,
-    numbers: Vec<i32>
+/// Get digits emojis before utc_dt.
+pub fn get_emojis_for_duration(
+    numbers: Vec<i32>,
 ) -> Vec<MessageReaction> {
+    let emojis = match get_digits(numbers) {
+        Some((leading, digits)) => {
+            let mut emojis: Vec<MessageReaction> = once(MessageReaction::from_digit_time_type(leading as u32))
+                .chain(digits.iter().map(|&d| MessageReaction::from_digit(d)))
+                .collect();
+            emojis
+        },
+        // so we can't send numbers with equal digits and send "check" emoji instead
+        None => vec![MessageReaction::Timer]
+    };
+
+    return emojis;
+}
+
+//===== Calculations =====
+/// Return the largest number as digits and its time dimension 
+/// (months -> weeks -> days -> hours -> minutes).
+pub fn get_digits(
+    numbers: Vec<i32>
+) -> Option<(usize, Vec<u32>)> {
     // First positive number, whose remainder when divided by 11 is not 0.
     // (Matrix prevents sending the same reaction twice: status_code: 400, DuplicateAnnotation.)
     let first_positive = numbers
@@ -249,39 +211,33 @@ pub async fn get_digits_emogi(
         .find(|&(_, &x)| x > 0 && x < 100)
         .and_then(|(idx, &x)| if x % 11 == 0 { None } else { Some((idx, x)) });
 
+    // Get digits from the number if it exists.
     match first_positive {
         Some((idx, mut d)) => {
-            let _ = send_reaction(event_id.clone(), room, MessageReaction::from_digit_time_type(idx as u32)).await;
-
             let mut digits = Vec::new();
          
             while d > 0 {
                 digits.push((d % 10) as u32);
                 d /= 10;
             }
-            // we don't need reverse vector as Matrix clients
-            // display new reactions at the left of message bubble.
-            // digits.reverse();
+            
+            // we don't need reverse() as new reactions appear at the left of message bubble.
 
-            let emojis = digits.iter().map(|&d| MessageReaction::from_digit(d)).collect();
-            return emojis;
+            return Some((idx, digits));
 
         },
-        // so we can't send numbers with equal digits and send "check" emoji instead
         None => {
-            return vec![MessageReaction::Timer];
+            return None;
         }
     }
 }
-
-//===== Time and Date Calculation =====
 /// Calculate weeks, days, hours and minutes before some time
-pub fn calculate_durations(utc_time: Timestamp) -> Vec<i32> {
+pub fn calculate_durations(timestamp: Timestamp) -> Vec<i32> {
     let now = Timestamp::now();
     let relative = now.to_zoned(TimeZone::UTC);
     
     // Get span
-    let span = utc_time.since(now).unwrap();
+    let span = timestamp.since(now).unwrap();
     
     // Round for minutes with relative point to count months, too
     // let span = span.round(SpanRound::new().smallest(Unit::Minute).relative(&zdt_now)).unwrap();
