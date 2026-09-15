@@ -54,7 +54,7 @@ impl From<i64> for ReminderStatus {
 /// Keys of i18n for erros.
 #[derive(Debug, Error)]
 pub enum ReminderError {
-    #[error("error.db: {0}")] Db(#[from] tokio_rusqlite::Error),
+    #[error("error.db")] Db(#[from] tokio_rusqlite::Error),
     #[error("error.month")] InvalidMonth,
     #[error("error.past-time")] TimeInPast,
     #[error("error.time")] InvalidTime,
@@ -66,7 +66,8 @@ pub enum ReminderError {
     #[error("error.delegation-room-format")] InvalidDelegationRoomFormat,
     #[error("error.delegation-no-room")] NoDelegatedRoom,
     #[error("tz.invalid-format")] InvalidTzFormat,
-    #[error("Time error: {0}")] JiffError(#[from] jiff::Error), 
+    #[error("tz.not-set")] TzNotSet,
+    #[error("error.unsafe-datetime")] JiffError(#[from] jiff::Error), 
 }
 
 /// Reminder in UTC.

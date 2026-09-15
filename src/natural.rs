@@ -32,9 +32,8 @@ use crate::settings::{RoomTimezoneContent, SettingsManager, ReminderSettings};
 use crate::handlers::{
     CommandContext, I18nManager
 };
-use crate::reactions::{
-    MessageReaction, 
-    send_welcome_message, 
+use crate::messaging::{
+    MessageReaction,
     calculate_durations, send_reaction, send_digits_reaction
 };
 
@@ -100,44 +99,26 @@ pub async fn process_natural_reminder(
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
 ) -> anyhow::Result<()> {
-    // Make regular expression
+    // Build or get built regular expression.
     let re = build_reminder_regex(&cmd_ctx.ctx, &cmd_ctx.i18n);
 
-    // Check if regular expression found some groups
+    // Check if regular expression found some groups.
     let caps = match re.captures(args_str) {
         Some(c) => c,
+        // Send cross emoji and welcome message if none
         None => {
-            // Send cross emoji and welcome message.
-            let _ = send_reaction(event.event_id.clone(), &cmd_ctx, MessageReaction::Cross).await;
-            let _ = send_welcome_message(cmd_ctx).await;
+            let _ = send_reaction(event.event_id.clone(), &cmd_ctx.room, MessageReaction::Cross).await;
+            cmd_ctx.send_welcome_message().await;
 
             return Ok(());
         }
     };
 
-    // Parsed Data
-    let reminder_data = match parse_reminder_data(
-        &caps, 
-        &cmd_ctx
-    ) {
-        Ok(data) => data,
-        Err(e) => {
-            tracing::error!("Error: {} while parsing regex: {:?}", e, caps);
-            return Ok(());
-        }
-    };
+    // Parse input.
+    let reminder_data = parse_reminder_data(&caps, &cmd_ctx)?;
 
-    // Times
-    let (utc_dt, civil_dt) = match build_datetime_utc(&reminder_data, &cmd_ctx) {
-        Ok((ut, ct)) => (ut, ct),
-        Err(err) => {
-            let err_msg = t!(err.to_string()); 
-            let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
-            
-            tracing::error!("Date and time validation error: {:?} for {:?}", err, reminder_data);
-            return Ok(());
-        }
-    };
+    // Get datetime.
+    let (utc_dt, civil_dt) = build_datetime_utc(&reminder_data, &cmd_ctx)?;
 
     let reminder_data = ReminderData {
         utc_dt,
@@ -155,7 +136,7 @@ pub async fn process_natural_reminder(
     super::reminder::schedule_reminder(cmd_ctx.ctx.clone(), reminder.clone()).await;
         
     // Send success reaction or message to the room.
-    super::reactions::send_success(event, &cmd_ctx, reminder.data, false).await;
+    cmd_ctx.send_reminder_success(event, reminder.data, false).await;
 
     Ok(())
 }

@@ -17,7 +17,7 @@ use matrix_sdk::{
 use anyhow::Result;
 use tokio::time::{Duration, sleep};
 use jiff::{
-    Zoned, Span, tz::TimeZone, 
+    Zoned, Span, ToSpan, tz::TimeZone, 
     civil::{DateTime as CivilDateTime, Date}
 };
 use tokio_rusqlite::Connection;
@@ -40,9 +40,8 @@ use crate::parsers::{
 use crate::natural::{
     process_natural_reminder
 };
-use crate::reactions::{
-    MessageReaction, 
-    send_welcome_message, 
+use crate::messaging::{
+    RoomMessenger, MessageReaction,
     calculate_durations, send_reaction, send_digits_reaction
 };
 
@@ -175,22 +174,22 @@ impl I18nManager {
 pub struct CommandContext {
     pub room: Room,
     pub user_id: OwnedUserId,
-    // pub room_id: OwnedRoomId,
     pub ctx: Arc<super::BotContext>,
     pub settings: SettingsManager,
     pub i18n: Arc<I18nManager>,
+    pub msng: RoomMessenger,
 }
 
 impl CommandContext {
     pub async fn new(user_id: OwnedUserId, room: Room, ctx: Arc<super::BotContext>) -> Self {
         let settings = SettingsManager::new(&room, Some(user_id.clone()), &ctx).await;
         let i18n = ctx.get_i18n_manager(&settings.room_lang).await;
-        // let room_id = room.room_id().to_owned();
+        let msng = RoomMessenger::new(room.clone(), i18n.clone());
 
-        Self { room, user_id, ctx, settings, i18n } 
+        Self { room, user_id, ctx, settings, i18n, msng } 
     }
 
-    // getters
+    // ===== Getters =====
     // cmd_ctx.ctx.bot_config
     pub fn bot_config(&self) -> &super::config::BotConfig {
         &self.ctx.bot_config
@@ -202,24 +201,98 @@ impl CommandContext {
     pub fn is_room_group(&self) -> bool {
         self.room.active_members_count() > 2 as u64
     }
+
+    // ===== Messages =====
+    /// Send welcome message with help to the room.
+    pub async fn send_welcome_message(&self) {
+        let tomorrow = Zoned::now()
+            .with_time_zone(self.settings.room_tz.clone())
+            .checked_add(1.days()).unwrap_or_else(|_| {
+                Zoned::now().with_time_zone(TimeZone::UTC).checked_add(1.days()).unwrap()
+            });
+        let (month_str, month_str_truncated) = self.i18n.format_month(&(tomorrow.month() as u32)).unwrap();
+
+        let welcome_type = if self.ctx.bot_config.quick_remind {
+            "welcome.on_command_off"
+        } else { "welcome.on_command" };
+
+        let welcome_msg = t!(
+            welcome_type,
+            locale = &self.settings.room_lang,
+            cmd_local = self.i18n.cmd_remind,
+            cmd_list = self.ctx.bot_config.remind_commands.join("|"),
+            cmd_tz_list = self.ctx.bot_config.tz_commands.join("|"),
+            date = tomorrow.strftime("%d.%m.%Y").to_string(),
+            date_slash = tomorrow.strftime("%d/%m/%Y").to_string(),
+            date_hyphen = tomorrow.strftime("%d-%m").to_string(),
+            date_d = tomorrow.day().to_string(),
+            month = month_str,
+            month_truncated = month_str_truncated,
+            today = self.i18n.today,
+            tomorrow = self.i18n.tomorrow,
+            morning = self.i18n.morning,
+            afternoon = self.i18n.afternoon,
+            evening = self.i18n.evening
+        );
+
+        self.msng.text_md_long(&welcome_msg).await;
+    }
+    /// Send a message or reaction about a successfully created reminder to the room.
+    pub async fn send_reminder_success(
+        &self,
+        event: OriginalSyncRoomMessageEvent, 
+        reminder: ReminderData, 
+        interval: bool
+    ) {
+        if self.bot_config().send_reactions {
+            // Send digits reaction or one emoji if it is not an interval.
+            if self.bot_config().send_digits_reactions && !interval {
+                let digits = calculate_durations(reminder.utc_dt);
+                let _ = send_digits_reaction(event.event_id.clone(), &self.room, digits).await;
+            }
+            else {
+                let _ = send_reaction(event.event_id.clone(), &self.room, MessageReaction::Timer).await;
+            }
+        } else {
+            let date_str = reminder.civil_dt.strftime("%d.%m.%Y").to_string();
+            let hour_str = reminder.civil_dt.strftime("%H").to_string();
+            let min_str = reminder.civil_dt.strftime("%M").to_string();
+            let reminder_mes = t!("reminder.saved", locale = &self.settings.room_lang, date = date_str, hour = hour_str, min = min_str);
+            self.msng.text_plain(&reminder_mes).await;
+        }
+    }
+
+    /// Send a message or reaction about a successfully created reminder to the room.
+    pub async fn send_tz_success(
+        &self,
+        event: OriginalSyncRoomMessageEvent,
+        tz: &str,
+    ) {
+        if self.bot_config().send_reactions {
+            let _ = send_reaction(event.event_id.clone(), &self.room, MessageReaction::Check).await;
+        } else {
+            let msg = t!("tz.set", locale = &self.settings.room_lang, tz = tz); 
+            self.msng.text_md(&msg).await;
+        }
+    }
 }
 
 /// **CLI** (Command Lined Interface) or **Pro** mode allows you to create reminders 
-/// using syntax similar to that used in the terminal.
+/// using syntax similar to that used in the terminal
 #[derive(Parser, Debug)]
 // #[command(no_binary_name = true)]
 pub struct RemindArgs {
-    /// Reminder date as numbers, without spaces. 
-    /// Supported characters as separators: `.`, `/`, `-`. A day without a month or year can be specified.
+    /// *Reminder date as numbers, without spaces. 
+    /// Supported characters as separators: `.`, `/`, `-`. A day without a month or year can be specified*
     #[arg(long)]
     pub date: Option<String>,
-    /// Day as a number.
+    /// *Day as a number*
     #[arg(short, long)]
     pub day: Option<String>,
-    /// Month as a number.
+    /// *Month as a number*
     #[arg(short, long)]
     pub month: Option<String>,
-    /// Year as a number.
+    /// *Year as a number*
     #[arg(short, long)]
     pub year: Option<String>,
 
@@ -356,15 +429,11 @@ pub async fn on_room_message(
         }
     };
 
-    // Turning off the typing indicator.
-    tokio::time::sleep(Duration::from_millis(0_400)).await;
-    let _ = room.typing_notice(false).await;
-
     // If there is an error
     if let Err(err) = result {
         // super::reactions::send_error(err, &cmd_ctx);
-        let err_msg = t!(err.to_string()); 
-        let _ = cmd_ctx.room.send(RoomMessageEventContent::text_plain(err_msg)).await;
+        let err_msg = t!(err.to_string(), locale = &cmd_ctx.settings.room_lang); 
+        let _ = cmd_ctx.msng.text_plain(&err_msg).await;
     }
 }
 
@@ -389,11 +458,15 @@ pub async fn handle_remind(
         Err(CliError::ClapError(clap_err)) => {
             // If user wants to print --help
             if clap_err.kind() == clap::error::ErrorKind::DisplayHelp {
+                // Get help text.
                 let help_text = clap_err.render().to_string();
-                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(help_text)).await;
+                cmd_ctx.msng.text_md_long(&help_text).await;
+
                 Ok(())
             }
-            else { process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await }
+            else { 
+                process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await 
+            }
         },
         Err(CliError::NaturalFallback) => {
             process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await
@@ -467,7 +540,7 @@ pub async fn process_cli_reminder(
     super::reminder::schedule_reminder(cmd_ctx.ctx.clone(), reminder.clone()).await;
         
     // Send success reaction or message to the room.
-    super::reactions::send_success(event, &cmd_ctx, reminder.data, args.interval).await;
+    cmd_ctx.send_reminder_success(event, reminder.data, args.interval).await;
 
     Ok(())
 }
@@ -475,7 +548,7 @@ pub async fn process_cli_reminder(
 /// Handle changing time zone.
 async fn handle_tz(
     body: &str,
-    ev: OriginalSyncRoomMessageEvent,
+    event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
 ) -> anyhow::Result<()> {
     // Update timezone if we have one in the input.
@@ -485,24 +558,17 @@ async fn handle_tz(
 
         // If user's input timezone is equal to current room timezone
         if input_tz == cmd_ctx.settings.room_tz {
-            let msg = t!("tz.not-set"); 
-            let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(msg)).await;
+            return Err(ReminderError::TzNotSet.into());
         }
         else {
             let input_tz_name = cmd_ctx.settings.set_room_tz(&cmd_ctx, input_tz).await?;
-
-            if cmd_ctx.bot_config().send_reactions {
-                let _ = send_reaction(ev.event_id.clone(), &cmd_ctx, MessageReaction::Check).await;
-            } else {
-                let msg = t!("tz.set", tz = input_tz_name); 
-                let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(msg)).await;
-            }
+            cmd_ctx.send_tz_success(event.clone(), &input_tz_name).await;
         }
     }
     // Send current timezone.
     else {
         let msg = t!("tz.current", tz = &cmd_ctx.settings.room_tz_name);
-        let _ = cmd_ctx.room.send(RoomMessageEventContent::text_markdown(msg)).await;
+        let _ = cmd_ctx.msng.text_md(&msg).await;
     }
 
     Ok(())
@@ -541,9 +607,7 @@ pub async fn on_stripped_state_member(
 
         // Send welcome message.
         let cmd_ctx = CommandContext::new(room_member.sender, room, ctx).await;
-        let _ = send_welcome_message(cmd_ctx).await;
-
-        // let _ = room.send(RoomMessageEventContent::text_plain("/remind")).await.unwrap();
+        cmd_ctx.send_welcome_message().await;
     });
 }
 
