@@ -277,43 +277,43 @@ impl CommandContext {
     }
 }
 
-/// **CLI** (Command Lined Interface) or **Pro** mode allows you to create reminders 
+/// **CLI** (Command Lined Interface) or **Pro mode** allows you to create reminders 
 /// using syntax similar to that used in the terminal
 #[derive(Parser, Debug)]
 // #[command(no_binary_name = true)]
 pub struct RemindArgs {
-    /// *Reminder date as numbers, without spaces. 
-    /// Supported characters as separators: `.`, `/`, `-`. A day without a month or year can be specified*
+    /// _**Reminder date** as numbers, without spaces. 
+    /// Supported characters as separators: `.`, `/`, `-`. A day without a month or year can be specified_
     #[arg(long)]
     pub date: Option<String>,
-    /// *Day as a number*
+    /// _**Day** as a number_
     #[arg(short, long)]
     pub day: Option<String>,
-    /// *Month as a number*
+    /// _**Month** as a number_
     #[arg(short, long)]
     pub month: Option<String>,
-    /// *Year as a number*
+    /// _**Year** as a number_
     #[arg(short, long)]
     pub year: Option<String>,
 
-    /// Time as a number, without spaces. The colon character `:` is supported as a separator.
+    /// _**Time** as a number, without spaces. The colon character `:` is supported as a separator_
     #[arg(long)]
     pub time: Option<String>,
-    /// Hour as a number.
+    /// _**Hour** as a number_
     #[arg(long)]
     pub hour: Option<String>,
-    /// Minutes as a number.
+    /// _**Minutes** as a number_
     #[arg(long)]
     pub min: Option<String>,
     
-    /// Reminder text.
+    /// _**Reminder text**_
     pub text: Vec<String>,
 
-    /// The room to delegate the reminder to, in the `!unique_room_code:homeserver_url` format. 
-    /// You can get it from the share in the Element X client.
+    /// _The room to **delegate** the reminder to, in the `!unique_room_code:homeserver_url` format. 
+    /// You can get it from the share menu in the Element X client_
     #[arg(long)]
     pub to: Option<String>,
-    /// Use the specified time and date values as exact or interval values.
+    /// _Use the specified time and date values as exact or **interval** values_
     #[arg(short, long)]
     pub interval: bool,
 
