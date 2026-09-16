@@ -51,11 +51,11 @@ You don't need to enable this mode specifically: the bot tries to recognize any 
 | `-d`, `--day` | Day as a number. | No. If only a day is specified without a month, the current month is used. If the specified day has already passed in the current month, the next month is used. |
 | `-m`, `--month` | Month as a number. | No. |
 | `-y`, `--year` | Year as a number. | No. |
-| `--time` | Time as a number, without spaces. The colon character `:` is supported as a separator. | No. Overridden by the values below. If time is not specified, default morning time from the settings is used. If the date was also specified automatically and the reminder time is in the past, the reminder will be moved forward one day. |
+| `-t, --time` | Time as a number, without spaces. The colon and dot characters (`:`, `.`) are supported as separators. | No. Overridden by the values below. If time is not specified, default morning time from the settings is used. If the date was also specified automatically and the reminder time is in the past, the reminder will be moved forward one day. |
 | `--hour` | Hour as a number. | No. |
-| `--minute` | Minutes as a number. | No. |
+| `--min` | Minutes as a number. | No. |
 | `--to` | The room to delegate the reminder to, in the `!unique_room_code:homeserver_url` format. You can get it from the *share* in the Element X client. | No. |
-| `-i`, `--interval` | Use the specified time and date values as exact or interval values. | No, defaults to `false`. |
+| `-i`, `--interval` | If the flag is specified, the entered date and time will be used as an interval. | No, defaults to `false`. |
 >[!IMPORTANT]
 >Use the short form of parameters only where they are specified in the short form in the table. Time parameters do not have a short form because their first letter would either match the date parameters or the system help command `-h`.
 
@@ -63,5 +63,5 @@ You don't need to enable this mode specifically: the bot tries to recognize any 
 - `remind --date=12.10.2026 make hot chocolate`
 - `remind -d 1 -m 11 --time 00:00 Halloween` - creates a reminder on November 1st at midnight.
 - `remind --hour 1 -i Check the pie in the oven` - creates a reminder one hour from the current time.
-
+- `remind --time 00:30 -i take a hot bath` or `remind --min 30 -i take a hot bath` - remind in half an hour.
 
