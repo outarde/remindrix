@@ -185,10 +185,9 @@ pub fn get_emojis_for_duration(
 ) -> Vec<MessageReaction> {
     let emojis = match get_digits(numbers) {
         Some((leading, digits)) => {
-            let mut emojis: Vec<MessageReaction> = once(MessageReaction::from_digit_time_type(leading as u32))
-                .chain(digits.iter().map(|&d| MessageReaction::from_digit(d)))
-                .collect();
-            emojis
+            once(MessageReaction::from_digit_time_type(leading as u32))
+                .chain(digits.into_iter().map(|d| MessageReaction::from_digit(d)))
+                .collect::<Vec<MessageReaction>>()
         },
         // so we can't send numbers with equal digits and send "check" emoji instead
         None => vec![MessageReaction::Timer]
@@ -205,31 +204,21 @@ pub fn get_digits(
 ) -> Option<(usize, Vec<u32>)> {
     // First positive number, whose remainder when divided by 11 is not 0.
     // (Matrix prevents sending the same reaction twice: status_code: 400, DuplicateAnnotation.)
-    let first_positive = numbers
+    let (idx, mut d) = numbers
         .iter()
         .enumerate()
         .find(|&(_, &x)| x > 0 && x < 100)
-        .and_then(|(idx, &x)| if x % 11 == 0 { None } else { Some((idx, x)) });
+        .filter(|&(_, &x)| x % 11 != 0)
+        .map(|(idx, &x)| (idx, x))?;
 
     // Get digits from the number if it exists.
-    match first_positive {
-        Some((idx, mut d)) => {
-            let mut digits = Vec::new();
-         
-            while d > 0 {
-                digits.push((d % 10) as u32);
-                d /= 10;
-            }
-            
-            // we don't need reverse() as new reactions appear at the left of message bubble.
-
-            return Some((idx, digits));
-
-        },
-        None => {
-            return None;
-        }
+    let mut digits = Vec::new();
+    while d > 0 {
+        digits.push((d % 10) as u32);
+        d /= 10;
     }
+    // we don't need reverse() as new reactions appear at the left of message bubble.
+    Some((idx, digits))
 }
 /// Calculate weeks, days, hours and minutes before some time
 pub fn calculate_durations(timestamp: Timestamp) -> Vec<i32> {
