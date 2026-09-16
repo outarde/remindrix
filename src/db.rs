@@ -53,7 +53,7 @@ async fn run_migrations(conn: &Connection) -> Result<()> {
         for migration in MIGRATIONS.iter().filter(|m| m.version > current_version) {
             tracing::info!("Applying migration version {}", migration.version);
             
-            tx.execute(migration.sql, [])?;
+            tx.execute_batch(migration.sql)?;
 
             // Update PRAGMA user_version.
             let pragma_query = format!("PRAGMA user_version = {}", migration.version);
