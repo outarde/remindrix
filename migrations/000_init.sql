@@ -20,4 +20,4 @@ CREATE TABLE IF NOT EXISTS settings (
     PRIMARY KEY (room_id, user_id, key)
 );
 
-CREATE INDEX IF NOT EXISTS idx_reminders_status ON reminders(status);
+CREATE INDEX IF NOT EXISTS idx_reminders_status ON reminders(status)
