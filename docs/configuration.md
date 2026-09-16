@@ -8,15 +8,15 @@ Required settings are stored as environment variables. These are the parameters 
 | `MATRIX_USERNAME`   | Bot's account username. Create a user via Matrix Authentication Service (MAS): `docker exec matrix-auth mas-cli manage register-user USERNAME --password PASSWORD`                                                                                       | `@reminder-bot:matrix.org` |
 | `MATRIX_PASSWORD`   | Bot's account password.                                                                                       | `mypassword`               |
 | `MATRIX_TOKEN`      | Authentication token instead of a username and password. Generate a token via [Element Admin](https://github.com/element-hq/element-admin) or other service. | `mpt_mytoken`              |
-| `MATRIX_RECOVERY`      | A recovery key that you enter only when you want to verify your account and then keep in a safe place. For more information, see the dedicated [Matrix account page](https://github.com/outarde/reminder-bot/tree/main/docs/matrix.md). | `recovery_key`              |
+| `MATRIX_RECOVERY`      | A recovery key that you enter only when you want to verify your account and then keep in a safe place. For more information, see the dedicated [Matrix account page](https://github.com/outarde/remindrix/tree/main/docs/matrix.md). | `recovery_key`              |
 
-You can set variables in the [docker-compose.yml](https://github.com/outarde/reminder-bot/blob/main/docker/docker-compose.yml):
+You can set variables in the [docker-compose.yml](https://github.com/outarde/remindrix/blob/main/docker/docker-compose.yml):
 ```yaml
 environment:
   - MATRIX_HOMESERVER=https://matrix.org
   - MATRIX_TOKEN=mpt_mytoken
 ```
-Or in the [.env file](https://github.com/outarde/reminder-bot/blob/main/docker/example.env) in the root of the Docker container folder:
+Or in the [.env file](https://github.com/outarde/remindrix/blob/main/docker/example.env) in the root of the Docker container folder:
 ```
 MATRIX_HOMESERVER=https://matrix.org
 MATRIX_USERNAME=@reminder-bot:matrix.org
@@ -26,20 +26,20 @@ MATRIX_PASSWORD=mypassword
 The bot also has an optional variable `MATRIX_DEVICE` that specifies the device name. This name is displayed on the user's device list page and in the admin panel and does not affect the bot's use. Its default value is `reminder-bot-device`.
 
 ## Bot’s Optional Settings
-Additional settings are stored in the `config.yml`/`config.yaml` file in a folder or volume that you have bound to the `/app/data/reminder_bot` folder inside the container. The repository has default [config.example.yml](https://github.com/outarde/reminder-bot/blob/main/docker/config.example.yml).
+Additional settings are stored in the `config.yml`/`config.yaml` file in a folder or volume that you have bound to the `/app/data/remindrix` folder inside the container. The repository has default [config.example.yml](https://github.com/outarde/remindrix/blob/main/docker/config.example.yml).
 
 <details>
 <summary>Interactive configurator</summary>
 
 The interactive configurator walks you through a series of questions to create a settings file and saves it to disk. Run it via the command line:
 ```
-docker run --rm -it -v ~/bot-data:/app/data/reminder_bot ghcr.io/outarde/reminder-bot:latest config-setup
+docker run --rm -it -v ~/bot-data:/app/data/remindrix ghcr.io/outarde/remindrix:latest config-setup
 ```
 The settings file will be saved in `~/bot-data` - in this case, in the folder in the user's home directory.
 
-If you have already created a bot container, run the command where `reminder-bot` is the name of your container:
+If you have already created a bot container, run the command where `remindrix` is the name of your container:
 
-`docker exec -it reminder-bot config-setup`
+`docker exec -it remindrix config-setup`
 
 Confirm that you want to create or overwrite a settings file.
 </details>
@@ -82,7 +82,7 @@ Confirm that you want to create or overwrite a settings file.
 - `ru` Russian 🇷🇺,
 - `uk` Ukrainian 🇺🇦.
 
-If you notice an incorrect translation or would like to request an other language, please [report it](https://github.com/outarde/reminder-bot/issues).
+If you notice an incorrect translation or would like to request an other language, please [report it](https://github.com/outarde/remindrix/issues).
 ### Using a Custom Translation File
 A custom translation file is a great way to add a language that isn't yet in the bot, or to customize an existing translation to suit your needs, for a themed homeserver or special occasion 🎃!
 
@@ -90,7 +90,7 @@ A custom translation file is a great way to add a language that isn't yet in the
 
 **Step two.** Create an `app.yml` file inside it. 
 
-**Step three.** Add your translations, checking the keys from the [default localization file](https://github.com/outarde/reminder-bot/blob/main/locales/app.yml) and using the [standard language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes).
+**Step three.** Add your translations, checking the keys from the [default localization file](https://github.com/outarde/remindrix/blob/main/locales/app.yml) and using the [standard language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes).
 
 Example:
 ```yaml
@@ -140,4 +140,4 @@ The bot will first search for a translation in your file, and then in the standa
 If you've created a translation file that you'd like to share with the community, please make a pull request to the `/docs/locales` folder of this repository.
 
 ## What's Next
-Read about the tools for working [with Matrix account](https://github.com/outarde/reminder-bot/tree/main/docs/matrix.md) (including device verification) or skip straight to the page about the intricacies [of using the bot](https://github.com/outarde/reminder-bot/tree/main/docs/usage.md).
+Read about the tools for working [with Matrix account](https://github.com/outarde/remindrix/tree/main/docs/matrix.md) (including device verification) or skip straight to the page about the intricacies [of using the bot](https://github.com/outarde/remindrix/tree/main/docs/usage.md).

@@ -1,11 +1,10 @@
 services:
   reminder-bot:
-    container_name: reminder-bot
-    image: ghcr.io/outarde/reminder-bot:latest
-    environment:
-      # All supported env variables are in /docker/example.env
-      # It is more convenient to configure variables in .env file in the container folder
-      - TZ=Etc/UTC
+    container_name: remindrix
+    image: ghcr.io/outarde/remindrix:latest
+    # All supported env variables are in /docker/example.env
+    # It is more convenient to configure variables in .env file in the container folder
+    # environment:
     volumes:
       - ./data:/app/data
     env_file:

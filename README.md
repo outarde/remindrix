@@ -8,7 +8,7 @@
 </p>
 <br>
 
-[![GitHub License](https://img.shields.io/github/license/outarde/reminder-bot)](https://github.com/outarde/reminder-bot/blob/main/LICENSE) [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/outarde/reminder-bot/docker-publish.yml)](https://github.com/outarde/reminder-bot/actions) [![GitHub Tag](https://img.shields.io/github/v/tag/outarde/reminder-bot)](https://github.com/outarde/reminder-bot/releases) [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/outarde/reminder-bot)](https://github.com/outarde/reminder-bot/commits/main/)
+[![GitHub License](https://img.shields.io/github/license/outarde/remindrix)](https://github.com/outarde/remindrix/blob/main/LICENSE) [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/outarde/remindrix/docker-publish.yml)](https://github.com/outarde/remindrix/actions) [![GitHub Tag](https://img.shields.io/github/v/tag/outarde/remindrix)](https://github.com/outarde/remindrix/releases) [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/outarde/remindrix)](https://github.com/outarde/remindrix/commits/main/)
 
 # Remindrix
 A chatbot for reminders on Matrix servers focused on multilingual support and user experience. Schedule reminders on the go in personal or group rooms - Remindrix serves as your smart, quiet assistant.
@@ -36,7 +36,7 @@ A chatbot for reminders on Matrix servers focused on multilingual support and us
 - [x] Bot’s replies via reactions
 - [x] Delegation of reminders
 - [ ] Sending a list of reminders
-- [ ] Managing reminders through reactions
+- [ ] Reaction-as-a-button
 - [ ] Recurring reminders
 #### Language and Translation:
 - [x] Adding languages
@@ -88,30 +88,30 @@ A chatbot for reminders on Matrix servers focused on multilingual support and us
 ## Quick Start
 ### Docker Run
 ```
-docker run -d --name reminder-bot --restart unless-stopped \
-  -v reminder-bot:/app/data/reminder_bot \
+docker run -d --name remindrix --restart unless-stopped \
+  -v remindrix:/app/data/remindrix \
   -e MATRIX_HOMESERVER=homeserver-url \
   -e MATRIX_TOKEN=your-token \
-  ghcr.io/outarde/reminder-bot:latest
+  ghcr.io/outarde/remindrix:latest
 ```
 ### Docker Compose
-For more persistent setup use [docker-compose.yml](https://github.com/outarde/reminder-bot/blob/main/docker/docker-compose.yml).
+For more persistent setup use [docker-compose.yml](https://github.com/outarde/remindrix/blob/main/docker/docker-compose.yml).
 
-Set the environment variables as shown in [example.env](https://github.com/outarde/reminder-bot/blob/main/docker/example.env):
+Set the environment variables as shown in [example.env](https://github.com/outarde/remindrix/blob/main/docker/example.env):
 1. `MATRIX_HOMESERVER` — Matrix homeserver address.
 2. `MATRIX_USERNAME` and `MATRIX_PASSWORD` — bot's username and password. Create a user via Matrix Authentication Service (MAS): `docker exec matrix-auth mas-cli manage register-user USERNAME --password PASSWORD`.
 3. `MATRIX_TOKEN` — specify this variable when authenticating via token rather than username and password.
 
 > [!IMPORTANT]
->  Make sure the bot's data folder `/app/data/reminder_bot` is bound to the host in `volumes` section. Otherwise, the bot will create a new session each time it's started.
+>  Make sure the bot's data folder `/app/data` is bound to the host in `volumes` section. Otherwise, the bot will create a new session each time it's started.
 
 ### Optional Configuration
-Language and other additional settings are stored in a `config.yml` file in a folder or volume that you have bound to the `/app/data/reminder_bot` folder inside the container. Use [config.example.yml](https://github.com/outarde/reminder-bot/blob/main/docker/config.example.yml) as a starting point. 
+Language and other additional settings are stored in a `config.yml` file in a folder or volume that you have bound to the `/app/data/remindrix` folder inside the container. Use [config.example.yml](https://github.com/outarde/remindrix/blob/main/docker/config.example.yml) as a starting point. 
 
 #### Available Languages
 `en` English 🇬🇧, `de` German 🇩🇪, `fr` French 🇫🇷, `it` Italian 🇮🇹, `es` Spanish 🇪🇸, `sv` Swedish, aka IKEAish 🇸🇪, `pl` Polish 🇵🇱, `cs` Czech 🇨🇿, `fi` Finnish 🇫🇮, `ja` Japanese 🇯🇵,  `zh` Chinese Simplified 🇨🇳, `ru` Russian 🇷🇺, `uk` Ukrainian 🇺🇦.
 
-You can also upload your [custom translation](https://github.com/outarde/reminder-bot/blob/main/docs/configuration.md#using-a-custom-translation-file).
+You can also upload your [custom translation](https://github.com/outarde/remindrix/blob/main/docs/configuration.md#using-a-custom-translation-file).
 
 ## Usage
 ### Start a Chat
@@ -136,7 +136,7 @@ Create a conversation with the bot or add it to a room. Send the `/remind`, `!re
 ## Beyond the Quick Start
 | ⚙️                                                                                                                                                          | 💬                                                                                                             | ☑️                                                                                                                                                                                                         |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| For a full description of bot settings, see the [ configuration.md](https://github.com/outarde/reminder-bot/blob/main/docs/configuration.md) help page. | For details on using the bot, see [usage.md](https://github.com/outarde/reminder-bot/blob/main/docs/usage.md). | For information on interacting with the Matrix homeserver and managing your account, including **device verification**, see [matrix.md](https://github.com/outarde/reminder-bot/blob/main/docs/matrix.md). |
+| For a full description of bot settings, see the [ configuration.md](https://github.com/outarde/remindrix/blob/main/docs/configuration.md) help page. | For details on using the bot, see [usage.md](https://github.com/outarde/remindrix/blob/main/docs/usage.md). | For information on interacting with the Matrix homeserver and managing your account, including **device verification**, see [matrix.md](https://github.com/outarde/remindrix/blob/main/docs/matrix.md). |
 
 ---
 I am developing this bot with a focus on users, to make communication via the Matrix protocol more convenient where it is an indispensable option for personal, non-censored communication. 
