@@ -231,7 +231,7 @@ pub fn resolve_target_dt(
             (dt.timestamp(), dt.datetime())
         }
         else { 
-            Err(ReminderError::TimeInPast)?
+            Err(ReminderError::TimeInPast(civil_dt.strftime("%d.%m.%Y %H:%M").to_string()))?
         }
     } else { (utc_dt, civil_dt) };
 

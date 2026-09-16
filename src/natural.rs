@@ -86,7 +86,7 @@ pub async fn process_natural_reminder(
     args_str: &str,
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
-) -> anyhow::Result<()> {
+) -> Result<(), ReminderError> {
     // Build or get built regular expression.
     let re = build_reminder_regex(&cmd_ctx.ctx, &cmd_ctx.i18n);
 
@@ -252,7 +252,7 @@ fn build_datetime_utc(
             (dt.timestamp(), dt.datetime())
         }
         else { 
-            Err(ReminderError::TimeInPast)?
+            Err(ReminderError::TimeInPast(civil_dt.strftime("%d.%m.%Y %H:%M").to_string()))?
         }
     } else { (utc_dt, civil_dt) };
 

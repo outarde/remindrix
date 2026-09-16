@@ -157,7 +157,7 @@ impl SettingsManager {
         &self,
         cmd_ctx: &CommandContext,
         tz: TimeZone,
-    ) -> anyhow::Result<String> {
+    ) -> Result<String, ReminderError> {
         // We can update it if we'll create it mutable in CommandContext.
         // self.room_tz = tz;
 

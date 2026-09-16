@@ -51,12 +51,12 @@ impl From<i64> for ReminderStatus {
     }
 }
 
-/// Keys of i18n for erros.
+/// Keys of i18n for erros by thiserror.
 #[derive(Debug, Error)]
 pub enum ReminderError {
     #[error("error.db")] Db(#[from] tokio_rusqlite::Error),
     #[error("error.month")] InvalidMonth,
-    #[error("error.past-time")] TimeInPast,
+    #[error("error.past-time")] TimeInPast(String),
     #[error("error.time")] InvalidTime,
     #[error("error.empty-text")] EmptyText,
     #[error("error.unsafe-datetime")] UnsafeDateTime,
@@ -68,6 +68,26 @@ pub enum ReminderError {
     #[error("tz.invalid-format")] InvalidTzFormat,
     #[error("tz.not-set")] TzNotSet,
     #[error("error.unsafe-datetime")] JiffError(#[from] jiff::Error), 
+    #[error("error.matrix")] MatrixError(#[from] matrix_sdk::Error), 
+}
+
+impl ReminderError {
+    /// In some cases, to obtain the localized error text, 
+    /// we need to pass its value, not just its name as a key by thiserror.
+    pub fn to_local(&self, locale: &str) -> String {
+        match self {
+            ReminderError::TimeInPast(val) => {
+                let (date, time) = val.split_once(" ").unwrap();
+                let msg = t!(self.to_string(), locale = locale, date = date, time = time);
+                msg.to_string()
+            },
+            _ => {
+                let key = self.to_string(); 
+                let msg = t!(key, locale = locale);
+                msg.to_string()
+            }
+        }
+    }
 }
 
 /// Reminder in UTC.

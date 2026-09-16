@@ -482,19 +482,19 @@ reminder.command:
   ru: напомни
   uk: нагадай
 reminder.saved:
-  en: ⏲️ Remind you on %{date} at %{hour}:%{min}
-  de: ⏲️ Erinnerung am %{date} um %{hour}:%{min}
-  fr: ⏲️ Vous rappeler le %{date} à %{hour}:%{min}
-  it: ⏲️ Ti ricorderò il %{date} alle %{hour}:%{min}
-  es: ⏲️ Recordatorio el %{date} a las %{hour}:%{min}
-  sv: ⏲️ Påminnelse den %{date} kl. %{hour}:%{min}
-  pl: ⏲️ Przypomnij Ci w dniu %{date} o godzinie %{hour}:%{min}
-  cs: ⏲️ Připomenout vám %{date} v %{hour}:%{min}
-  fi: ⏲️ Muistutus sinulle %{date} klo %{hour}:%{min}
-  ja: ⏲️ %{date}の%{hour}:%{min}にリマインダーを送信します
-  zh: ⏲️ 提醒您于 %{date} 的 %{hour}:%{min}
-  ru: ⏲️ Напомню %{date} в %{hour}:%{min}
-  uk: ⏲️ Нагадаю %{date} у %{hour}:%{min}
+  en: ⏲️ Remind you on %{date} at %{time}
+  de: ⏲️ Erinnerung am %{date} um %{time}
+  fr: ⏲️ Vous rappeler le %{date} à %{time}
+  it: ⏲️ Ti ricorderò il %{date} alle %{time}
+  es: ⏲️ Recordatorio el %{date} a las %{time}
+  sv: ⏲️ Påminnelse den %{date} kl. %{time}
+  pl: ⏲️ Przypomnij Ci w dniu %{date} o godzinie %{time}
+  cs: ⏲️ Připomenout vám %{date} v %{time}
+  fi: ⏲️ Muistutus sinulle %{date} klo %{time}
+  ja: ⏲️ %{date}の%{time}にリマインダーを送信します
+  zh: ⏲️ 提醒您于 %{date} 的 %{time}
+  ru: ⏲️ Напомню %{date} в %{time}
+  uk: ⏲️ Нагадаю %{date} у %{time}
 reminder.list:
   en: >
     %{text} on %{date} at %{time}
@@ -603,20 +603,22 @@ error.month:
   zh: 无法确定提醒月份。
   ru: Не получилось определить месяц напоминания.
   uk: Не вдалося визначити місяць нагадування.
+
 error.past-time:
-  en: The reminder time has already passed.
-  de: Die Erinnerungsfrist ist bereits abgelaufen.
-  fr: L'heure de rappel est déjà passée.
-  it: Il tempo del promemoria è già trascorso.
-  es: El tiempo del recordatorio ya pasó.
-  sv: Påminnelsetiden har redan passerat.
-  pl: Czas przypomnienia już minął.
-  cs: Čas připomenutí již uplynul.
-  fi: Muistutusaika on jo kulunut.
-  ja: 通知時間はすでに過ぎています。
-  zh: 提醒时间已过。
-  ru: Время напоминания уже прошло.
-  uk: Час нагадування вже минув.
+  en: The reminder %{date} at %{time} has already passed.
+  de: Die Erinnerungsfrist %{date} um %{time} ist bereits abgelaufen.
+  fr: L'heure de rappel %{date} à %{time} est déjà passée.
+  it: Il tempo del promemoria %{date} alle %{time} è già trascorso.
+  es: El tiempo del recordatorio %{date} a las %{time} ya pasó.
+  sv: Påminnelsetiden %{date} kl. %{time} har redan passerat.
+  pl: Czas przypomnienia %{date} o %{time} już minął.
+  cs: Čas připomenutí %{date} v %{time} již uplynul.
+  fi: Muistutusaika %{date} klo %{time} on jo kulunut.
+  ja: 通知時間はすでに過ぎています (%{date} の %{time})。
+  zh: 提醒时间已过 (%{date} 的 %{time})。
+  ru: Напоминание %{date} в %{time} уже в прошлом.
+  uk: Час нагадування %{date} у %{time} вже минув.
+
 error.time:
   en: Wrong time.
   de: Falsche Zeit.
@@ -631,6 +633,7 @@ error.time:
   zh: 时间不对。
   ru: Неправильное время.
   uk: Неправильний час.
+
 error.summer-time:
   en: This time does not exist in your time zone due to seasonal change, please choose another one.
   de: Dieser Zeitpunkt existiert in Ihrer Zeitzone aufgrund jahreszeitlicher Veränderungen nicht. Bitte wählen Sie einen anderen.
@@ -795,6 +798,9 @@ error.db:
   zh: 保存到数据库失败。
   ru: Ошибка при сохранении в базу данных.
   uk: Помилка при збереженні в базу даних.
+
+error.matrix:
+  en: Internal Matrix SDK error, sorry.
 
 tz.current:
   en: Room time zone is **%{tz}**.

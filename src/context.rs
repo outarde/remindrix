@@ -197,11 +197,10 @@ impl CommandContext {
                 self.msng.react(event.event_id.clone(), MessageReaction::Timer).await;
             }
         } else {
-            let date_str = reminder.civil_dt.strftime("%d.%m.%Y").to_string();
-            let hour_str = reminder.civil_dt.strftime("%H").to_string();
-            let min_str = reminder.civil_dt.strftime("%M").to_string();
-            let reminder_mes = t!("reminder.saved", locale = &self.settings.room_lang, date = date_str, hour = hour_str, min = min_str);
-            self.msng.text_plain(&reminder_mes).await;
+            let date = reminder.civil_dt.strftime("%d.%m.%Y").to_string();
+            let time = reminder.civil_dt.strftime("%H:%M").to_string();
+            let msg = t!("reminder.saved", locale = &self.settings.room_lang, date = date, time = time);
+            self.msng.text_plain(&msg).await;
         }
     }
 

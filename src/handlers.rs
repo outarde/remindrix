@@ -46,6 +46,15 @@ use crate::messaging::{
 
 static MENTION_REGEX: OnceLock<Regex> = OnceLock::new();
 
+/*
+/// Abstract layer for the erros hints.
+pub enum OutputError {
+    Localized(String),
+    Internal(anyhow::Error),
+}
+*/
+
+/// List of commands for the bot in a chat.
 enum BotCommand {
     Remind,
     List,
@@ -240,9 +249,20 @@ pub async fn on_room_message(
 
     // If there is an error
     if let Err(err) = result {
-        // super::reactions::send_error(err, &cmd_ctx);
-        let err_msg = t!(err.to_string(), locale = &cmd_ctx.settings.room_lang); 
-        let _ = cmd_ctx.msng.text_plain(&err_msg).await;
+        let msg = err.to_local(&cmd_ctx.settings.room_lang);
+        cmd_ctx.msng.text_plain(&msg).await;
+        /*
+        match err {
+            ReminderError::TimeInPast(ref val) => {
+                let err_msg = t!(err.to_string(), locale = &cmd_ctx.settings.room_lang, dt = &val); 
+                cmd_ctx.msng.text_plain(&err_msg).await;
+            }
+            _ => {
+                let err_msg = t!(err.to_string(), locale = &cmd_ctx.settings.room_lang); 
+                cmd_ctx.msng.text_plain(&err_msg).await;
+            }
+        }
+        */
     }
 }
 
@@ -261,7 +281,7 @@ pub async fn handle_remind(
     args_str: &str,
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
-) -> anyhow::Result<()> {
+) -> Result<(), ReminderError> {
 
     let args: Vec<&str> = args_str.split_whitespace().collect();
     // clap requires some command at the first place
@@ -274,12 +294,10 @@ pub async fn handle_remind(
     match process_cli_reminder(clap_input, event.clone(), cmd_ctx.clone()).await {
         Ok(_) => Ok(()),
         Err(CliError::ClapError(clap_err)) => {
-            // If user wants to print --help
+            // If user wants to print --help.
             if clap_err.kind() == clap::error::ErrorKind::DisplayHelp {
-                // Get help text.
                 let help_text = clap_err.render().to_string();
                 cmd_ctx.msng.text_md_long(&help_text).await;
-
                 Ok(())
             }
             else { 
@@ -368,7 +386,7 @@ async fn handle_tz(
     body: &str,
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
-) -> anyhow::Result<()> {
+) -> Result<(), ReminderError> {
     // Update timezone if we have one in the input.
     if !body.is_empty() {
         // Parse user's input timezone code
@@ -385,7 +403,7 @@ async fn handle_tz(
     }
     // Send current timezone.
     else {
-        let msg = t!("tz.current", tz = &cmd_ctx.settings.room_tz_name);
+        let msg = t!("tz.current", locale = &cmd_ctx.settings.room_lang, tz = &cmd_ctx.settings.room_tz_name);
         let _ = cmd_ctx.msng.text_md(&msg).await;
     }
 
