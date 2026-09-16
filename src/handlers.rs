@@ -5,13 +5,12 @@ use matrix_sdk::{
         room_id,
         OwnedUserId, RoomId, OwnedRoomId, OwnedEventId,
         events::{
-            reaction::ReactionEventContent, relation::Annotation,
+            reaction::{ReactionEventContent, OriginalSyncReactionEvent}, relation::Annotation,
             room::{
                 member::StrippedRoomMemberEvent, 
                 message::{MessageType, OriginalSyncRoomMessageEvent, RoomMessageEventContent},
             }
-        },
-        api::client::typing::create_typing_event::v3::Typing
+        }
     }
 };
 use anyhow::Result;
@@ -95,38 +94,38 @@ impl BotCommand {
 #[derive(Parser, Debug)]
 // #[command(no_binary_name = true)]
 pub struct RemindArgs {
-    /// _**Reminder date** as numbers, without spaces. 
-    /// Supported characters as separators: `.`, `/`, `-`. A day without a month or year can be specified_
+    /// **Reminder date** as numbers, without spaces. 
+    /// Supported characters as separators: `.`, `/`, `-`. A day without a month or year can be specified
     #[arg(long)]
     pub date: Option<String>,
-    /// _**Day** as a number_
+    /// **Day** as a number
     #[arg(short, long)]
     pub day: Option<String>,
-    /// _**Month** as a number_
+    /// **Month** as a number
     #[arg(short, long)]
     pub month: Option<String>,
-    /// _**Year** as a number_
+    /// **Year** as a number
     #[arg(short, long)]
     pub year: Option<String>,
 
-    /// _**Time** as a number, without spaces. The colon character `:` is supported as a separator_
+    /// **Time** as a number, without spaces. The colon character `:` is supported as a separator
     #[arg(long)]
     pub time: Option<String>,
-    /// _**Hour** as a number_
+    /// **Hour** as a number
     #[arg(long)]
     pub hour: Option<String>,
-    /// _**Minutes** as a number_
+    /// **Minutes** as a number
     #[arg(long)]
     pub min: Option<String>,
     
-    /// _**Reminder text**_
+    /// Reminder **text**
     pub text: Vec<String>,
 
-    /// _The room to **delegate** the reminder to, in the `!unique_room_code:homeserver_url` format. 
-    /// You can get it from the share menu in the Element X client_
+    /// The room to **delegate** the reminder to, in the `!unique_room_code:homeserver_url` format. 
+    /// You can get it from the share menu in the Element X client
     #[arg(long)]
     pub to: Option<String>,
-    /// _Use the specified time and date values as exact or **interval** values_
+    /// Are the time and date an **interval**
     #[arg(short, long)]
     pub interval: bool,
 
@@ -226,9 +225,6 @@ pub async fn on_room_message(
         return;
     };
 
-    // Turning on the typing indicator.
-    let _ = room.typing_notice(true).await;
-
     // Call the command
     let result = match command {
         BotCommand::Remind => {
@@ -248,6 +244,15 @@ pub async fn on_room_message(
         let err_msg = t!(err.to_string(), locale = &cmd_ctx.settings.room_lang); 
         let _ = cmd_ctx.msng.text_plain(&err_msg).await;
     }
+}
+
+/// React to reaction
+pub async fn on_reaction(
+    event: OriginalSyncReactionEvent, 
+    room: Room, 
+    ctx: Arc<super::BotContext>
+) {
+    return;
 }
 
 // ===== Handlers =====
