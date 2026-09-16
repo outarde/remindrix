@@ -37,21 +37,11 @@ pub struct ParsedTime {
 /// If we know date in CLI and want to parse it.
 pub fn resolve_date(args: &RemindArgs, room_tz: &TimeZone) -> Result<ParsedDate, ReminderError> {
     let today = Zoned::now().with_time_zone(room_tz.clone()).date();
-
     let mut is_auto: bool = false;
 
     // Try to get date from --date
     let (day, month, year) = if let Some(date_str) = &args.date {
-        let parts: Vec<&str> = date_str.split(['.', '/', '-']).collect();
-        
-        match parts.as_slice() {
-            [d, m, y] => (d.to_string(), m.to_string(), y.to_string()),
-            [d, m] => (d.to_string(), m.to_string(), today.year().to_string()),
-            [d] => adjust_month_for_day(d, &today, &room_tz)?,
-            _ => {
-                return Err(ReminderError::InvalidDateFormat);
-            }
-        }
+        parse_date_parts(&date_str, &today, room_tz, true)?
     } else {
         (String::new(), String::new(), String::new())
     };
@@ -81,9 +71,28 @@ pub fn resolve_date(args: &RemindArgs, room_tz: &TimeZone) -> Result<ParsedDate,
 /// We check if there is a date. if there is, we calculate the interval from it. 
 /// if not, we calculate the interval from time, and leave the date as today.
 pub fn resolve_date_interval(args: &RemindArgs, room_tz: &TimeZone) -> Result<ParsedDate, ReminderError> {
+    let today = Zoned::now().with_time_zone(room_tz.clone()).date();
     // Mutability way
     let mut date = Zoned::now().with_time_zone(room_tz.clone());
 
+    // Try to get date from --date
+    if let Some(date_str) = &args.date {
+        let (d, m, y) = parse_date_parts(&date_str, &today, room_tz, false)?;
+
+        if let Ok(days) = d.parse::<i64>() {
+            date = date.checked_add(days.days())?;
+        }
+
+        if let Ok(months) = m.parse::<i64>() {
+            date = date.checked_add(months.months())?;
+        }
+
+        if let Ok(years) = y.parse::<i64>() {
+            date = date.checked_add(years.years())?;
+        }
+    }
+
+    // Get from -d, -m, -y
     if let Some(d) = &args.day {
         let d = d.parse::<i64>().unwrap_or(0);
         date = date.checked_add(d.days())?;
@@ -154,7 +163,7 @@ pub fn resolve_time_interval(args: &RemindArgs, room_tz: &TimeZone) -> Result<Pa
     // Try to get from --time
     if let Some(time_str) = &args.time {
         let (h, m) = parse_time_parts(&time_str)?;
-        
+
         if let Ok(hours) = h.parse::<i64>() {
             delta = delta.checked_add(hours.hours())?;
         }
@@ -266,7 +275,31 @@ fn adjust_month_for_day(d_str: &str, today: &Date, room_tz: &TimeZone) -> Result
     Ok((d.to_string(), target_date.month().to_string(), target_date.year().to_string()))
 }
 
-/// Parse hours and minutes from %H:%M.
+/// Parse day, month and year from the &str.
+fn parse_date_parts(date_str: &str, today: &Date, room_tz: &TimeZone, adjust: bool) -> Result<(String, String, String), ReminderError> {
+    let parts: Vec<&str> = date_str.split(['.', '/', '-']).collect();
+        
+    match parts.as_slice() {
+        [d, m, y] => Ok((d.to_string(), m.to_string(), y.to_string())),
+        [d, m] => {
+            Ok({
+                if adjust { (d.to_string(), m.to_string(), today.year().to_string()) }
+                else { (d.to_string(), m.to_string(), "00".to_string()) }
+            })
+        },
+        [d] => {
+            Ok({
+                if adjust { adjust_month_for_day(d, &today, room_tz)? } 
+                else { (d.to_string(), "00".to_string(), "00".to_string()) }
+            })
+        },
+        _ => {
+            Err(ReminderError::InvalidDateFormat)
+        }
+    }
+}
+
+/// Parse hours and minutes from the &str %H:%M.
 fn parse_time_parts(time_str: &str) -> Result<(String, String), ReminderError> {
     let parts: Vec<&str> = time_str.split(&[':', '.']).collect();
 

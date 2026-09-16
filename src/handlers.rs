@@ -118,7 +118,7 @@ pub struct RemindArgs {
     pub year: Option<String>,
 
     /// **Time** as a number, without spaces. The colon character `:` is supported as a separator
-    #[arg(long)]
+    #[arg(short, long)]
     pub time: Option<String>,
     /// **Hour** as a number
     #[arg(long)]
