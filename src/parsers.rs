@@ -120,7 +120,7 @@ pub fn resolve_time(
         None => (String::new(), String::new())
     };
     
-    // Try to getn from -h, -m
+    // Try to get from --hour, --min
     let (hour, min) = match (&args.hour, &args.min) {
         (Some(h), Some(m)) => (h.clone(), m.clone()),
         (Some(h), None) => (h.clone(), "00".to_string()),
@@ -151,6 +151,19 @@ pub fn resolve_time_interval(args: &RemindArgs, room_tz: &TimeZone) -> Result<Pa
     let now = Zoned::now().with_time_zone(room_tz.clone());
     let mut delta = Span::new();
 
+    // Try to get from --time
+    if let Some(time_str) = &args.time {
+        let (h, m) = parse_time_parts(&time_str)?;
+        
+        if let Ok(hours) = h.parse::<i64>() {
+            delta = delta.checked_add(hours.hours())?;
+        }
+        if let Ok(minutes) = m.parse::<i64>() {
+            delta = delta.checked_add(minutes.minutes())?;
+        }
+    };
+
+    // Get from --hour and --min
     // Add hours
     if let Some(h) = &args.hour {
         if let Ok(hours) = h.parse::<i64>() {
