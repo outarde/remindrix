@@ -116,19 +116,7 @@ pub fn resolve_time(
 ) -> Result<ParsedTime, ReminderError> {
     // Try to get from --time
     let (hour, min) = match &args.time {
-        Some(time_str) => {
-            let parts: Vec<&str> = time_str.split(':').collect();
-
-            if parts.len() == 2 {
-                (parts[0].to_string(), parts[1].to_string())
-            }
-            else if parts.len() == 1 {
-                (parts[0].to_string(), "00".to_string())
-            }
-            else {
-                return Err(ReminderError::InvalidTimeFormat);
-            }
-        },
+        Some(time_str) => parse_time_parts(&time_str)?,
         None => (String::new(), String::new())
     };
     
@@ -263,4 +251,19 @@ fn adjust_month_for_day(d_str: &str, today: &Date, room_tz: &TimeZone) -> Result
     };
 
     Ok((d.to_string(), target_date.month().to_string(), target_date.year().to_string()))
+}
+
+/// Parse hours and minutes from %H:%M.
+fn parse_time_parts(time_str: &str) -> Result<(String, String), ReminderError> {
+    let parts: Vec<&str> = time_str.split(&[':', '.']).collect();
+
+    if parts.len() == 2 {
+        Ok((parts[0].to_string(), parts[1].to_string()))
+    }
+    else if parts.len() == 1 {
+        Ok((parts[0].to_string(), "00".to_string()))
+    }
+    else {
+        Err(ReminderError::InvalidTimeFormat)
+    }
 }

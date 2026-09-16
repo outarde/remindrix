@@ -150,7 +150,7 @@ fn build_reminder_regex(
 
         regex_str.push_str(r"(?:(?:(?<prep>at|");
         regex_str.push_str(&i18n.prepositions.join("|"));
-        regex_str.push_str(r")\s+)?((?P<hour>\d{2}):(?P<min>\d{2})|(?P<time_natural>");
+        regex_str.push_str(r")\s+)?((?P<hour>\d{2})[:.]{1}(?P<min>\d{2})|(?P<time_natural>");
         regex_str.push_str(&i18n.times.join("|"));
         regex_str.push_str(r")))?+\s?(?P<text>.+)$");
         // regex_str.push_str(r")|(?P<time_interval>(?<gap>\d{1,2})\s(?<step>minutes|hours)) ))?\s+(?P<text>.+)$");
