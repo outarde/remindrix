@@ -31,6 +31,7 @@ pub struct ParsedTime {
     pub hour: String,
     pub min: String,
     // is_interval: bool,
+    pub post_meridiem: bool,
     pub interval: Span,
 }
 
@@ -123,10 +124,14 @@ pub fn resolve_time(
     args: &RemindArgs,
     default_time: (String, String),
 ) -> Result<ParsedTime, ReminderError> {
+    // let mut period = DayPeriod::None;
+
     // Try to get from --time
-    let (hour, min) = match &args.time {
-        Some(time_str) => parse_time_parts(&time_str)?,
-        None => (String::new(), String::new())
+    let (hour, min, period) = match &args.time {
+        Some(time_str) => {
+            parse_time_parts_ext(&time_str)?
+        },
+        None => (String::new(), String::new(), false)
     };
     
     // Try to get from --hour, --min
@@ -150,7 +155,8 @@ pub fn resolve_time(
 
     Ok(ParsedTime {
         hour,
-        min, 
+        min,
+        post_meridiem: period,
         interval: Span::new()
     })
 }
@@ -191,6 +197,7 @@ pub fn resolve_time_interval(args: &RemindArgs, room_tz: &TimeZone) -> Result<Pa
     Ok(ParsedTime {
         hour: now.hour().to_string(),
         min: now.minute().to_string(),
+        post_meridiem: false,
         interval: delta
     })
 }
@@ -208,6 +215,17 @@ pub fn resolve_target_dt(
     let d = date.day.parse::<i8>().map_err(|_| ReminderError::InvalidDateFormat)?;
     let hh = time.hour.parse::<i8>().map_err(|_| ReminderError::InvalidTimeFormat)?;
     let mm = time.min.parse::<i8>().map_err(|_| ReminderError::InvalidTimeFormat)?;
+
+    // Check if time is post meridiem (pm)
+    /*
+    let hh = match time.period {
+        DayPeriod::Pm => hh + 12,
+        _ => hh
+    };
+    */
+    let hh = if time.post_meridiem && hh != 0 {
+        hh + 12
+    } else { hh };
 
     let civil_dt = CivilDateTime::new(y, m, d, hh, mm, 0, 0)
         .map_err(|_| ReminderError::InvalidDateTime)?;
@@ -311,5 +329,67 @@ fn parse_time_parts(time_str: &str) -> Result<(String, String), ReminderError> {
     }
     else {
         Err(ReminderError::InvalidTimeFormat)
+    }
+}
+
+/// British/etc classification of time ante and post meridiem/noon (am and pm).
+#[derive(Debug, PartialEq, Eq)]
+pub enum DayPeriod {
+    Am,
+    Pm,
+    None,
+}
+
+pub struct _RawTime {
+    pub hours: String,
+    pub minutes: String,
+    pub period: DayPeriod,
+}
+
+/// Parse hours and minutes from the &str %H:%M with the DayPeriod support.
+fn parse_time_parts_ext(time_str: &str) -> Result<(String, String, bool), ReminderError> {
+    // Find am/pm.
+    let lower_str = time_str.to_lowercase();
+    /*
+    // or we can use ends_with()
+    let period = if lower_str.contains("am") {
+        DayPeriod::Am
+    } else if lower_str.contains("pm") {
+        DayPeriod::Pm
+    } else {
+        DayPeriod::None
+    };
+    */
+    let pm = if lower_str.contains("pm") {
+        true
+    } else {
+        false
+    };
+
+    // Sanitize string.
+    let sanitized: String = time_str
+        .chars()
+        .filter(|c| c.is_ascii_digit() || *c == ':' || *c == '.')
+        .collect();
+
+    // Split it.
+    let parts: Vec<&str> = sanitized.split(&[':', '.']).collect();
+
+    match parts.len() {
+        /*
+        2 => Ok(RawTime {
+            hours: parts[0].to_string(),
+            minutes: parts[1].to_string(),
+            period,
+        }),
+        1 => Ok(RawTime {
+            hours: parts[0].to_string(),
+            minutes: "00".to_string(),
+            period,
+        }),
+        */
+        2 => Ok((parts[0].to_string(), parts[1].to_string(), pm)),
+        1 => Ok((parts[0].to_string(), "00".to_string(), pm)),
+        _ => Err(ReminderError::InvalidTimeFormat)
     }
 }

@@ -37,6 +37,7 @@ struct ParsedReminder {
     day: String,
     hour: String,
     min: String,
+    post_meridiem: bool,
     is_auto: bool
 }
 
@@ -150,7 +151,7 @@ fn build_reminder_regex(
 
         regex_str.push_str(r"(?:(?:(?<prep>at|");
         regex_str.push_str(&i18n.prepositions.join("|"));
-        regex_str.push_str(r")\s+)?((?P<hour>\d{2})[:.]{1}(?P<min>\d{2})|(?P<time_natural>");
+        regex_str.push_str(r")\s+)?((?P<hour>\d{2})(?:[:.]{1}(?P<min>\d{2}))?\s?(?P<period>[amp.]{2,4})?|(?P<time_natural>");
         regex_str.push_str(&i18n.times.join("|"));
         regex_str.push_str(r")))?+\s?(?P<text>.+)$");
         // regex_str.push_str(r")|(?P<time_interval>(?<gap>\d{1,2})\s(?<step>minutes|hours)) ))?\s+(?P<text>.+)$");
@@ -198,7 +199,11 @@ fn parse_reminder_data(
     // Time
     let (hour, min) = if let (Some(h), Some(m)) = (caps.name("hour"), caps.name("min")) {
         (h.as_str().to_string(), m.as_str().to_string())
-    } else if let Some(t_nat) = caps.name("time_natural") {
+    } 
+    else if let (Some(h), None) = (caps.name("hour"), caps.name("min") ) {
+        (h.as_str().to_string(), "00".to_string())
+    }
+    else if let Some(t_nat) = caps.name("time_natural") {
         let natural_time = NaturalTime::from_str(&t_nat.as_str().to_lowercase(), &cmd_ctx.i18n);
         let (h, m) = match natural_time {
             Some(NaturalTime::Morning) => cmd_ctx.settings.default_morning.clone(),
@@ -212,10 +217,16 @@ fn parse_reminder_data(
         cmd_ctx.settings.default_time.clone()
     };
 
+    // Is time post meridiem
+    let post_meridiem = match caps.name("period") {
+        Some(p) => p.as_str().contains('p'),
+        None => false
+    };
+
     // Reminder's text
     let text = caps.name("text").ok_or(ReminderError::EmptyText)?.as_str().to_string();
 
-    Ok(ParsedReminder { text, year, month, day, hour, min, is_auto })
+    Ok(ParsedReminder { text, year, month, day, hour, min, post_meridiem, is_auto })
 }
 
 /// Build final UTC DateTime for DB and validate its time in the future.
@@ -236,6 +247,11 @@ fn build_datetime_utc(
     let d = data.day.parse::<i8>().map_err(|_| ReminderError::InvalidDateFormat)?;
     let hh = data.hour.parse::<i8>().map_err(|_| ReminderError::InvalidTimeFormat)?;
     let mm = data.min.parse::<i8>().map_err(|_| ReminderError::InvalidTimeFormat)?;
+
+    // Check if time is post meridiem (pm)
+    let hh = if data.post_meridiem && hh != 0 {
+        hh + 12
+    } else { hh };
 
     let civil_dt = CivilDateTime::new(y, m, d, hh, mm, 0, 0)
         .map_err(|_| ReminderError::InvalidDateTime)?;
