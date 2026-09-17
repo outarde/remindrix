@@ -23,6 +23,14 @@ use thiserror::Error;
 use crate::context::CommandContext;
 use crate::settings::{SettingsManager, ReminderSettings};
 
+/// British classification of time ante and post meridiem/noon (am and pm).
+#[derive(Debug, PartialEq, Eq)]
+pub enum DayPeriod {
+    Am,
+    Pm,
+    No,
+}
+
 /// Structure for restoring reminders from DB.
 struct RawReminder {
     id: i64,

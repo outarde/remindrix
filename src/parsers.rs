@@ -18,7 +18,7 @@ use rust_i18n::t;
 use crate::settings::{SettingsManager, ReminderSettings};
 use crate::handlers::{RemindArgs, CliError};
 use crate::context::{CommandContext};
-use crate::reminder::ReminderError;
+use crate::reminder::{ReminderError, DayPeriod};
 
 pub struct ParsedDate {
     pub day: String,
@@ -31,7 +31,7 @@ pub struct ParsedTime {
     pub hour: String,
     pub min: String,
     // is_interval: bool,
-    pub post_meridiem: bool,
+    pub period: DayPeriod,
     pub interval: Span,
 }
 
@@ -131,7 +131,7 @@ pub fn resolve_time(
         Some(time_str) => {
             parse_time_parts_ext(&time_str)?
         },
-        None => (String::new(), String::new(), false)
+        None => (String::new(), String::new(), DayPeriod::No)
     };
     
     // Try to get from --hour, --min
@@ -156,7 +156,7 @@ pub fn resolve_time(
     Ok(ParsedTime {
         hour,
         min,
-        post_meridiem: period,
+        period,
         interval: Span::new()
     })
 }
@@ -168,7 +168,7 @@ pub fn resolve_time_interval(args: &RemindArgs, room_tz: &TimeZone) -> Result<Pa
 
     // Try to get from --time
     if let Some(time_str) = &args.time {
-        let (h, m) = parse_time_parts(&time_str)?;
+        let (h, m, _) = parse_time_parts_ext(&time_str)?;
 
         if let Ok(hours) = h.parse::<i64>() {
             delta = delta.checked_add(hours.hours())?;
@@ -197,7 +197,7 @@ pub fn resolve_time_interval(args: &RemindArgs, room_tz: &TimeZone) -> Result<Pa
     Ok(ParsedTime {
         hour: now.hour().to_string(),
         min: now.minute().to_string(),
-        post_meridiem: false,
+        period: DayPeriod::No,
         interval: delta
     })
 }
@@ -217,15 +217,19 @@ pub fn resolve_target_dt(
     let mm = time.min.parse::<i8>().map_err(|_| ReminderError::InvalidTimeFormat)?;
 
     // Check if time is post meridiem (pm)
-    /*
     let hh = match time.period {
-        DayPeriod::Pm => hh + 12,
+        DayPeriod::Pm => {
+            if hh < 12 {
+                hh + 12
+            } else { hh }
+        },
+        DayPeriod::Am => {
+            if hh < 12 {
+                hh
+            } else { 0 }
+        },
         _ => hh
     };
-    */
-    let hh = if time.post_meridiem && hh != 0 {
-        hh + 12
-    } else { hh };
 
     let civil_dt = CivilDateTime::new(y, m, d, hh, mm, 0, 0)
         .map_err(|_| ReminderError::InvalidDateTime)?;
@@ -318,7 +322,7 @@ fn parse_date_parts(date_str: &str, today: &Date, room_tz: &TimeZone, adjust: bo
 }
 
 /// Parse hours and minutes from the &str %H:%M.
-fn parse_time_parts(time_str: &str) -> Result<(String, String), ReminderError> {
+fn _parse_time_parts(time_str: &str) -> Result<(String, String), ReminderError> {
     let parts: Vec<&str> = time_str.split(&[':', '.']).collect();
 
     if parts.len() == 2 {
@@ -332,41 +336,20 @@ fn parse_time_parts(time_str: &str) -> Result<(String, String), ReminderError> {
     }
 }
 
-/// British/etc classification of time ante and post meridiem/noon (am and pm).
-#[derive(Debug, PartialEq, Eq)]
-pub enum DayPeriod {
-    Am,
-    Pm,
-    None,
-}
-
-pub struct _RawTime {
-    pub hours: String,
-    pub minutes: String,
-    pub period: DayPeriod,
-}
-
 /// Parse hours and minutes from the &str %H:%M with the DayPeriod support.
-fn parse_time_parts_ext(time_str: &str) -> Result<(String, String, bool), ReminderError> {
+fn parse_time_parts_ext(time_str: &str) -> Result<(String, String, DayPeriod), ReminderError> {
     // Find am/pm.
     let lower_str = time_str.to_lowercase();
-    /*
-    // or we can use ends_with()
-    let period = if lower_str.contains("am") {
+    let period = if lower_str.contains("am") { // or we can use ends_with()
         DayPeriod::Am
     } else if lower_str.contains("pm") {
         DayPeriod::Pm
     } else {
-        DayPeriod::None
-    };
-    */
-    let pm = if lower_str.contains("pm") {
-        true
-    } else {
-        false
+        DayPeriod::No
     };
 
     // Sanitize string.
+    // this makes it impossible to use dot notation
     let sanitized: String = time_str
         .chars()
         .filter(|c| c.is_ascii_digit() || *c == ':' || *c == '.')
@@ -376,20 +359,8 @@ fn parse_time_parts_ext(time_str: &str) -> Result<(String, String, bool), Remind
     let parts: Vec<&str> = sanitized.split(&[':', '.']).collect();
 
     match parts.len() {
-        /*
-        2 => Ok(RawTime {
-            hours: parts[0].to_string(),
-            minutes: parts[1].to_string(),
-            period,
-        }),
-        1 => Ok(RawTime {
-            hours: parts[0].to_string(),
-            minutes: "00".to_string(),
-            period,
-        }),
-        */
-        2 => Ok((parts[0].to_string(), parts[1].to_string(), pm)),
-        1 => Ok((parts[0].to_string(), "00".to_string(), pm)),
+        2 => Ok((parts[0].to_string(), parts[1].to_string(), period)),
+        1 => Ok((parts[0].to_string(), "00".to_string(), period)),
         _ => Err(ReminderError::InvalidTimeFormat)
     }
 }

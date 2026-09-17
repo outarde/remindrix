@@ -17,7 +17,7 @@ use std::{string::ToString, sync::{OnceLock, Arc}};
 use strum_macros::{Display, EnumString};
 
 // app crates
-use crate::reminder::{ReminderError, ReminderData};
+use crate::reminder::{ReminderError, ReminderData, DayPeriod};
 use crate::context::{
     CommandContext, I18nManager
 };
@@ -37,7 +37,7 @@ struct ParsedReminder {
     day: String,
     hour: String,
     min: String,
-    post_meridiem: bool,
+    period: DayPeriod,
     is_auto: bool
 }
 
@@ -218,15 +218,18 @@ fn parse_reminder_data(
     };
 
     // Is time post meridiem
-    let post_meridiem = match caps.name("period") {
-        Some(p) => p.as_str().contains('p'),
-        None => false
+    let period = match caps.name("period") {
+        Some(p) => {
+            if p.as_str().contains('p') { DayPeriod::Pm }
+            else { DayPeriod::Am }
+        },
+        None => DayPeriod::No
     };
 
     // Reminder's text
     let text = caps.name("text").ok_or(ReminderError::EmptyText)?.as_str().to_string();
 
-    Ok(ParsedReminder { text, year, month, day, hour, min, post_meridiem, is_auto })
+    Ok(ParsedReminder { text, year, month, day, hour, min, period, is_auto })
 }
 
 /// Build final UTC DateTime for DB and validate its time in the future.
@@ -249,9 +252,19 @@ fn build_datetime_utc(
     let mm = data.min.parse::<i8>().map_err(|_| ReminderError::InvalidTimeFormat)?;
 
     // Check if time is post meridiem (pm)
-    let hh = if data.post_meridiem && hh != 0 {
-        hh + 12
-    } else { hh };
+    let hh = match data.period {
+        DayPeriod::Pm => {
+            if hh < 12 {
+                hh + 12
+            } else { hh }
+        },
+        DayPeriod::Am => {
+            if hh < 12 {
+                hh
+            } else { 0 }
+        },
+        _ => hh
+    };
 
     let civil_dt = CivilDateTime::new(y, m, d, hh, mm, 0, 0)
         .map_err(|_| ReminderError::InvalidDateTime)?;
