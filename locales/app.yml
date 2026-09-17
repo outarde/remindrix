@@ -524,31 +524,58 @@ reminder.list:
     %{text} (%{date} у %{time})
 reminder.new:
   en: >
-    🟢 Reminder for you: %{text}
+    🟢 %{text}
   de: >
-    🟢 Zur Erinnerung: %{text}
+    🟢 %{text}
   fr: >
-    🟢 Petit rappel: %{text}
+    🟢 %{text}
   it: >
-    🟢 Promemoria per te: %{text}
+    🟢 %{text}
   es: >
-    🟢 Recordatorio para ti: %{text}
+    🟢 %{text}
   sv: >
-    🟢 Påminnelse till dig: %{text}
+    🟢 %{text}
   pl: >
-    🟢 Przypomnienie dla Ciebie: %{text}
+    🟢 %{text}
   cs: >
-    🟢 Připomínka pro vás: %{text}
+    🟢 %{text}
   fi: >
-    🟢 Muistutus sinulle: %{text}
+    🟢 %{text}
   ja: >
-    🟢 あなたへのリマインダー：%{text}
+    🟢 %{text}
   zh: >
-    🟢温馨提示：%{text}
+    🟢 %{text}
   ru: >
-    🟢 Вам напоминание: %{text}
+    🟢 %{text}
   uk: >
-    🟢 Вам нагадування: %{text}
+    🟢 %{text}
+reminder.new-from:
+  en: >
+    🟢 A reminder from %{from} for you: %{text}
+  de: >
+    🟢 Sie haben eine Erinnerung von %{from}: %{text}
+  fr: >
+    🟢 Vous avez un rappel de %{from}: %{text}
+  it: >
+    🟢 Hai ricevuto un promemoria da %{from}: %{text}
+  es: >
+    🟢 Tienes un recordatorio de %{from}: %{text}
+  sv: >
+    🟢 Du har en påminnelse från %{from}: %{text}
+  pl: >
+    🟢 Masz przypomnienie od %{from}: %{text}
+  cs: >
+    🟢 Máte připomenutí od %{from}: %{text}
+  fi: >
+    🟢 Sinulla on muistutus käyttäjältä %{from}: %{text}
+  ja: >
+    🟢 %{from} からリマインダーが届いています: %{text}
+  zh: >
+    🟢 您收到来自 %{from} 的提醒：%{text}
+  ru: >
+    🟢 Вам напоминание от %{from}: %{text}
+  uk: >
+    🟢 Вам нагадування від %{from}: %{text}
 reminder.missed:
   en: |
     ⚠️ Missed reminders in this room: 

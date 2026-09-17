@@ -1,5 +1,5 @@
 use matrix_sdk::{
-    Client,
+    Client, RoomMemberships,
     ruma::{
         UserId, OwnedUserId, OwnedRoomId, RoomId,
         events::room::message::{RoomMessageEventContent},
@@ -147,14 +147,14 @@ pub async fn schedule_reminder(
 
     let std_duration = std::time::Duration::from_secs(seconds as u64);
 
-    // Tokio
+    // Tokio.
     tokio::spawn(async move {
         tracing::info!("New reminder #{} in {} sec at {}", reminder.id, std_duration.as_secs(), reminder.data.utc_dt);
         
-        // Asynchronic sleep
+        // Asynchronic sleep.
         tokio::time::sleep(std_duration).await;
 
-        // After sleep
+        // Try to get the room after the sleep.
         let room = match ctx.client.get_room(&reminder.data.settings.room_id) {
             Some(r) => r,
             None => {
@@ -169,9 +169,42 @@ pub async fn schedule_reminder(
             }
         };
 
+        // let created_by = &reminder.data.created_by;
+
+        // Add "from" if reminder has a probability of delegation.
+        let msg_key = if room.joined_members_count() <= 2 as u64 {
+            let members = room.members(RoomMemberships::JOIN).await;
+            match members {
+                Ok(ms) => {
+                    let from = ms.iter().find(|&m| {
+                        m.user_id() == &reminder.data.created_by
+                    }).is_some();
+                    if from {
+                        "reminder.new"
+                    } else {
+                        "reminder.new-from"
+                    }
+                },
+                Err(_) => {
+                    "reminder.new"
+                }
+            }
+        } else {
+            "reminder.new-from"
+        };
+
+        /*
         let reminder_text = t!(
             "reminder.new", 
             locale = &reminder.data.settings.room_lang, 
+            text = reminder.data.text
+        );
+        */
+
+        let reminder_text = t!(
+            msg_key,
+            locale = &reminder.data.settings.room_lang,
+            from = reminder.data.created_by,
             text = reminder.data.text
         );
 
