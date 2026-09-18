@@ -187,8 +187,12 @@ impl CommandContext {
         interval: bool
     ) {
         if self.bot_config().send_reactions {
-            // Send digits reaction or one emoji if it is not an interval.
-            if self.bot_config().send_digits_reactions && !interval {
+            // Send digits reaction or one emoji if:
+            // this setting is on, it is not an interval, it is not delegated.
+            if self.bot_config().send_digits_reactions 
+                && !interval 
+                && &reminder.settings.room_id == &self.settings.room_id 
+            {
                 let numbers = super::messaging::calculate_durations(reminder.utc_dt);
                 let emojis = super::messaging::get_emojis_for_duration(numbers);
                 self.msng.react_bundle(event.event_id.clone(), emojis).await;
