@@ -75,7 +75,8 @@ impl BotCommand {
             skip_num = 0;
         }
 
-        let remaining: String = text.chars().skip(skip_num).collect();
+        // Clean &str from \n and remove suffix if it was found. 
+        let remaining: String = text.replace('\n', " ").chars().skip(skip_num).collect();
         let mut parts = remaining.splitn(2, ' ');
 
         // command and args from text
