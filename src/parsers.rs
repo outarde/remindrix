@@ -1,3 +1,17 @@
+/*!
+* Working with time involves a fundamental ambiguity in this module. 
+* On the one hand, when calculating the absolute date (resolve_date) and month, 
+* if only the day is specified (adjust_day_fro_month), 
+* we calculate the absolute day, because if the day becomes larger or smaller 
+* due to a change in time zone, the correspondingly changed time will not be taken into account, 
+* and we will receive a reminder that will arrive a day earlier (perplexity) 
+* or a day later (indignation). However, time cannot be integrated into these calculations 
+* (now the current time is taken, but it can either indicate a time that, unlike the current one, 
+* does not fall into time zone change, or vice versa), 
+* only if you don’t rewrite the logic for parsing the date and time and trying to glue them together 
+* to parse them as numbers, and then perform date formation as additions.
+*/
+
 use matrix_sdk::{
     Room,
     ruma::{
@@ -42,7 +56,7 @@ pub fn resolve_date(args: &RemindArgs, room_tz: &TimeZone) -> Result<ParsedDate,
 
     // Try to get date from --date
     let (day, month, year) = if let Some(date_str) = &args.date {
-        parse_date_parts(&date_str, &today, room_tz, true)?
+        parse_date_parts(&date_str, &today, true)?
     } else {
         (String::new(), String::new(), String::new())
     };
@@ -51,7 +65,7 @@ pub fn resolve_date(args: &RemindArgs, room_tz: &TimeZone) -> Result<ParsedDate,
     let (day, month, year) = match (&args.day, &args.month, &args.year) {
         (Some(d), Some(m), Some(y)) => (d.clone(), m.clone(), y.clone()),
         (Some(d), Some(m), None) => (d.clone(), m.clone(), today.year().to_string()),
-        (Some(d), None, None) => adjust_month_for_day(d, &today, &room_tz)?,
+        (Some(d), None, None) => adjust_month_for_day(d, &today)?,
         _ => {
             if day.is_empty() {
                 is_auto = true;
@@ -72,13 +86,12 @@ pub fn resolve_date(args: &RemindArgs, room_tz: &TimeZone) -> Result<ParsedDate,
 /// We check if there is a date. if there is, we calculate the interval from it. 
 /// if not, we calculate the interval from time, and leave the date as today.
 pub fn resolve_date_interval(args: &RemindArgs, room_tz: &TimeZone) -> Result<ParsedDate, ReminderError> {
-    let today = Zoned::now().with_time_zone(room_tz.clone()).date();
     // Mutability way
     let mut date = Zoned::now().with_time_zone(room_tz.clone());
 
     // Try to get date from --date
     if let Some(date_str) = &args.date {
-        let (d, m, y) = parse_date_parts(&date_str, &today, room_tz, false)?;
+        let (d, m, y) = parse_date_parts(&date_str, &date.date(), false)?;
 
         if let Ok(days) = d.parse::<i64>() {
             date = date.checked_add(days.days())?;
@@ -122,10 +135,9 @@ pub fn resolve_date_interval(args: &RemindArgs, room_tz: &TimeZone) -> Result<Pa
 /// If we know time in CLI and want to parse it.
 pub fn resolve_time(
     args: &RemindArgs,
+    room_tz: &TimeZone,
     default_time: (String, String),
 ) -> Result<ParsedTime, ReminderError> {
-    // let mut period = DayPeriod::None;
-
     // Try to get from --time
     let (hour, min, period) = match &args.time {
         Some(time_str) => {
@@ -139,10 +151,9 @@ pub fn resolve_time(
         (Some(h), Some(m)) => (h.clone(), m.clone()),
         (Some(h), None) => (h.clone(), "00".to_string()),
         (None, Some(m)) => {
-            // Destructurization. Also we can use: (default_time.0, default_time.1)
-            // I chose this method to remember it.
-            let (h, ..) = default_time;
-            (h, m.clone())
+            let now = Zoned::now().with_time_zone(room_tz.clone());
+            adjust_hour_for_min(&m, &now)?
+            // return Err(ReminderError::InvalidTimeFormat)
         },
         (None, None) => {
             // Check if the time has already been written to prevent overwriting.
@@ -281,15 +292,17 @@ pub async fn parse_room(to: &str, cmd_ctx: &CommandContext) -> Result<Room, Remi
 }
 
 /// Helper function to get the same day a month from d_str.
-fn adjust_month_for_day(d_str: &str, today: &Date, room_tz: &TimeZone) -> Result<(String, String, String), ReminderError> {
+/// It's Date, not Zoned because we do not need to account for the possibility of shifting to a 
+/// different date when the user wants a specific day within the current or another month.
+fn adjust_month_for_day(d_str: &str, today: &Date) -> Result<(String, String, String), ReminderError> {
     // Get date number.
     // We do not check whether such a date exists (or it is 32th), 
     // so that we can verify everything at resolve_target_dt() later.
     let d = d_str.parse::<i8>().map_err(|_| ReminderError::InvalidDateFormat)?;
 
     let target_date = if d < today.day() {
-        let current_moment = Zoned::now().with_time_zone(room_tz.clone());
-        current_moment.checked_add(1.months())?.date()
+        // let current_moment = Zoned::now().with_time_zone(room_tz.clone());
+        today.checked_add(1.months())?
     } else { 
         today.clone()
     };
@@ -297,8 +310,26 @@ fn adjust_month_for_day(d_str: &str, today: &Date, room_tz: &TimeZone) -> Result
     Ok((d.to_string(), target_date.month().to_string(), target_date.year().to_string()))
 }
 
+/// Helper function to get the nearest hour for the given minute.
+/// We use the "zone" type rather than "time" because if a user specifies minutes without an hour, 
+/// they have not specified a date; this ensures that any time offsets resulting from the switch 
+/// between daylight saving and standard time are handled correctly relative to the current date. 
+/// Unlike the adjust_month_for_day(), this approach does not require changing 
+/// dates or accounting for a date (time in adjust_month_for_day) other than the current one.
+fn adjust_hour_for_min(m_str: &str, now: &Zoned) -> Result<(String, String), ReminderError> {
+    let m = m_str.parse::<i8>().map_err(|_| ReminderError::InvalidTimeFormat)?;
+
+    let target_hour = if m < now.minute() {
+        now.checked_add(1.hours())?.hour()
+    } else { 
+        now.hour()
+    };
+
+    Ok((target_hour.to_string(), m.to_string()))
+}
+
 /// Parse day, month and year from the &str.
-fn parse_date_parts(date_str: &str, today: &Date, room_tz: &TimeZone, adjust: bool) -> Result<(String, String, String), ReminderError> {
+fn parse_date_parts(date_str: &str, today: &Date, adjust: bool) -> Result<(String, String, String), ReminderError> {
     let parts: Vec<&str> = date_str.split(['.', '/', '-']).collect();
         
     match parts.as_slice() {
@@ -311,7 +342,7 @@ fn parse_date_parts(date_str: &str, today: &Date, room_tz: &TimeZone, adjust: bo
         },
         [d] => {
             Ok({
-                if adjust { adjust_month_for_day(d, &today, room_tz)? } 
+                if adjust { adjust_month_for_day(d, &today)? } 
                 else { (d.to_string(), "00".to_string(), "00".to_string()) }
             })
         },

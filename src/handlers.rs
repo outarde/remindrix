@@ -353,7 +353,7 @@ pub async fn process_cli_reminder(
     let time: ParsedTime = if args.interval {
         resolve_time_interval(&args, &room_tz)?
     } else {
-        resolve_time(&args, target_settings.default_time.clone())?
+        resolve_time(&args, &room_tz, target_settings.default_time.clone())?
     };
 
     // Get times.
