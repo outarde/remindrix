@@ -281,7 +281,7 @@ fn build_datetime_utc(
             (dt.timestamp(), dt.datetime())
         }
         else { 
-            Err(ReminderError::TimeInPast(civil_dt.strftime("%d.%m.%Y %H:%M").to_string()))?
+            Err(ReminderError::TimeInPast(user_dt))?
         }
     } else { (utc_dt, civil_dt) };
 

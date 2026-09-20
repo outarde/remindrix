@@ -221,6 +221,7 @@ pub fn resolve_target_dt(
     tz: &TimeZone
 ) -> Result<(Timestamp, CivilDateTime), ReminderError> {
     // Set CivilDateTime.
+    // or we can use strtime(): https://docs.rs/jiff/0.2.35/jiff/fmt/strtime/index.html
     let y = date.year.parse::<i16>().map_err(|_| ReminderError::InvalidDateFormat)?;
     let m = date.month.parse::<i8>().map_err(|_| ReminderError::InvalidDateFormat)?;
     let d = date.day.parse::<i8>().map_err(|_| ReminderError::InvalidDateFormat)?;
@@ -274,7 +275,7 @@ pub fn resolve_target_dt(
             (dt.timestamp(), dt.datetime())
         }
         else { 
-            Err(ReminderError::TimeInPast(civil_dt.strftime("%d.%m.%Y %H:%M").to_string()))?
+            Err(ReminderError::TimeInPast(user_dt))?
         }
     } else { (utc_dt, civil_dt) };
 
