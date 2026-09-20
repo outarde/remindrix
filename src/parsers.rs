@@ -14,23 +14,16 @@
 
 use matrix_sdk::{
     Room,
-    ruma::{
-        OwnedRoomId, OwnedUserId
-    }
+    ruma::OwnedRoomId
 };
 use anyhow::Result;
-use tokio::time::{Duration, sleep};
 use jiff::{
     Zoned, Span, ToSpan, tz::TimeZone, Timestamp,
     civil::{DateTime as CivilDateTime, Date}
 };
-use tokio_rusqlite::Connection;
-use regex::Regex;
-use std::{string::ToString, sync::{OnceLock, Arc}};
-use rust_i18n::t;
+use std::string::ToString;
 
-use crate::settings::{SettingsManager, ReminderSettings};
-use crate::handlers::{RemindArgs, CliError};
+use crate::handlers::RemindArgs;
 use crate::context::{CommandContext};
 use crate::reminder::{ReminderError, DayPeriod};
 

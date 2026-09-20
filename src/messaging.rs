@@ -4,21 +4,17 @@ use matrix_sdk::{
         OwnedEventId,
         events::{
             reaction::ReactionEventContent, relation::Annotation,
-            room::message::{RoomMessageEventContent, OriginalSyncRoomMessageEvent}
+            room::message::RoomMessageEventContent
         }
     }
 };
 use std::{sync::Arc, iter::once};
-use tokio::time::{Duration, sleep};
-use rust_i18n::t;
+use tokio::time::Duration;
 use strum_macros::{Display, EnumString};
 use jiff::{
-    Zoned, Span, ToSpan, SpanTotal, SpanRound,
-    tz::TimeZone, Timestamp, Unit,
-    civil::{DateTime as CivilDateTime, Date}
+    tz::TimeZone, Timestamp, Unit
 };
-use crate::context::{CommandContext, I18nManager};
-use crate::reminder::ReminderData;
+use crate::context::I18nManager;
 
 // #[derive(strum_macros::Display)]
 // #[strum(to_string = "")]

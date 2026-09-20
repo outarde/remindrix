@@ -1,5 +1,5 @@
 use matrix_sdk::{
-    Client, RoomMemberships,
+    RoomMemberships,
     ruma::{
         UserId, OwnedUserId, OwnedRoomId, RoomId,
         events::room::message::{RoomMessageEventContent},
@@ -7,21 +7,18 @@ use matrix_sdk::{
 };
 use tokio_rusqlite::{params, Connection};
 use jiff::{
-    Zoned, Span, ToSpan, tz::TimeZone, Timestamp, Unit,
-    civil::{DateTime as CivilDateTime, Date}
+    Zoned, ToSpan, tz::TimeZone, Timestamp, Unit,
+    civil::DateTime as CivilDateTime
 };
 use std::{
-    path::PathBuf,
     sync::Arc, 
     collections::HashMap
 };
 use rust_i18n::t;
-use anyhow::{Context, Result};
-use strum_macros::{Display, EnumString};
+use anyhow::Result;
 use thiserror::Error;
 
-use crate::context::CommandContext;
-use crate::settings::{SettingsManager, ReminderSettings, SettingError};
+use crate::settings::ReminderSettings;
 
 /// British classification of time ante and post meridiem/noon (am and pm).
 #[derive(Debug, PartialEq, Eq)]
@@ -244,7 +241,7 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
         let room_id_str = raw.room_id.to_string();
         let created_by_str = raw.created_by.to_string();
         let text = raw.text;
-        let target_time_str = raw.target_time;
+        let _target_time_str = raw.target_time;
         let utc_time_str = raw.utc_time;
         let room_tz_str = raw.tz;
 

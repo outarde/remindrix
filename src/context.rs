@@ -1,33 +1,20 @@
 use matrix_sdk::{
-    deserialized_responses::SyncOrStrippedState,
-    Client, Room, RoomState,
+    Room,
     ruma::{
-        room_id,
-        OwnedUserId, RoomId, OwnedRoomId, OwnedEventId,
-        events::{
-            reaction::ReactionEventContent, relation::Annotation,
-            room::{
-                member::StrippedRoomMemberEvent, 
-                message::{MessageType, OriginalSyncRoomMessageEvent, RoomMessageEventContent},
-            }
-        },
-        api::client::typing::create_typing_event::v3::Typing
+        OwnedUserId,
+        events::room::message::OriginalSyncRoomMessageEvent
     }
 };
-use anyhow::Result;
-use tokio::time::{Duration, sleep};
 use jiff::{
-    Zoned, Span, ToSpan, tz::TimeZone, 
-    civil::{DateTime as CivilDateTime, Date}
+    Zoned, ToSpan, tz::TimeZone
 };
-use std::{string::ToString, sync::{OnceLock, Arc}};
+use std::{string::ToString, sync::Arc};
 use rust_i18n::t;
 
 // app crates
-use crate::config::BotConfig;
 use crate::db::{ReminderRepository, SettingRepository};
-use crate::reminder::{ReminderData, ReminderStatus, ReminderError};
-use crate::settings::{RoomTimezoneContent, SettingsManager};
+use crate::reminder::ReminderData;
+use crate::settings::SettingsManager;
 use crate::messaging::{
     RoomMessenger, MessageReaction,
 };

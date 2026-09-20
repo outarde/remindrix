@@ -126,11 +126,11 @@ impl ReminderRepository {
         Ok(result)
     }
 
-    pub async fn get_by_id(&self, id: i64) -> Result<Reminder> {
+    pub async fn get_by_id(&self, _id: i64) -> Result<Reminder> {
         todo!()
     }
 
-    pub async fn update_status(&self, id: i64, status: i32) -> Result<()> {
+    pub async fn update_status(&self, _id: i64, _status: i32) -> Result<()> {
         todo!()
     }
 }

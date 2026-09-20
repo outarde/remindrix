@@ -14,7 +14,6 @@ use jiff::{
 };
 use regex::Regex;
 use std::{string::ToString, sync::{OnceLock, Arc}};
-use strum_macros::{Display, EnumString};
 
 // app crates
 use crate::reminder::{ReminderError, ReminderData, DayPeriod};

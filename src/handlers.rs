@@ -1,37 +1,26 @@
 use matrix_sdk::{
-    deserialized_responses::SyncOrStrippedState,
-    Client, Room, RoomState,
-    ruma::{
-        room_id,
-        OwnedUserId, RoomId, OwnedRoomId, OwnedEventId,
-        events::{
-            reaction::{ReactionEventContent, OriginalSyncReactionEvent}, relation::Annotation,
+    Room, RoomState,
+    ruma::events::{
+            reaction::OriginalSyncReactionEvent,
             room::{
                 member::StrippedRoomMemberEvent, 
-                message::{MessageType, OriginalSyncRoomMessageEvent, RoomMessageEventContent},
+                message::{MessageType, OriginalSyncRoomMessageEvent},
             }
         }
-    }
 };
 use anyhow::Result;
 use tokio::time::{Duration, sleep};
-use jiff::{
-    Zoned, Span, ToSpan, tz::TimeZone, 
-    civil::{DateTime as CivilDateTime, Date}
-};
-use tokio_rusqlite::Connection;
+use jiff::ToSpan;
 use regex::Regex;
 use std::{string::ToString, sync::{OnceLock, Arc}, borrow::Cow};
 use rust_i18n::t;
-use strum_macros::{Display, EnumString};
-use clap::{Parser, Subcommand};
+use strum_macros::Display;
+use clap::Parser;
 
 // app crates
-use crate::config::BotConfig;
-use crate::context::{CommandContext, I18nManager};
-use crate::db::ReminderRepository;
-use crate::reminder::{ReminderData, ReminderStatus, ReminderError};
-use crate::settings::{RoomTimezoneContent, SettingsManager, SettingError};
+use crate::context::CommandContext;
+use crate::reminder::{ReminderData, ReminderError};
+use crate::settings::{SettingsManager, SettingError};
 use crate::parsers::{
     ParsedDate, ParsedTime,
     resolve_date, resolve_date_interval, resolve_time, resolve_time_interval, resolve_target_dt,
@@ -39,9 +28,6 @@ use crate::parsers::{
 };
 use crate::natural::{
     process_natural_reminder
-};
-use crate::messaging::{
-    RoomMessenger, MessageReaction,
 };
 
 static MENTION_REGEX: OnceLock<Regex> = OnceLock::new();
@@ -312,7 +298,7 @@ pub async fn on_room_message(
 pub async fn on_reaction(
     event: OriginalSyncReactionEvent, 
     room: Room, 
-    ctx: Arc<super::BotContext>
+    _ctx: Arc<super::BotContext>
 ) {
     if room.state() != RoomState::Joined { return; }
 
@@ -496,7 +482,7 @@ pub async fn handle_settings(
 /// Handle language settings.
 pub async fn handle_lang_settings(
     lang_key: Option<String>,
-    event: OriginalSyncRoomMessageEvent,
+    _event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
 ) -> Result<(), SettingError> {
     // Send list of languages.

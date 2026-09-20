@@ -219,7 +219,7 @@ impl SettingsManager {
         cmd_ctx: &CommandContext,
         lang_key: &str,
     ) -> Result<(), SettingError> {
-        let room_id = self.room_id.to_string();
+        let _room_id = self.room_id.to_string();
         // TODO: if user_id is None, return an Error. Tha same for the set_tz.
         let user_id = match &self.user_id {
             Some(u) => u,
@@ -312,9 +312,9 @@ pub async fn get_setting(
 /// Retrieve settings (language) that can have only one subject.
 // Or split it in group_room_settings() and .._private()?
 pub async fn _get_shared_settings(
-    ctx: &Arc<super::BotContext>,
-    room: &Room,
-    user_id: Option<OwnedUserId>, 
+    _ctx: &Arc<super::BotContext>,
+    _room: &Room,
+    _user_id: Option<OwnedUserId>, 
 ) -> Result<()> {
     todo!()
 
