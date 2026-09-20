@@ -21,7 +21,7 @@ use strum_macros::{Display, EnumString};
 use thiserror::Error;
 
 use crate::context::CommandContext;
-use crate::settings::{SettingsManager, ReminderSettings};
+use crate::settings::{SettingsManager, ReminderSettings, SettingError};
 
 /// British classification of time ante and post meridiem/noon (am and pm).
 #[derive(Debug, PartialEq, Eq)]
@@ -64,7 +64,7 @@ impl From<i64> for ReminderStatus {
 pub enum ReminderError {
     #[error("error.db")] Db(#[from] tokio_rusqlite::Error),
     #[error("error.month")] InvalidMonth,
-    #[error("error.past-time")] TimeInPast(String),
+    #[error("error.past-time")] TimeInPast(Zoned),
     #[error("error.time")] InvalidTime,
     #[error("error.empty-text")] EmptyText,
     #[error("error.unsafe-datetime")] UnsafeDateTime,
@@ -85,7 +85,8 @@ impl ReminderError {
     pub fn to_local(&self, locale: &str) -> String {
         match self {
             ReminderError::TimeInPast(val) => {
-                let (date, time) = val.split_once(" ").unwrap();
+                let date = val.strftime("%d.%m.%Y").to_string();
+                let time = val.strftime("%H:%M").to_string();
                 let msg = t!(self.to_string(), locale = locale, date = date, time = time);
                 msg.to_string()
             },
@@ -96,18 +97,6 @@ impl ReminderError {
             }
         }
     }
-}
-
-/// Reminder in UTC.
-#[derive(Debug, Clone)]
-pub struct ReminderUtc {
-    pub id: i64,
-    pub room_id: OwnedRoomId,
-    pub text: String,
-    pub target_time: CivilDateTime,
-    pub utc_time: Timestamp,
-    pub tz: TimeZone,
-    pub status: ReminderStatus,
 }
 
 /// Reminder Structure with ReminderData.

@@ -1,3 +1,8 @@
+use matrix_sdk::{
+    ruma::{
+        RoomId, UserId,
+    }
+};
 use std::{
     path::PathBuf,
     sync::Arc, 
@@ -6,6 +11,7 @@ use tokio_rusqlite::Connection;
 use anyhow::{Result, Context};
 
 use crate::reminder::{Reminder, ReminderData, ReminderStatus, ReminderError};
+use crate::settings::SettingError;
 use jiff::{Timestamp, Unit};
 
 struct Migration {
@@ -128,7 +134,43 @@ impl ReminderRepository {
         todo!()
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct SettingRepository {
+    conn: Arc<Connection>,
+}
+
+impl SettingRepository {
+    pub fn new(conn: Arc<Connection>) -> Self {
+        Self { conn }
+    }
+    /// Save ReminderData to DB and return Reminder.
+    pub async fn set_setting(&self, room_id: &RoomId, user_id: &UserId, updated_by: &UserId, key: &str, value: &str,) -> Result<(), SettingError> {
+        let conn = self.conn.clone();
+
+        let room_id = room_id.to_string();
+        let user_id = user_id.to_string();
+        let updated_by = updated_by.to_string();
+        let key = key.to_string();
+        let value = value.to_string();
+
+        let _ = conn.call(move |c| {
+            c.execute(
+                "INSERT INTO settings (room_id, user_id, key, value, updated_by, updated_at) 
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                ON CONFLICT(room_id, user_id, key) 
+                DO UPDATE SET value=excluded.value, updated_by=excluded.updated_by, updated_at=excluded.updated_at;",
+                [&room_id, &user_id, &key, &value, &updated_by, &Timestamp::now().to_string()]
+            )?;
+
+            Ok(())
+        }).await?;
+
+        Ok(())
+    }
+}
     
 pub struct DbContext {
     pub reminders: ReminderRepository,
+    pub settings: SettingRepository,
 }

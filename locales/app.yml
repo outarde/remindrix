@@ -887,6 +887,39 @@ tz.invalid-format:
   zh: 时区格式无效。请使用 IANA 时区数据库中的值，例如 **Europe/Paris**。
   ru: Неправильный формат часового пояса. Используйте значения из IANA Time Zone Database, например **Europe/Paris**.
   uk: Неправильний формат часового поясу. Використовуйте значення з IANA Time Zone Database, як **Europe/Paris**.
+
+settings.help:
+  en: |
+    Available commands:
+    - `lang <language>` - set <language> or see available ones.
+    - `times` - view the default time for reminders.
+    - `times --morning <09:00>` - set <09:00> as a default morning time. Same for the `afternoon` and the `evening`.
+
+settings.lang-list:
+  en: |
+    List of available languages: 🇬🇧&nbsp;`en`, 🇩🇪 `de`, 🇫🇷 `fr`, 🇮🇹 `it`, 🇪🇸 `es`, 🇸🇪🛋️`sv`, 🇵🇱 `pl`, 🇨🇿 `cs`, 🇫🇮 `fi`, 🇯🇵 `ja`, 🇨🇳 `zh`, 🇷🇺 `ru`, 🇺🇦 `uk`.
+
+    - The bot will use the selected language for responses and for recognizing commands and the words within them.
+    - For example, send `/%{cmd} lang fr` to set French language. Then the bot will create new reminders in response to the `/rappeler` command.
+error.lang.not-exist:
+  en: That language was not found among the supported ones.
+error.lang.not-set:
+  en: That language was not found among the supported ones.
+settings.lang-set:
+  en: The language has been applied.
+  de: Die Sprache wurde angewendet.
+  fr: La langue a été appliquée.
+  it: La lingua è stata applicata.
+  es: Se ha aplicado el idioma.
+  sv: Språket har tillämpats.
+  pl: Język został zastosowany.
+  cs: Jazyk byl uplatněn.
+  fi: Kieli on otettu käyttöön.
+  ja: その文言が適用されました。
+  zh: 该语言已被应用。
+  ru: Язык применен.
+  uk: Мову було застосовано.
+
 dates.today:
   en: today
   de: heute

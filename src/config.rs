@@ -9,14 +9,16 @@ use tracing::{info, warn, error};
 
 /// Default language for bot messages.
 pub const DEFAULT_LANG: &str = "en";
-/// Default bot command.
+/// Default bot command for new reminder.
 pub const DEFAULT_COMMAND: &str = "remind";
-/// Default bot command.
+/// Default command for the list of reminders.
 pub const DEFAULT_LIST_COMMAND: &str = "list";
-/// Default bot command.
+/// Default bot command for time zone management.
 pub const DEFAULT_TIMEZONE_COMMAND: &str = "tz";
-/// Default bot command.
+/// Default timezone.
 pub const DEFAULT_TZ: &str = "Europe/Paris";
+/// Default bot settings command.
+pub const DEFAULT_SETTINGS_COMMAND: &str = "settings";
 /// Default times
 pub const DEFAULT_MORNING_TIME: &str = "09:00";
 pub const DEFAULT_AFTERNOON_TIME: &str = "14:00";
@@ -62,6 +64,8 @@ pub struct BotConfig {
     pub list_commands: Vec<String>,
     #[serde(default = "BotConfig::default_tz_command")]
     pub tz_commands: Vec<String>,
+    #[serde(default = "BotConfig::default_settings_command")]
+    pub settings_commands: Vec<String>,
     #[serde(default = "BotConfig::default_on_command")]
     pub on_command: bool,
     #[serde(default = "BotConfig::default_on_command_group")]
@@ -131,6 +135,9 @@ impl BotConfig {
     }
     fn default_tz() -> String {
         DEFAULT_TZ.into()
+    }
+    fn default_settings_command() -> Vec<String> {
+        vec![DEFAULT_SETTINGS_COMMAND.to_string()]
     }
     fn default_morning_time() -> String {
         DEFAULT_MORNING_TIME.into()

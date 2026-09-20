@@ -35,7 +35,7 @@ mod remote_i18n;
 
 use crate::remote_i18n::RemoteI18n;
 use crate::context::I18nManager;
-use crate::db::ReminderRepository;
+use crate::db::{ReminderRepository, SettingRepository};
 
 rust_i18n::i18n!("locales", fallback = "en", backend = RemoteI18n::new());
 
@@ -136,6 +136,7 @@ struct BotContext {
     pub bot_config: config::BotConfig,
     pub i18n_cache: Arc<RwLock<HashMap<String, Arc<I18nManager>>>>,
     pub reminders: Arc<ReminderRepository>,
+    pub settings: Arc<SettingRepository>,
 }
 
 impl BotContext {
@@ -172,6 +173,7 @@ impl BotManager {
     pub async fn new(runtime: &BotRuntime, config: &AppConfig) -> Result<Self> {
         let db = Arc::new(db::init_db(&config.data_dir).await?);
         let reminders = Arc::new(ReminderRepository::new(db.clone()));
+        let settings = Arc::new(SettingRepository::new(db.clone()));
 
         let context = Arc::new(BotContext {
             client: runtime.client.clone(),
@@ -180,6 +182,7 @@ impl BotManager {
             bot_config: config.bot.clone(),
             i18n_cache: Arc::new(RwLock::new(HashMap::new())),
             reminders,
+            settings,
         });
 
         Ok(Self { context })
@@ -200,7 +203,7 @@ impl BotManager {
     fn register_handlers(&self) {
         let ctx: SharedState = self.context.clone();
         let ctx_2: SharedState = self.context.clone();
-        // let ctx_3: SharedState = self.context.clone();
+        let ctx_3: SharedState = self.context.clone();
 
         self.context.client.add_event_handler(move |event, room| {
             handlers::on_room_message(event, room, ctx.clone())
@@ -208,11 +211,9 @@ impl BotManager {
         self.context.client.add_event_handler(move |room_member, room| {
             handlers::on_stripped_state_member(room_member, room, ctx_2.clone())
         });
-        /*
         self.context.client.add_event_handler(move |event, room| {
             handlers::on_reaction(event, room, ctx_3.clone())
-        });
-        */
+        });    
     }
 }
 

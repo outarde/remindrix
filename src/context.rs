@@ -25,7 +25,7 @@ use rust_i18n::t;
 
 // app crates
 use crate::config::BotConfig;
-use crate::db::ReminderRepository;
+use crate::db::{ReminderRepository, SettingRepository};
 use crate::reminder::{ReminderData, ReminderStatus, ReminderError};
 use crate::settings::{RoomTimezoneContent, SettingsManager};
 use crate::messaging::{
@@ -138,6 +138,9 @@ impl CommandContext {
     }
     pub fn reminders(&self) -> Arc<ReminderRepository> {
         self.ctx.reminders.clone()
+    }
+    pub fn settings(&self) -> Arc<SettingRepository> {
+        self.ctx.settings.clone()
     }
     // Check if room has more than 2 active (joined and invitees) members
     pub fn is_room_group(&self) -> bool {

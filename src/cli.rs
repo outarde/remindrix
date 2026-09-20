@@ -192,6 +192,7 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
         remind_commands,
         list_commands: vec![config::DEFAULT_LIST_COMMAND.to_string()],
         tz_commands: vec![config::DEFAULT_TIMEZONE_COMMAND.to_string()],
+        settings_commands: vec![config::DEFAULT_SETTINGS_COMMAND.to_string()],
         on_command,
         on_command_group,
         on_mention,

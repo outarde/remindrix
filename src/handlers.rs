@@ -21,17 +21,17 @@ use jiff::{
 };
 use tokio_rusqlite::Connection;
 use regex::Regex;
-use std::{string::ToString, sync::{OnceLock, Arc}};
+use std::{string::ToString, sync::{OnceLock, Arc}, borrow::Cow};
 use rust_i18n::t;
 use strum_macros::{Display, EnumString};
-use clap::Parser;
+use clap::{Parser, Subcommand};
 
 // app crates
 use crate::config::BotConfig;
 use crate::context::{CommandContext, I18nManager};
 use crate::db::ReminderRepository;
 use crate::reminder::{ReminderData, ReminderStatus, ReminderError};
-use crate::settings::{RoomTimezoneContent, SettingsManager};
+use crate::settings::{RoomTimezoneContent, SettingsManager, SettingError};
 use crate::parsers::{
     ParsedDate, ParsedTime,
     resolve_date, resolve_date_interval, resolve_time, resolve_time_interval, resolve_target_dt,
@@ -46,19 +46,57 @@ use crate::messaging::{
 
 static MENTION_REGEX: OnceLock<Regex> = OnceLock::new();
 
-/*
-/// Abstract layer for the erros hints.
+/// Abstract layer for the error messages.
+#[derive(Debug)]
 pub enum OutputError {
-    Localized(String),
-    Internal(anyhow::Error),
+    Reminder(ReminderError),
+    Setting(SettingError),
 }
-*/
+
+impl From<ReminderError> for OutputError {
+    fn from(err: ReminderError) -> Self {
+        OutputError::Reminder(err)
+    }
+}
+
+impl From<SettingError> for OutputError {
+    fn from(err: SettingError) -> Self {
+        OutputError::Setting(err)
+    }
+}
+
+impl OutputError {
+    /// In some cases, to obtain the localized error text, 
+    /// we need to pass its value, not just its name as a key by thiserror.
+    pub fn to_local(&self, locale: &str) -> String {
+        match self {
+            /*
+            OutputError::Reminder(error) => {
+                error.to_local(locale)
+            },
+            */
+            /*
+            OutputError::Reminder(error) => {
+                match error
+            },
+            */
+            OutputError::Reminder(error) => {
+                error.to_local(locale)
+            },
+            OutputError::Setting(error) => {
+                let msg = t!(error.to_string(), locale = locale);
+                msg.to_string()
+            }
+        }
+    }
+}
 
 /// List of commands for the bot in a chat.
 enum BotCommand {
     Remind,
     List,
     Tz,
+    Settings,
 }
 
 impl BotCommand {
@@ -90,6 +128,8 @@ impl BotCommand {
             Some((BotCommand::List, args))
         } else if cmd_ctx.bot_config().tz_commands.contains(&cmd_str) {
             Some((BotCommand::Tz, args))
+        } else if cmd_ctx.bot_config().settings_commands.contains(&cmd_str) {
+            Some((BotCommand::Settings, args))
         } else {
             // Return "remind" command for fast only-remind creations only in private rooms.
             if cmd_ctx.bot_config().quick_remind && !cmd_ctx.is_room_group() {
@@ -139,6 +179,7 @@ pub struct RemindArgs {
     #[arg(short, long)]
     pub interval: bool,
 
+    // CRON's style
     // #[arg(short, long)]
     // pub repeat: Option<String>,
 }
@@ -161,6 +202,14 @@ impl RemindArgs {
 
         options.iter().find(|opt| opt.is_some()).is_some()
     }
+}
+
+#[derive(Parser, Debug)]
+enum SettingsArgs {
+    Lang { 
+        // #[arg(short, long)]
+        lang_key: Option<String>,
+    },
 }
 
 /// Erros in the CLi processing.
@@ -246,34 +295,41 @@ pub async fn on_room_message(
         BotCommand::Tz => {
             handle_tz(&args, event.clone(), cmd_ctx.clone()).await
         }
+        BotCommand::Settings => {
+            handle_settings(&args, event.clone(), cmd_ctx.clone()).await
+        }
     };
 
     // If there is an error
     if let Err(err) = result {
+        // or use unwrap_err() and call to_local()
         let msg = err.to_local(&cmd_ctx.settings.room_lang);
-        cmd_ctx.msng.text_plain(&msg).await;
-        /*
-        match err {
-            ReminderError::TimeInPast(ref val) => {
-                let err_msg = t!(err.to_string(), locale = &cmd_ctx.settings.room_lang, dt = &val); 
-                cmd_ctx.msng.text_plain(&err_msg).await;
-            }
-            _ => {
-                let err_msg = t!(err.to_string(), locale = &cmd_ctx.settings.room_lang); 
-                cmd_ctx.msng.text_plain(&err_msg).await;
-            }
-        }
-        */
+        cmd_ctx.msng.text_md(&msg).await;
     }
 }
 
-/// React to reaction
+/// React to reaction.
 pub async fn on_reaction(
     event: OriginalSyncReactionEvent, 
     room: Room, 
     ctx: Arc<super::BotContext>
 ) {
-    return;
+    if room.state() != RoomState::Joined { return; }
+
+    let sender = &event.sender;
+    let reaction_content = &event.content;
+    
+    let target_event_id = &reaction_content.relates_to.event_id;
+    
+    let emoji = &reaction_content.relates_to.key;
+
+    println!(
+        "User {} set reaction {} to event with id {} in room {}",
+        sender,
+        emoji,
+        target_event_id,
+        room.room_id()
+    );
 }
 
 // ===== Handlers =====
@@ -282,7 +338,7 @@ pub async fn handle_remind(
     args_str: &str,
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
-) -> Result<(), ReminderError> {
+) -> Result<(), OutputError> {
 
     let args: Vec<&str> = args_str.split_whitespace().collect();
     // clap requires some command at the first place
@@ -302,11 +358,11 @@ pub async fn handle_remind(
                 Ok(())
             }
             else { 
-                process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await 
+                process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await.map_err(|e| e.into())
             }
         },
         Err(CliError::NaturalFallback) => {
-            process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await
+            process_natural_reminder(args_str, event.clone(), cmd_ctx.clone()).await.map_err(|e| e.into())
         },
         Err(CliError::Reminder(err)) => {
             Err(err.into())
@@ -387,7 +443,7 @@ async fn handle_tz(
     body: &str,
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
-) -> Result<(), ReminderError> {
+) -> Result<(), OutputError> {
     // Update timezone if we have one in the input.
     if !body.is_empty() {
         // Parse user's input timezone code
@@ -405,12 +461,75 @@ async fn handle_tz(
     // Send current timezone.
     else {
         let msg = t!("tz.current", locale = &cmd_ctx.settings.room_lang, tz = &cmd_ctx.settings.room_tz_name);
-        let _ = cmd_ctx.msng.text_md(&msg).await;
+        cmd_ctx.msng.text_md(&msg).await;
     }
 
     Ok(())
 }
 
+/// Room (optional, user) Settings.
+pub async fn handle_settings(
+    args_str: &str,
+    event: OriginalSyncRoomMessageEvent,
+    cmd_ctx: CommandContext,
+) -> Result<(), OutputError> {
+    let args_vec: Vec<&str> = args_str.split_whitespace().collect();
+    let mut clap_input = vec!["settings"];
+    clap_input.extend(&args_vec);
+    let args = SettingsArgs::try_parse_from(clap_input).map_err(|_| SettingError::NoCommand)?;
+
+    let result = match args {
+        SettingsArgs::Lang {lang_key} => handle_lang_settings(lang_key, event.clone(), cmd_ctx.clone()).await?,
+        /*
+        Err(_) => {
+            let msg = t!("settings.help", locale = &cmd_ctx.settings.room_lang);
+            cmd_ctx.msng.text_md_long(&msg).await;
+            return Ok(());
+        },
+        */
+        _ => (),
+    };
+
+    Ok(result)
+}
+
+/// Handle language settings.
+pub async fn handle_lang_settings(
+    lang_key: Option<String>,
+    event: OriginalSyncRoomMessageEvent,
+    cmd_ctx: CommandContext,
+) -> Result<(), SettingError> {
+    // Send list of languages.
+    let lang = match lang_key {
+        Some(l) => l,
+        None => {
+            // Send a list of available languages.
+            let msg = t!(
+                "settings.lang-list", 
+                locale = &cmd_ctx.settings.room_lang, 
+                cmd = cmd_ctx.bot_config().settings_commands.join("|")
+            );
+            cmd_ctx.msng.text_md_long(&msg).await;
+            return Ok(());
+        }
+    };
+
+    // Check if the language is supported.
+    let languages = rust_i18n::available_locales!();
+    if !languages.contains(&Cow::from(lang.as_str())) { return Err(SettingError::NoLanguage) };
+
+    // Check if language is not a current one.
+    if &cmd_ctx.settings.room_lang == lang { return Err(SettingError::LanguageNotSet) };
+
+    // Set new language and send message if it was successful.
+    cmd_ctx.settings.set_language_universal(&cmd_ctx, &lang).await?;
+    let msg = t!("settings.lang-set", locale = lang);
+    cmd_ctx.msng.text_md(&msg).await;
+
+    Ok(())
+}
+
+// ===== Auto-join =====
 /// Auto-join.
 pub async fn on_stripped_state_member(
     room_member: StrippedRoomMemberEvent,

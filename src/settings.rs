@@ -13,11 +13,22 @@ use matrix_sdk::{
     }
 };
 use serde::{Deserialize, Serialize};
-
 use jiff::{tz::TimeZone, Timestamp};
+use thiserror::Error;
+
 use crate::reminder::{ReminderError};
 use crate::context::{CommandContext};
 
+/// Error types for setting processing.
+#[derive(Debug, Error)]
+pub enum SettingError {
+    #[error("error.db")] Db(#[from] tokio_rusqlite::Error),
+    #[error("settings.help")] NoCommand,
+    #[error("error.lang.not-exist")] NoLanguage,
+    #[error("error.lang.not-set")] LanguageNotSet,
+}
+
+// Matrix State Event for a time zone.
 #[derive(Clone, Debug, Deserialize, Serialize, EventContent)]
 #[ruma_event(type = "com.reminder-bot.room_timezone", kind = State, state_key_type = EmptyStateKey)]
 pub struct RoomTimezoneContent {
@@ -57,8 +68,10 @@ impl ReminderSettings {
         room_tz: TimeZone, 
         ctx: &Arc<super::BotContext>
     ) -> Self {
-        let room_lang = get_setting("lang", None, &room_id, ctx).await
-            .unwrap_or_else(|| ctx.bot_config.lang.clone());
+        let room_lang = match ctx.client.get_room(&room_id) {
+            Some(r) => get_setting("lang", None, &r, ctx).await.unwrap_or_else(|| ctx.bot_config.lang.clone()),
+            None => ctx.bot_config.lang.clone()
+        };
 
         Self {
             room_id,
@@ -100,7 +113,7 @@ impl SettingsManager {
         // TODO: fill the whole structure at once.
         let room_tz = Self::fetch_room_tz(room, ctx).await;
         let room_tz_name = room_tz.iana_name().unwrap().to_string();
-        let room_lang = match get_setting("lang", user_id.clone(), &room_id, ctx).await {
+        let room_lang = match get_setting("lang", user_id.clone(), room, ctx).await {
             Some(v) => v,
             None => ctx.bot_config.lang.clone()
         };
@@ -199,6 +212,31 @@ impl SettingsManager {
         Ok(tz_name)
     }
 
+    /// Set language for the room or user in the room (that's why it's universal).
+    pub async fn set_language_universal(
+        // &mut self,
+        &self,
+        cmd_ctx: &CommandContext,
+        lang_key: &str,
+    ) -> Result<(), SettingError> {
+        let room_id = self.room_id.to_string();
+        // TODO: if user_id is None, return an Error. Tha same for the set_tz.
+        let user_id = match &self.user_id {
+            Some(u) => u,
+            None => &cmd_ctx.user_id
+        };
+        // let lang_key_clone = lang_key.clone();
+
+        // Group rooms have only ONE language, so we insert/update it for
+        // bot's user.
+        let final_user_id = if cmd_ctx.is_room_group() {
+            &cmd_ctx.ctx.bot_id
+        } else { user_id };
+
+        let result = cmd_ctx.settings().set_setting(&self.room_id, &final_user_id, &cmd_ctx.user_id, "lang", lang_key).await?;
+        Ok(result)
+    }
+
     /*
     /// Universal get
     pub async fn get_room_setting<T>(&self, room: &Room, default: T) -> T 
@@ -220,17 +258,32 @@ impl SettingsManager {
 pub async fn get_setting(
     key: &str,
     user_id: Option<OwnedUserId>, 
-    room_id: &OwnedRoomId,
+    room: &Room,
     ctx: &Arc<super::BotContext>
 ) -> Option<String> {
-    let room_id = room_id.to_string();
+    let room_id = room.room_id().to_string();
     let key = key.to_string();
-    // Modify the query based on the presence of the user ID.
-    let (statement, params) = match user_id {
+
+    // Privacy-based user id
+    let final_user_id = settings_subject(&key, room, ctx.bot_id.clone(), user_id);
+    /*
+    let final_user_id = if room.active_members_count() > 2 as u64 {
+        if key == "lang" {
+            Some(ctx.bot_id)
+        }
+        else {
+            if user_id.is_some { user_id };
+            else { Some(ctx.bot_id) };
+        }
+    } else { user_id };
+    */
+
+    // The query based on the presence of the user ID.
+    let (statement, params) = match final_user_id {
         Some(u) => {
-            let user_id = u.to_string();
+            let f_user_id = u.to_string();
             let st = "SELECT value FROM settings WHERE room_id = ?1 AND user_id =?2 AND key = ?3";
-            (st, vec![room_id, user_id, key])
+            (st, vec![room_id, f_user_id, key])
         }
         None => {
             let st = "SELECT value FROM settings WHERE room_id = ?1 AND key = ?3 ORDER BY updated_at LIMIT 1";
@@ -256,6 +309,19 @@ pub async fn get_setting(
     value.ok()
 }
 
+/// Retrieve settings (language) that can have only one subject.
+// Or split it in group_room_settings() and .._private()?
+pub async fn _get_shared_settings(
+    ctx: &Arc<super::BotContext>,
+    room: &Room,
+    user_id: Option<OwnedUserId>, 
+) -> Result<()> {
+    todo!()
+
+    // if room is public, use bot_id
+    // if room is private, use user_id or, if it is none, use no subject
+}
+
 /// Parse user input to Tz
 pub fn parse_tz(tz_str: &str) -> Result<TimeZone, ReminderError> {
     TimeZone::get(tz_str).map_err(|_| ReminderError::InvalidTzFormat)
@@ -273,4 +339,20 @@ pub fn parse_tz_or_default(tz_str: &str, config_tz: &str) -> TimeZone {
                 })
         }
     }
+}
+
+// Get the settings subject: regular user (Some or None) or bot (Some).
+fn settings_subject(key: &str, room: &Room, bot_id: OwnedUserId, user_id: Option<OwnedUserId>) -> Option<OwnedUserId> {
+    // Fields in group rooms that must apply to all users
+    let shared_fields = vec!["lang"];
+
+    if room.active_members_count() > 2 as u64 {
+        if shared_fields.contains(&key) {
+            Some(bot_id)
+        }
+        else {
+            if user_id.is_some() { user_id }
+            else { Some(bot_id) }
+        }
+    } else { user_id }
 }
