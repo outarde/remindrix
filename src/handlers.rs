@@ -519,7 +519,7 @@ pub async fn handle_lang_settings(
     if !languages.contains(&Cow::from(lang.as_str())) { return Err(SettingError::NoLanguage) };
 
     // Check if language is not a current one.
-    if &cmd_ctx.settings.room_lang == lang { return Err(SettingError::LanguageNotSet) };
+    if &cmd_ctx.settings.room_lang == &lang { return Err(SettingError::LanguageNotSet) };
 
     // Set new language and send message if it was successful.
     cmd_ctx.settings.set_language_universal(&cmd_ctx, &lang).await?;
