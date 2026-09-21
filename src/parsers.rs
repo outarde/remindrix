@@ -19,7 +19,7 @@ use matrix_sdk::{
 use anyhow::Result;
 use jiff::{
     Zoned, Span, ToSpan, tz::TimeZone, Timestamp,
-    civil::{DateTime as CivilDateTime, Date}
+    civil::{DateTime as CivilDateTime, Date, Time}
 };
 use std::string::ToString;
 
@@ -129,7 +129,7 @@ pub fn resolve_date_interval(args: &RemindArgs, room_tz: &TimeZone) -> Result<Pa
 pub fn resolve_time(
     args: &RemindArgs,
     room_tz: &TimeZone,
-    default_time: (String, String),
+    default_time: Time,
 ) -> Result<ParsedTime, ReminderError> {
     // Try to get from --time
     let (hour, min, period) = match &args.time {
@@ -151,8 +151,7 @@ pub fn resolve_time(
         (None, None) => {
             // Check if the time has already been written to prevent overwriting.
             if hour.is_empty() {
-                let (h, m) = default_time;
-                (h, m)
+                (default_time.hour().to_string(), default_time.minute().to_string())
             } else { (hour, min) }
         },
     };

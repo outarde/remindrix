@@ -205,15 +205,15 @@ fn parse_reminder_data(
     else if let Some(t_nat) = caps.name("time_natural") {
         let natural_time = NaturalTime::from_str(&t_nat.as_str().to_lowercase(), &cmd_ctx.i18n);
         let (h, m) = match natural_time {
-            Some(NaturalTime::Morning) => cmd_ctx.settings.default_morning.clone(),
-            Some(NaturalTime::Afternoon) => cmd_ctx.settings.default_afternoon.clone(),
-            Some(NaturalTime::Evening) => cmd_ctx.settings.default_evening.clone(),
+            Some(NaturalTime::Morning) => (cmd_ctx.settings.morning.hour().to_string(), cmd_ctx.settings.morning.minute().to_string()),
+            Some(NaturalTime::Afternoon) => (cmd_ctx.settings.afternoon.hour().to_string(), cmd_ctx.settings.afternoon.minute().to_string()),
+            Some(NaturalTime::Evening) => (cmd_ctx.settings.evening.hour().to_string(), cmd_ctx.settings.evening.minute().to_string()),
             None => return Err(ReminderError::InvalidTimeFormat)
         };
         (h.to_string(), m.to_string())
     } else {
         // TODO: return custom time interval
-        cmd_ctx.settings.default_time.clone()
+        (cmd_ctx.settings.default_time.hour().to_string(), cmd_ctx.settings.default_time.minute().to_string())
     };
 
     // Is time post meridiem
