@@ -274,7 +274,8 @@ impl AppConfig {
                 .map_err(|e| anyhow::anyhow!("Environment error: {}", e))?
         };
 
-        // Check default times
+        // Check some values
+        // Times
         check_times(vec![&bot.morning, &bot.afternoon, &bot.evening])?;
         tracing::info!("Default times are valid");
 

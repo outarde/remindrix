@@ -183,6 +183,7 @@ impl BotManager {
             i18n_cache: Arc::new(RwLock::new(HashMap::new())),
             reminders,
             settings,
+            // TODO: move to DbContext {reminders, settings}
         });
 
         Ok(Self { context })
