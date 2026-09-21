@@ -211,4 +211,34 @@ impl CommandContext {
             self.msng.text_md(&msg).await;
         }
     }
+
+    //===== Messages for Settings =====
+    /// Send list with default times and format help.
+    pub async fn send_default_times(&self) {
+        let msg = t!(
+            "settings.default-times",
+            locale = &self.settings.room_lang,
+            default = self.settings.default_time.to_string(),
+            morning = self.settings.morning.to_string(),
+            afternoon = self.settings.afternoon.to_string(),
+            evening = self.settings.evening.to_string(),
+        );
+
+        self.msng.text_md_long(&msg).await;
+    }
+
+    /// Send a message or reaction about a successfully changed setting.
+    pub async fn send_setting_success(
+        &self,
+        event: OriginalSyncRoomMessageEvent,
+        key: &str,
+        // locale: &str,
+    ) {
+        if self.bot_config().send_reactions {
+            self.msng.react(event.event_id.clone(), MessageReaction::Check).await;
+        } else {
+            let msg = t!(key, locale = &self.settings.room_lang); 
+            self.msng.text_md(&msg).await;
+        }
+    }
 }
