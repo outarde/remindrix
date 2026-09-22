@@ -31,11 +31,13 @@ mod messaging;
 mod db;
 mod reminder;
 mod settings;
+mod settings_service;
 mod remote_i18n;
 
 use crate::remote_i18n::RemoteI18n;
 use crate::context::I18nManager;
-use crate::db::{ReminderRepository, SettingRepository};
+use crate::settings_service::SettingsService;
+use crate::db::{ ReminderRepository, SettingRepository, DbContext };
 
 rust_i18n::i18n!("locales", fallback = "en", backend = RemoteI18n::new());
 
@@ -133,10 +135,10 @@ struct BotContext {
     pub client: Client,
     pub bot_id: OwnedUserId,
     pub db: Arc<Connection>,
-    pub bot_config: config::BotConfig,
+    pub bot_config: Arc<config::BotConfig>,
     pub i18n_cache: Arc<RwLock<HashMap<String, Arc<I18nManager>>>>,
-    pub reminders: Arc<ReminderRepository>,
-    pub settings: Arc<SettingRepository>,
+    pub db_ctx: Arc<DbContext>,
+    pub settings_service: SettingsService,
 }
 
 impl BotContext {
@@ -171,19 +173,25 @@ pub struct BotManager {
 
 impl BotManager {
     pub async fn new(runtime: &BotRuntime, config: &AppConfig) -> Result<Self> {
+        let bot_config = Arc::new(config.bot.clone());
         let db = Arc::new(db::init_db(&config.data_dir).await?);
-        let reminders = Arc::new(ReminderRepository::new(db.clone()));
-        let settings = Arc::new(SettingRepository::new(db.clone()));
+        let reminders = ReminderRepository::new(db.clone());
+        let settings = SettingRepository::new(db.clone());
+        let db_ctx = Arc::new(DbContext { reminders, settings });
+        let settings_service = SettingsService::new(
+            db_ctx.clone(), 
+            bot_config.clone(), 
+            runtime.bot_id.clone()
+        );
 
         let context = Arc::new(BotContext {
             client: runtime.client.clone(),
             bot_id: runtime.bot_id.clone(),
             db,
-            bot_config: config.bot.clone(),
+            bot_config,
             i18n_cache: Arc::new(RwLock::new(HashMap::new())),
-            reminders,
-            settings,
-            // TODO: move to DbContext {reminders, settings}
+            db_ctx,
+            settings_service,
         });
 
         Ok(Self { context })
@@ -191,7 +199,10 @@ impl BotManager {
 
     pub async fn start(&self, runtime: &BotRuntime) -> Result<()> {
         // Restore reminders
-        reminder::restore_reminders(self.context.clone()).await?;
+        match reminder::restore_reminders(self.context.clone()).await {
+            Ok(_) => (),
+            Err(e) => tracing::error!("Restoring reminders failed with an error: {:?}", e)
+        };
 
         // Register handlers
         self.register_handlers();
