@@ -79,6 +79,12 @@ async fn run_migrations(conn: &Connection) -> Result<()> {
 }
 
 // ===== Repositories ======
+#[derive(Clone, Debug)]
+pub struct DbContext {
+    pub reminders: ReminderRepository,
+    pub settings: SettingRepository,
+}
+
 /// Reminder Repository.
 #[derive(Clone, Debug)]
 pub struct ReminderRepository {
@@ -93,7 +99,7 @@ impl ReminderRepository {
     pub async fn save_reminder(&self, data: ReminderData) -> Result<Reminder, ReminderError> {
         let conn = self.conn.clone();
         
-        let room_id = data.settings.room_id.to_string();
+        let room_id = data.room_id.to_string();
         let text = data.text.clone();
         let target_time = data.civil_dt.to_string();
         let utc_time = data.utc_dt.to_string();
@@ -162,26 +168,28 @@ impl SettingRepository {
                 // When grouping, selects the record with is_bot = 1 (the bot configuration).
                 let st = "
                     SELECT key, value, user_id FROM (
-                        SELECT key, value,
+                        SELECT key, value, user_id,
                                 CASE WHEN user_id = ?1 THEN 1 ELSE 0 END as is_bot
                         FROM settings
                         WHERE room_id = ?2 AND (user_id = ?3 OR user_id = ?1)
                     )
                     GROUP BY key
-                    ORDER BY is_bot DESC
+                    HAVING is_bot = MAX(is_bot)
+                    ORDER BY key
                 ";
                 (st, vec![bot_id, room_id, user_id])
             },
             None => {
                 let st = "
                     SELECT key, value, user_id FROM (
-                        SELECT key, value,
+                        SELECT key, value, user_id,
                                 CASE WHEN user_id = ?1 THEN 1 ELSE 0 END as is_bot
                         FROM settings
                         WHERE room_id = ?2
                     )
                     GROUP BY key 
-                    ORDER BY is_bot DESC";
+                    HAVING is_bot = MAX(is_bot)
+                    ORDER BY key";
                 (st, vec![bot_id, room_id])
             }
         };
@@ -206,6 +214,8 @@ impl SettingRepository {
             
             Ok(result)
         }).await?;
+
+        println!("{:?}", settings);
 
         Ok(settings)
     }
@@ -235,7 +245,7 @@ impl SettingRepository {
     }
 
     /// Save Vecs of RawSetting.
-    pub async fn set_settings(
+    pub async fn update_settings(
         &self,
         settings: Vec<RawSetting>,
         room_id: &RoomId,
@@ -273,9 +283,4 @@ impl SettingRepository {
 
         Ok(())
     }
-}
-    
-pub struct DbContext {
-    pub reminders: ReminderRepository,
-    pub settings: SettingRepository,
 }
