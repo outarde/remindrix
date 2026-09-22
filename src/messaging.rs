@@ -21,42 +21,24 @@ use crate::context::I18nManager;
 #[derive(PartialEq, EnumString, Display)]
 #[strum(serialize_all = "snake_case")]
 pub enum MessageReaction {
-    #[strum(serialize = "👍")]
-    ThumbsUp,
-    #[strum(serialize = "✅")]
-    Check,
-    #[strum(serialize = "❌")]
-    Cross,
-    #[strum(serialize = "🟢")]
-    Done,
-    #[strum(serialize = "⏲️")]
-    Timer,
-    #[strum(serialize = "🕒")]
-    Clock,
-    #[strum(serialize = "🕛")]
-    ClockHour,
-    #[strum(serialize = "🗓️")]
-    CalendarMonth,
-    #[strum(serialize = "0️⃣")]
-    Zero,
-    #[strum(serialize = "1️⃣")]
-    One,
-    #[strum(serialize = "2️⃣")]
-    Two,
-    #[strum(serialize = "3️⃣")]
-    Three,
-    #[strum(serialize = "4️⃣")]
-    Four,
-    #[strum(serialize = "5️⃣")]
-    Five,
-    #[strum(serialize = "6️⃣")]
-    Six,
-    #[strum(serialize = "7️⃣")]
-    Seven,
-    #[strum(serialize = "8️⃣")]
-    Eight,
-    #[strum(serialize = "9️⃣")]
-    Nine,
+    #[strum(serialize = "👍")] ThumbsUp,
+    #[strum(serialize = "✅")] Check,
+    #[strum(serialize = "❌")] Cross,
+    #[strum(serialize = "🟢")] Done,
+    #[strum(serialize = "⏲️")] Timer, 
+    #[strum(serialize = "🕒")] Clock,
+    #[strum(serialize = "🕛")] ClockHour,
+    #[strum(serialize = "🗓️")] CalendarMonth,
+    #[strum(serialize = "0️⃣")] Zero,
+    #[strum(serialize = "1️⃣")] One,
+    #[strum(serialize = "2️⃣")] Two,
+    #[strum(serialize = "3️⃣")] Three,
+    #[strum(serialize = "4️⃣")] Four,
+    #[strum(serialize = "5️⃣")] Five,
+    #[strum(serialize = "6️⃣")] Six,
+    #[strum(serialize = "7️⃣")] Seven,
+    #[strum(serialize = "8️⃣")] Eight,
+    #[strum(serialize = "9️⃣")] Nine,
 }
 
 impl MessageReaction {
