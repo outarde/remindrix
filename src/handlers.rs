@@ -20,7 +20,8 @@ use clap::Parser;
 // app crates
 use crate::context::CommandContext;
 use crate::reminder::{ReminderData, ReminderError};
-use crate::settings::{SettingsManager, SettingError};
+use crate::settings_service::{SettingsService};
+use crate::settings::{Settings, SettingError, SettingUpdate, SettingScope, SettingName};
 use crate::parsers::{
     ParsedDate, ParsedTime,
     resolve_date, resolve_date_interval, resolve_time, resolve_time_interval, resolve_target_dt,
@@ -193,8 +194,17 @@ impl RemindArgs {
 #[derive(Parser, Debug)]
 enum SettingsArgs {
     Lang { 
-        // #[arg(short, long)]
         lang_key: Option<String>,
+    },
+    Time {
+        #[arg(long)]
+        default: Option<String>,
+        #[arg(long)]
+        morning: Option<String>,
+        #[arg(long)]
+        afternoon: Option<String>,
+        #[arg(long)]
+        evening: Option<String>,
     },
 }
 
@@ -379,7 +389,7 @@ pub async fn process_cli_reminder(
     // Settings for the room for which the reminder was delegated or intended.
     let target_settings = if let Some(to) = args.to.as_deref() {
         let room = parse_room(&to, &cmd_ctx).await?;
-        SettingsManager::new(&room, None, &cmd_ctx.ctx).await
+        cmd_ctx.ctx.settings_service.load_for_background_room(&room).await
     } else { cmd_ctx.settings.clone() };
 
     // Set room_tz from settings.
@@ -404,6 +414,7 @@ pub async fn process_cli_reminder(
 
     // Fill a structure.
     let reminder_data = ReminderData {
+        room_id: target_settings.room_id.clone(),
         utc_dt,
         civil_dt,
         text,
@@ -433,14 +444,18 @@ async fn handle_tz(
     // Update timezone if we have one in the input.
     if !body.is_empty() {
         // Parse user's input timezone code
-        let input_tz = super::settings::parse_tz(&body)?;
+        let input_tz = SettingsService::parse_tz(&body)?;
 
         // If user's input timezone is equal to current room timezone
         if input_tz == cmd_ctx.settings.room_tz {
             return Err(ReminderError::TzNotSet.into());
         }
         else {
-            let input_tz_name = cmd_ctx.settings.set_room_tz(&cmd_ctx, input_tz).await?;
+            let input_tz_name = cmd_ctx.ctx.settings_service.set_room_tz(
+                &cmd_ctx.room, 
+                &cmd_ctx.user_id, 
+                input_tz
+            ).await?;
             cmd_ctx.send_tz_success(event.clone(), &input_tz_name).await;
         }
     }
@@ -465,7 +480,16 @@ pub async fn handle_settings(
     let args = SettingsArgs::try_parse_from(clap_input).map_err(|_| SettingError::NoCommand)?;
 
     let result = match args {
-        SettingsArgs::Lang {lang_key} => handle_lang_settings(lang_key, event.clone(), cmd_ctx.clone()).await?,
+        SettingsArgs::Lang {lang_key} => handle_lang_settings(lang_key, cmd_ctx.clone()).await?,
+        SettingsArgs::Time {default, morning, afternoon, evening} => {
+            let updates = vec![
+                (SettingName::DefaultTime, default),
+                (SettingName::Morning, morning),
+                (SettingName::Afternoon, afternoon),
+                (SettingName::Evening, evening),
+            ];
+            handle_time_settings(event, cmd_ctx.clone(), updates).await?
+        },
         /*
         Err(_) => {
             let msg = t!("settings.help", locale = &cmd_ctx.settings.room_lang);
@@ -473,7 +497,6 @@ pub async fn handle_settings(
             return Ok(());
         },
         */
-        _ => (),
     };
 
     Ok(result)
@@ -482,7 +505,6 @@ pub async fn handle_settings(
 /// Handle language settings.
 pub async fn handle_lang_settings(
     lang_key: Option<String>,
-    _event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
 ) -> Result<(), SettingError> {
     // Send list of languages.
@@ -490,8 +512,10 @@ pub async fn handle_lang_settings(
         Some(l) => l,
         None => {
             // Send a list of available languages.
+            let msg_list = t!("settings.lang-list", locale = &cmd_ctx.settings.room_lang);
+            cmd_ctx.msng.text_md(&msg_list).await;
             let msg = t!(
-                "settings.lang-list", 
+                "settings.lang-help", 
                 locale = &cmd_ctx.settings.room_lang, 
                 cmd = cmd_ctx.bot_config().settings_commands.join("|")
             );
@@ -507,10 +531,60 @@ pub async fn handle_lang_settings(
     // Check if language is not a current one.
     if &cmd_ctx.settings.room_lang == &lang { return Err(SettingError::LanguageNotSet) };
 
-    // Set new language and send message if it was successful.
-    cmd_ctx.settings.set_language_universal(&cmd_ctx, &lang).await?;
+    // Set new language and send message IN NEW LANGUAGE if it was successful.
+    let new_setting = SettingUpdate { 
+        key: SettingName::Lang,
+        value: lang.to_string(),
+        scope: SettingScope::Room
+    };
+    cmd_ctx.ctx.settings_service.set_settings(
+        &cmd_ctx.room.room_id(), 
+        &cmd_ctx.user_id, 
+        vec![new_setting]
+    ).await?;
     let msg = t!("settings.lang-set", locale = lang);
     cmd_ctx.msng.text_md(&msg).await;
+
+    Ok(())
+}
+
+/// Handle time settings.
+pub async fn handle_time_settings(
+    event: OriginalSyncRoomMessageEvent,
+    cmd_ctx: CommandContext,
+    settings: Vec<(SettingName, Option<String>)>,
+) -> Result<(), SettingError> {
+    // Filter Some(String) and validate its format.
+    let valid_settings: Result<Vec<SettingUpdate>, SettingError> = settings
+        .into_iter()
+        .filter(|(_, v)| v.is_some())
+        .map(|(k, v)| {
+            let val = v.unwrap();
+            if super::reminder::is_time_valid(&val) {
+                Ok(SettingUpdate { 
+                    key: k, 
+                    value: val.into(), 
+                    scope: SettingScope::User(cmd_ctx.user_id.clone()) 
+                })
+            } else {
+                Err(SettingError::InvalidTimeFormat)
+            }
+        })
+        .collect();
+    let valid_settings = valid_settings?;
+
+    // Send list of default times if vec is empty.
+    if valid_settings.is_empty() {
+        cmd_ctx.send_default_times().await;
+        return Ok(())
+    };
+
+    cmd_ctx.ctx.settings_service.set_settings(
+        &cmd_ctx.room.room_id(), 
+        &cmd_ctx.user_id,
+        valid_settings
+    ).await?;
+    cmd_ctx.send_setting_success(event, "settings.time-set").await;
 
     Ok(())
 }
