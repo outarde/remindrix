@@ -109,6 +109,7 @@ pub async fn process_natural_reminder(
     let (utc_dt, civil_dt) = build_datetime_utc(&reminder_data, &cmd_ctx)?;
 
     let reminder_data = ReminderData {
+        room_id: cmd_ctx.room.room_id().to_owned(),
         utc_dt,
         civil_dt,
         text: reminder_data.text,

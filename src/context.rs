@@ -14,7 +14,8 @@ use rust_i18n::t;
 // app crates
 use crate::db::{ReminderRepository, SettingRepository};
 use crate::reminder::ReminderData;
-use crate::settings::SettingsManager;
+use crate::settings::Settings;
+use crate::settings_service::SettingsService;
 use crate::messaging::{
     RoomMessenger, MessageReaction,
 };
@@ -104,14 +105,17 @@ pub struct CommandContext {
     pub room: Room,
     pub user_id: OwnedUserId,
     pub ctx: Arc<super::BotContext>,
-    pub settings: SettingsManager,
+    pub settings: Settings,
     pub i18n: Arc<I18nManager>,
     pub msng: RoomMessenger,
 }
 
 impl CommandContext {
     pub async fn new(user_id: OwnedUserId, room: Room, ctx: Arc<super::BotContext>) -> Self {
-        let settings = SettingsManager::new(&room, Some(user_id.clone()), &ctx).await;
+        let settings = ctx.settings_service.load_for_active( 
+            &room, 
+            &user_id
+        ).await;
         let i18n = ctx.get_i18n_manager(&settings.room_lang).await;
         let msng = RoomMessenger::new(room.clone(), i18n.clone());
 
@@ -123,11 +127,11 @@ impl CommandContext {
     pub fn bot_config(&self) -> &super::config::BotConfig {
         &self.ctx.bot_config
     }
-    pub fn reminders(&self) -> Arc<ReminderRepository> {
-        self.ctx.reminders.clone()
+    pub fn reminders(&self) -> ReminderRepository {
+        self.ctx.db_ctx.reminders.clone()
     }
-    pub fn settings(&self) -> Arc<SettingRepository> {
-        self.ctx.settings.clone()
+    pub fn settings(&self) -> SettingRepository {
+        self.ctx.db_ctx.settings.clone()
     }
     // Check if room has more than 2 active (joined and invitees) members
     pub fn is_room_group(&self) -> bool {
@@ -181,7 +185,7 @@ impl CommandContext {
             // this setting is on, it is not an interval, it is not delegated.
             if self.bot_config().send_digits_reactions 
                 && !interval 
-                && &reminder.settings.room_id == &self.settings.room_id 
+                && &reminder.room_id == &self.settings.room_id 
             {
                 let numbers = super::messaging::calculate_durations(reminder.utc_dt);
                 let emojis = super::messaging::get_emojis_for_duration(numbers);
@@ -218,6 +222,7 @@ impl CommandContext {
         let msg = t!(
             "settings.default-times",
             locale = &self.settings.room_lang,
+            cmd = self.bot_config().settings_commands.join("|"),
             default = self.settings.default_time.to_string(),
             morning = self.settings.morning.to_string(),
             afternoon = self.settings.afternoon.to_string(),

@@ -16,9 +16,11 @@ use std::{
 };
 use rust_i18n::t;
 use anyhow::Result;
+use strum_macros::{Display, EnumString};
 use thiserror::Error;
 
-use crate::settings::ReminderSettings;
+use crate::settings::{Settings, ReminderSettings};
+use crate::settings_service::SettingsService;
 
 /// British classification of time ante and post meridiem/noon (am and pm).
 #[derive(Debug, PartialEq, Eq)]
@@ -107,11 +109,21 @@ pub struct Reminder {
 /// ReminderData
 #[derive(Debug, Clone)]
 pub struct ReminderData {
+    pub room_id: OwnedRoomId,
+    // pub tz: TimeZone,
     pub utc_dt: Timestamp,
     pub civil_dt: CivilDateTime,
     pub text: String,
     pub created_by: OwnedUserId,
     pub settings: ReminderSettings
+}
+
+/// Type of message for a new reminder.
+#[derive(EnumString, Display)]
+#[strum(serialize_all = "snake_case")]
+enum ReminderMsg {
+    #[strum(serialize = "reminder.new")] New,
+    #[strum(serialize = "reminder.new-from")] DelegatedNew,
 }
 
 // ===== Reminders =====
@@ -141,10 +153,10 @@ pub async fn schedule_reminder(
         tokio::time::sleep(std_duration).await;
 
         // Try to get the room after the sleep.
-        let room = match ctx.client.get_room(&reminder.data.settings.room_id) {
+        let room = match ctx.client.get_room(&reminder.data.room_id) {
             Some(r) => r,
             None => {
-                tracing::warn!("Room {} was not found for reminder #{}", &reminder.data.settings.room_id, &reminder.id);
+                tracing::warn!("Room {} was not found for reminder #{}", &reminder.data.room_id, &reminder.id);
             
                 if let Err(e) = update_reminder_status(ctx.db.clone(), reminder.id, ReminderStatus::Missed).await {
                     tracing::error!("Failed to update status for reminder: {:?}", e);
@@ -155,40 +167,25 @@ pub async fn schedule_reminder(
             }
         };
 
-        // let created_by = &reminder.data.created_by;
-
         // Add "from" if reminder has a probability of delegation.
         let msg_key = if room.joined_members_count() <= 2 as u64 {
             let members = room.members(RoomMemberships::JOIN).await;
             match members {
                 Ok(ms) => {
-                    let from = ms.iter().find(|&m| {
-                        m.user_id() == &reminder.data.created_by
-                    }).is_some();
-                    if from {
-                        "reminder.new"
+                    if ms.iter().find(|&m| m.user_id() == &reminder.data.created_by).is_some() { 
+                        ReminderMsg::New 
                     } else {
-                        "reminder.new-from"
+                        ReminderMsg::DelegatedNew 
                     }
                 },
-                Err(_) => {
-                    "reminder.new"
-                }
+                Err(_) => { ReminderMsg::New }
             }
         } else {
-            "reminder.new-from"
+            ReminderMsg::DelegatedNew
         };
 
-        /*
         let reminder_text = t!(
-            "reminder.new", 
-            locale = &reminder.data.settings.room_lang, 
-            text = reminder.data.text
-        );
-        */
-
-        let reminder_text = t!(
-            msg_key,
+            msg_key.to_string(),
             locale = &reminder.data.settings.room_lang,
             from = reminder.data.created_by,
             text = reminder.data.text
@@ -241,7 +238,6 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
         let room_id_str = raw.room_id.to_string();
         let created_by_str = raw.created_by.to_string();
         let text = raw.text;
-        let _target_time_str = raw.target_time;
         let utc_time_str = raw.utc_time;
         let room_tz_str = raw.tz;
 
@@ -250,7 +246,7 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
         let created_by = UserId::parse(&created_by_str)?;
 
         // Get TZ
-        let room_tz = super::settings::parse_tz_or_default(&room_tz_str, &ctx.bot_config.tz);
+        let room_tz = ctx.settings_service.parse_tz_or_default(&room_tz_str);
 
         // Parse Utc as Timestamp
         let timestamp: Timestamp = match utc_time_str.parse() {
@@ -282,16 +278,18 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
         let dt_zoned = timestamp.to_zoned(room_tz.clone());
         let civil_dt = dt_zoned.datetime();
 
-        // Get lightweight ReminderSettings.
-        let settings = ReminderSettings::load(room_id, room_tz, &ctx).await;
+        // Get Settings.
+        let settings = ctx.settings_service.load_for_background(&room_id).await;
 
         // Prepare ReminderData.
         let reminder_data = ReminderData {
+            room_id,
+            // tz
             utc_dt: timestamp,
             civil_dt,
             text,
             created_by,
-            settings,
+            settings: settings.into(),
         };
 
         reminders.push(Reminder {
@@ -316,7 +314,7 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
         } else {
             // In the past, missed.
             missed_by_room
-                .entry(reminder.data.settings.room_id.clone())
+                .entry(reminder.data.room_id.clone())
                 .or_default()
                 .push(reminder);
         }
