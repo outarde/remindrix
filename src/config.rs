@@ -88,8 +88,22 @@ pub struct BotConfig {
     pub afternoon: String,
     #[serde(default = "BotConfig::default_evening_time")]
     pub evening: String,
-    #[serde(default = "BotConfig::default_strict_settings")]
-    pub strict_settings: bool,
+
+    // If the "strict" mode is defined in the config, then 
+    // any settings will be saved under the bot ID, 
+    // in fact all settings will be tied only to rooms.
+    // The mode should be implemented only if we warn that when it is disabled,
+    // you will need to delete all bot settings - 
+    // otherwise user settings will always overlap old bot settings. 
+    // Or another implementation of the mode: when it is disabled, we simply change the logic 
+    // retrieving settings from the database for the priority of the user, not the bot. 
+    // To do this, you don’t even have to change the database, but simply move the arguments 
+    // user_id and bot_id are swapped in "non-strict" mode, so that the user ID 
+    // was perceived as a bot ID with high priority.
+    // That is, three modes: user settings priority, bot priority, bot only. 
+
+    // #[serde(default = "BotConfig::default_strict_settings")]
+    // pub strict_settings: bool,
 }
 
 impl BotConfig {
@@ -150,7 +164,7 @@ impl BotConfig {
     fn default_evening_time() -> String {
         DEFAULT_EVENING_TIME.into()
     }
-    fn default_strict_settings() -> bool {
+    fn _default_strict_settings() -> bool {
         false
     }
 
