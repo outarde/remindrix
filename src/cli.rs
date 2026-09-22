@@ -8,6 +8,7 @@ use crate::{AppConfig, BotRuntime, BotManager};
 use crate::auth;
 use crate::config;
 use crate::reminder::{is_time_valid};
+use crate::settings_service::SettingsService;
 
 /// Reminder Bot will send reminders for anything you ask 
 /// at any time on your Matrix server.
@@ -187,6 +188,8 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
         .with_validator(validate_config_time)
         .prompt()?.to_string();
 
+    let strict_settings = false;
+
     let new_config = config::BotConfig {
         lang,
         remind_commands,
@@ -203,7 +206,8 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
         tz,
         morning,
         afternoon,
-        evening
+        evening,
+        strict_settings,
     };
 
     let overwrite = Confirm::new("Overwrite current configuration if any?").with_default(true).prompt()?;
@@ -288,7 +292,7 @@ fn validate_config_time(input: &str) -> Result<Validation, inquire::error::Custo
 
 /// Validate TZ for CLI setup
 fn validate_config_tz(input: &str) -> Result<Validation, inquire::error::CustomUserError> {
-    match super::settings::parse_tz(input) {
+    match SettingsService::parse_tz(input) {
         Ok(_tz) => Ok(Validation::Valid),
         Err(_err) => {
             Ok(Validation::Invalid("Use IANA Time Zone Database, like Europe/Paris.".into()))

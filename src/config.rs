@@ -88,6 +88,8 @@ pub struct BotConfig {
     pub afternoon: String,
     #[serde(default = "BotConfig::default_evening_time")]
     pub evening: String,
+    #[serde(default = "BotConfig::default_strict_settings")]
+    pub strict_settings: bool,
 }
 
 impl BotConfig {
@@ -147,6 +149,9 @@ impl BotConfig {
     }
     fn default_evening_time() -> String {
         DEFAULT_EVENING_TIME.into()
+    }
+    fn default_strict_settings() -> bool {
+        false
     }
 
     /// Create config.yaml from config variable
