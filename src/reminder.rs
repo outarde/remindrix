@@ -19,8 +19,7 @@ use anyhow::Result;
 use strum_macros::{Display, EnumString};
 use thiserror::Error;
 
-use crate::settings::{Settings, ReminderSettings};
-use crate::settings_service::SettingsService;
+use crate::settings::ReminderSettings;
 
 /// British classification of time ante and post meridiem/noon (am and pm).
 #[derive(Debug, PartialEq, Eq)]
@@ -72,7 +71,6 @@ pub enum ReminderError {
     #[error("error.datetime")] InvalidDateTime,
     #[error("error.delegation-room-format")] InvalidDelegationRoomFormat,
     #[error("error.delegation-no-room")] NoDelegatedRoom,
-    #[error("tz.invalid-format")] InvalidTzFormat,
     #[error("tz.not-set")] TzNotSet,
     #[error("error.unsafe-datetime")] JiffError(#[from] jiff::Error), 
     #[error("error.matrix")] MatrixError(#[from] matrix_sdk::Error), 

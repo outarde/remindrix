@@ -1,14 +1,9 @@
-use std::{
-    sync::Arc
-};
-use matrix_sdk::{
-    ruma::{
-    UserId, OwnedUserId, OwnedRoomId,
+use matrix_sdk::ruma::{
+    OwnedUserId, OwnedRoomId,
         events::{
         EmptyStateKey, macros::EventContent,
         }
-    }
-};
+    };
 use serde::{Deserialize, Serialize};
 use jiff::{tz::TimeZone, civil::Time};
 use strum_macros::{Display, EnumString};

@@ -21,7 +21,7 @@ use clap::Parser;
 use crate::context::CommandContext;
 use crate::reminder::{ReminderData, ReminderError};
 use crate::settings_service::{SettingsService};
-use crate::settings::{Settings, SettingError, SettingUpdate, SettingScope, SettingKey};
+use crate::settings::{SettingError, SettingUpdate, SettingScope, SettingKey};
 use crate::parsers::{
     ParsedDate, ParsedTime,
     resolve_date, resolve_date_interval, resolve_time, resolve_time_interval, resolve_target_dt,

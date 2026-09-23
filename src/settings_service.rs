@@ -2,10 +2,7 @@ use std::{sync::Arc, str::FromStr};
 use matrix_sdk::{
     deserialized_responses::SyncOrStrippedState,
     Room, ruma::{
-        RoomId, OwnedRoomId, UserId, OwnedUserId,
-        events::{
-            EmptyStateKey, macros::EventContent,
-        }
+        RoomId, OwnedRoomId, UserId, OwnedUserId
     }
 };
 use jiff::{tz::TimeZone, civil::Time};

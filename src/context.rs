@@ -15,7 +15,6 @@ use rust_i18n::t;
 use crate::db::{ReminderRepository, SettingRepository};
 use crate::reminder::ReminderData;
 use crate::settings::Settings;
-use crate::settings_service::SettingsService;
 use crate::messaging::{
     RoomMessenger, MessageReaction,
 };
@@ -130,7 +129,7 @@ impl CommandContext {
     pub fn reminders(&self) -> ReminderRepository {
         self.ctx.db_ctx.reminders.clone()
     }
-    pub fn settings(&self) -> SettingRepository {
+    pub fn _settings(&self) -> SettingRepository {
         self.ctx.db_ctx.settings.clone()
     }
     // Check if room has more than 2 active (joined and invitees) members
