@@ -893,29 +893,140 @@ settings.help:
     Available subcommands:
     - `lang` - view the list of languages and change the one you are using.
     - `time` - view and change the default times for reminders.
+  de: |
+    Verfügbare Unterbefehle:
+    - `lang` – Liste der Sprachen anzeigen und die aktuell verwendete Sprache ändern. 
+    - `time` – Standardzeiten für Erinnerungen anzeigen und ändern.
+  fr: |
+    Sous-commandes disponibles :
+    - `lang` - afficher la liste des langues et modifier celle que vous utilisez. 
+    - `time` - afficher et modifier les horaires par défaut des rappels.
+  it: |
+    Sottocomandi disponibili:
+    - `lang` - visualizza l'elenco delle lingue e cambia quella in uso. 
+    - `time` - visualizza e modifica gli orari predefiniti per i promemoria.
+  es: |
+    Subcomandos disponibles:
+    - `lang` - ver la lista de idiomas y cambiar el que estás utilizando. 
+    - `time` - ver y cambiar los tiempos predeterminados para los recordatorios.
+  sv: |
+    Tillgängliga underkommandon:
+    - `lang` – visa listan över språk och ändra det språk du använder. 
+    - `time` – visa och ändra standardtiderna för påminnelser.
+  pl: |
+    Dostępne podpolecenia:
+    - `lang` – wyświetl listę języków i zmień używany język. 
+    - `time` – wyświetl i zmień domyślne pory przypomnień.
+  cs: |
+    Dostupné podpříkazy:
+    - `lang` – zobrazení seznamu jazyků a změna aktuálně používaného jazyka. 
+    - `time` – zobrazení a změna výchozích časů pro připomenutí.
+  fi: |
+    Käytettävissä olevat alikomennot:
+    - `lang` – tarkastele kieliluetteloa ja vaihda käyttämääsi kieltä. 
+    - `time` – tarkastele ja muuta muistutusten oletusaikoja.
+  ja: |
+    利用可能なサブコマンド:
+    - `lang` - 言語の一覧を表示し、使用する言語を変更します。 
+    - `time` - リマインダーのデフォルト時間を表示・変更します。
+  zh: |
+    可用的子命令：
+    - `lang` - 查看语言列表并更改您正在使用的语言。 
+    - `时间` - 查看和更改提醒的默认时间。
   ru: |
-    Подкоманды:
-    - `lang` - увидеть доступные языки и изменить свой.
-    - `time` - увидеть стандартное время для напоминаний и изменить его.
+    Доступные подкоманды:
+    - `lang` - изменение языка.
+    - `time` - просмотр и изменение времени напоминаний.
+  uk: |
+    Доступні підкоманди:
+    - `lang` — перегляд списку мов і зміна поточної мови. 
+    - `time` — перегляд і зміна часу за замовчуванням для нагадувань.
 
 settings.lang-list:
   en: |
     🇬🇧&nbsp;`en`, 🇩🇪 `de`, 🇫🇷 `fr`, 🇮🇹 `it`, 🇪🇸 `es`, 🇸🇪🛋️`sv`, 🇵🇱 `pl`, 🇨🇿 `cs`, 🇫🇮 `fi`, 🇯🇵 `ja`, 🇨🇳 `zh`, 🇷🇺 `ru`, 🇺🇦 `uk`.
+
 settings.lang-help:
   en: |
     - Set the language using the command: `/%{cmd} lang <lang>`.
     - The bot will use the selected language for responses and for recognizing commands and the words within them.
     - For example, send `/%{cmd} lang fr` to set French language. Then the bot will create new reminders in response to the `/rappeler` command.
+  de: |
+    - Stellen Sie die Sprache mit dem Befehl ein: `/%{cmd} lang <lang>`. 
+    - Der Bot verwendet die ausgewählte Sprache für Antworten und zum Erkennen von Befehlen und den darin enthaltenen Wörtern. 
+    - Senden Sie beispielsweise `/%{cmd} lang en`, um die Englische Sprache festzulegen. Dann erstellt der Bot als Reaktion auf den Befehl `/remind` neue Erinnerungen.
+  fr: |
+    - Définissez la langue à l'aide de la commande : `/%{cmd} lang <lang>`. 
+    - Le bot utilisera la langue sélectionnée pour ses réponses ainsi que pour reconnaître les commandes et les mots qu'elles contiennent. 
+    - Par exemple, envoyez `/%{cmd} lang fr` pour choisir le français. Le bot créera alors de nouveaux rappels en réponse à la commande `/rappeler`.
+  it: |
+    - Imposta la lingua utilizzando il comando: `/%{cmd} lang <lang>`. 
+    - Il bot utilizzerà la lingua selezionata per le risposte e per riconoscere i comandi e le parole in essi contenuti. 
+    - Ad esempio, invia `/%{cmd} lang fr` per impostare la lingua francese. Il bot creerà quindi nuovi promemoria in risposta al comando `/rappeler`.
+  es: |
+    - Establece el idioma mediante el comando: `/%{cmd} lang <lang>`. 
+    - El bot utilizará el idioma seleccionado para las respuestas y para reconocer los comandos y las palabras que contienen. 
+    - Por ejemplo, envía `/%{cmd} lang fr` para establecer el idioma francés. A partir de ese momento, el bot creará nuevos recordatorios en respuesta al comando `/rappeler`.
+  sv: |
+    - Ställ in språket med kommandot: `/%{cmd} lang <lang>`. 
+    - Boten använder det valda språket för svar samt för att känna igen kommandon och orden i dem. 
+    - Skicka till exempel `/%{cmd} lang fr` för att välja franska. Boten kommer då att skapa nya påminnelser som svar på kommandot `/rappeler`.
+  pl: |
+    - Ustaw język za pomocą polecenia: `/%{cmd} lang <lang>`. 
+    - Bot będzie używać wybranego języka do udzielania odpowiedzi oraz rozpoznawania poleceń i zawartych w nich słów. 
+    - Na przykład wyślij `/%{cmd} lang fr`, aby ustawić język francuski. Wówczas bot będzie tworzył nowe przypomnienia w odpowiedzi na polecenie `/rappeler`.
+  cs: |
+    - Nastavte jazyk pomocí příkazu: `/%{cmd} lang <lang>`. 
+    - Bot bude vybraný jazyk používat pro odpovědi i pro rozpoznávání příkazů a slov v nich obsažených. 
+    - Například odešlete `/%{cmd} lang fr` pro nastavení francouzštiny. Bot poté bude vytvářet nová připomenutí v reakci na příkaz `/rappeler`.
+  fi: |
+    - Aseta kieli komennolla: `/%{cmd} lang <kieli>`. 
+    - Botti käyttää valittua kieltä vastauksissaan sekä tunnistaessaan komentoja ja niiden sisältämiä sanoja. 
+    - Aseta esimerkiksi ranska lähettämällä komento `/%{cmd} lang fr`. Tällöin botti luo uusia muistutuksia vastauksena `/rappeler`-komentoon.
+  ja: |
+    - `/%{cmd} lang <lang>` コマンドを使用して言語を設定します。 
+    - ボットは、応答やコマンドおよびその中の単語の認識に、選択された言語を使用します。 
+    - 例えば、`/%{cmd} lang fr` を送信するとフランス語が設定されます。その後、ボットは `/rappeler` コマンドに対して新しいリマインダーを作成するようになります。
+  zh: |
+    - 使用命令 `/%{cmd} lang <lang>` 设置语言。 
+    - 机器人将使用所选语言进行回复，并识别命令及其包含的词汇。 
+    - 例如，发送 `/%{cmd} lang fr` 即可将语言设置为法语。此后，机器人将响应 `/rappeler` 命令来创建新的提醒。
   ru: |
-    - Установите язык командой: `/%{cmd} lang <язык>`, где `язык` - код языка из списка выше.
+    - Установите язык командой: `/%{cmd} lang <язык>`, где `<язык>` - код языка из списка выше.
     - Напоминалка будет использовать выбранный язык для ответов и для распознавания команд (`напомни`, `завтра`).
     - Например, отправьте `/%{cmd} lang fr` для установки французского языка. Теперь бот будет создавать напоминания по французской команде `/rappeler`.
+  uk: |
+    - Встановіть мову за допомогою команди: `/%{cmd} lang <lang>`. 
+    - Бот використовуватиме вибрану мову для відповідей, а також для розпізнавання команд і слів у них. 
+    - Наприклад, надішліть `/%{cmd} lang fr`, щоб встановити французьку мову. Після цього бот створюватиме нові нагадування у відповідь на команду `/rappeler`.
 error.lang.not-exist:
   en: That language was not found among the supported ones.
+  de: Diese Sprache wurde nicht unter den unterstützten Sprachen gefunden.
+  fr: Cette langue ne figurait pas parmi les langues prises en charge.
+  it: Quella lingua non è stata trovata tra quelle supportate.
+  es: Ese idioma no se encontró entre los admitidos.
+  sv: Det språket hittades inte bland de språk som stöds.
+  pl: Tego języka nie znaleziono wśród obsługiwanych.
+  cs: Tento jazyk nebyl nalezen mezi podporovanými jazyky.
+  fi: Kyseistä kieltä ei löytynyt tuettujen kielten joukosta.
+  ja: その言語は、サポートされている言語の中には見つかりませんでした。
+  zh: 在支持的语言中未找到该语言。
   ru: Язык не найден среди доступных.
+  uk: Цю мову не знайдено серед підтримуваних.
 error.lang.not-set:
   en: The language is already in use.
+  de: Die Sprache wird bereits verwendet.
+  fr: La langue est déjà utilisée.
+  it: La lingua è già in uso.
+  es: El idioma ya está en uso.
+  sv: Språket används redan.
+  pl: Ten język jest już w użyciu.
+  cs: Tento jazyk se již používá.
+  fi: Kieli on jo käytössä.
+  ja: その言語はすでに使用されています。
+  zh: 该语言已被使用。
   ru: Язык уже установлен.
+  uk: Ця мова вже використовується.
 settings.lang-set:
   en: The language has been applied.
   de: Die Sprache wurde angewendet.
@@ -934,23 +1045,160 @@ settings.lang-set:
 settings.default-times:
   en: |
     Here are the times used when you type:
-    - morning - %{morning}
-    - afternoon - %{afternoon}
-    - evening - %{evening}
+    - `%{default}` - without a specific time (same day or next day)
+    - 🌅 `%{morning}` - morning
+    - ☀️ `%{afternoon}` - afternoon
+    - 🌃 `%{evening}` - evening
 
-    If you do not specify a time, the reminder will be scheduled for %{default} on the same or the next day. 
+    To change the time: 
+    - Specify its type: `default|morning|afternoon|evening`. 
+    - Then the time separated by a colon: `09:00`, `21:00`. 
+    - For example: `/%{cmd} time --evening 22:30`.
+  de: |
+    Hier sind die Zeiten, die Sie bei der Eingabe verwenden: 
+    - 🌅 `%{morning}` – Morgen 
+    - ☀️ `%{afternoon}` – Nachmittag 
+    - 🌃 `%{evening}` – Abend 
+    - `%{default}` – ohne bestimmte Uhrzeit (gleicher Tag oder nächster Tag) 
 
-    To change the time, type `/%{cmd} time --default|morning|afternoon|evening <time>`. Specify the time using a colon: `09:00`, `21:00`.
+    So ändern Sie die Uhrzeit: 
+    - Geben Sie den Typ an: `default|morning|afternoon|evening`. 
+    - Dann die durch einen Doppelpunkt getrennte Uhrzeit: `09:00`, `21:00`. 
+    - Zum Beispiel: `/%{cmd} time --evening 22:30`.
+  fr: |
+    Voici les moments utilisés lors de la saisie :
+    - 🌅 `%{morning}` - matin
+    - ☀️ `%{afternoon}` - après-midi
+    - 🌃 `%{evening}` - soir
+    - `%{default}` - sans moment précis (le jour même ou le lendemain)
+
+    Pour modifier l'heure :
+    - Indiquez le type : `default|morning|afternoon|evening`. 
+    - Puis l'heure, séparée par deux-points : `09:00`, `21:00`. 
+    - Par exemple : `/%{cmd} time --evening 22:30`.
+  it: |
+    Ecco gli orari utilizzati quando digiti:
+    - 🌅 `%{morning}` - mattina
+    - ☀️ `%{afternoon}` - pomeriggio
+    - 🌃 `%{evening}` - sera
+    - `%{default}` - senza un orario specifico (stesso giorno o giorno successivo)
+
+    Per modificare l'orario:
+    - Specifica il tipo: `default|morning|afternoon|evening`. 
+    - Poi l'orario separato da due punti: `09:00`, `21:00`. 
+    - Ad esempio: `/%{cmd} time --evening 22:30`.
+  es: |
+    Estos son los momentos que se utilizan al escribir:
+    - 🌅 `%{morning}` - mañana
+    - ☀️ `%{afternoon}` - tarde
+    - 🌃 `%{evening}` - noche
+    - `%{default}` - sin un momento específico (mismo día o día siguiente)
+
+    Para cambiar el momento:
+    - Especifica el tipo: `default|morning|afternoon|evening`. 
+    - Luego, la hora separada por dos puntos: `09:00`, `21:00`. 
+    - Por ejemplo: `/%{cmd} time --evening 22:30`.
+  sv: |
+    Här är tidsalternativen som används när du skriver:
+    - 🌅 `%{morning}` – morgon
+    - ☀️ `%{afternoon}` – eftermiddag
+    - 🌃 `%{evening}` – kväll
+    - `%{default}` – utan specifik tid (samma dag eller nästa dag)
+
+    För att ändra tiden:
+    - Ange typen: `default|morning|afternoon|evening`. 
+    - Ange sedan tiden, separerad med ett kolon: `09:00`, `21:00`. 
+    - Exempel: `/%{cmd} time --evening 22:30`.
+  pl: |
+    Oto oznaczenia pór dnia używane przy wpisywaniu komendy:
+    - 🌅 `%{morning}` – rano
+    - ☀️ `%{afternoon}` – popołudnie
+    - 🌃 `%{evening}` – wieczór
+    - `%{default}` – bez konkretnej pory (ten sam lub następny dzień)
+
+    Aby zmienić godzinę:
+    - Określ typ pory: `default|morning|afternoon|evening`. 
+    - Następnie podaj godzinę oddzieloną dwukropkiem: `09:00`, `21:00`. 
+    - Przykład: `/%{cmd} time --evening 22:30`.
+  cs: |
+    Zde jsou časy používané při psaní:
+    - 🌅 `%{morning}` – ráno
+    - ☀️ `%{afternoon}` – odpoledne
+    - 🌃 `%{evening}` – večer
+    - `%{default}` – bez konkrétního času (tentýž nebo následující den)
+
+    Pro změnu času:
+    - Uveďte jeho typ: `default|morning|afternoon|evening`. 
+    - Poté zadejte čas oddělený dvojtečkou: `09:00`, `21:00`. 
+    - Například: `/%{cmd} time --evening 22:30`.
+  fi: |
+    Tässä ovat käytettävät ajat:
+    - 🌅 `%{morning}` – aamu
+    - ☀️ `%{afternoon}` – iltapäivä
+    - 🌃 `%{evening}` – ilta
+    - `%{default}` – ilman tiettyä kellonaikaa (sama päivä tai seuraava päivä)
+
+    Kellonajan muuttaminen:
+    - Määritä tyyppi: `default|morning|afternoon|evening`. 
+    - Lisää sen jälkeen kellonaika kaksoispisteellä erotettuna: `09:00`, `21:00`. 
+    - Esimerkki: `/%{cmd} time --evening 22:30`.
+  ja: |
+    入力時に使用される時刻は以下の通りです：
+    - 🌅 `%{morning}` - 午前
+    - ☀️ `%{afternoon}` - 午後
+    - 🌃 `%{evening}` - 夜間
+    - `%{default}` - 特定の時刻指定なし（当日または翌日）
+
+    時刻を変更する場合：
+    - 種類（`default`、`morning`、`afternoon`、`evening`）を指定します。 
+    - 続いて、コロンで区切って時刻（`09:00`、`21:00`など）を指定します。 
+    - 例：`/%{cmd} time --evening 22:30`
+  zh: |
+    输入时使用的具体时间如下：
+    - 🌅 `%{morning}` - 上午/早晨
+    - ☀️ `%{afternoon}` - 下午
+    - 🌃 `%{evening}` - 晚上
+    - `%{default}` - 无特定时间（当天或次日）
+
+    若要更改时间：
+    - 指定类型：`default|morning|afternoon|evening`。 
+    - 随后用冒号分隔时间：`09:00`、`21:00`。 
+    - 例如：`/%{cmd} time --evening 22:30`。
   ru: |
-    - `%{default}` напоминания без времени (тот же или следующий день)
-    - `%{morning}` утро
-    - `%{afternoon}` день
-    - `%{evening}` вечер
+    - 🌅 `%{morning}` - утро
+    - 🌆 `%{afternoon}` - день
+    - 🌃 `%{evening}` - вечер
+    - `%{default}` - напоминания без времени (тот же или следующий день)
 
-    Для изменения времени напишите: `/%{cmd} time --default|morning|afternoon|evening <time>`. Время указывается через двоеточие: `09:00`, `21:00`.
+    Для изменения времени: 
+    - Укажите его тип: `default|morning|afternoon|evening`.
+    - Затем время через двоеточие: `09:00`, `21:00`.
+    - Например: `/%{cmd} time --evening 22:30`.
+  uk: |
+    Ось типи часу, які можна використовувати під час введення:
+    - 🌅 `%{morning}` — ранок
+    - ☀️ `%{afternoon}` — день
+    - 🌃 `%{evening}` — вечір
+    - `%{default}` — без конкретного часу (той самий або наступний день)
+
+    Щоб змінити час:
+    - Вкажіть його тип: `default|morning|afternoon|evening`. 
+    - Потім — час, відокремлений двокрапкою: `09:00`, `21:00`. 
+    - Наприклад: `/%{cmd} time --evening 22:30`.
 settings.time-set:
   en: Default times are updated.
+  de: Die Standardzeiten wurden aktualisiert.
+  fr: Les durées par défaut ont été mises à jour.
+  it: Gli orari predefiniti sono stati aggiornati.
+  es: Se han actualizado los tiempos predeterminados.
+  sv: Standardtiderna har uppdaterats.
+  pl: Domyślne czasy zostały zaktualizowane.
+  cs: Výchozí časy jsou aktualizovány.
+  fi: Oletusajat on päivitetty.
+  ja: デフォルトの時間が更新されました。
+  zh: 默认时间已更新。
   ru: Значения обновлены.
+  uk: Час за замовчуванням оновлено.
 
 dates.today:
   en: today
