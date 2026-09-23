@@ -1045,13 +1045,13 @@ settings.lang-set:
 settings.default-times:
   en: |
     Here are the times used when you type:
-    - `%{default}` - without a specific time (same day or next day)
     - 🌅 `%{morning}` - morning
     - ☀️ `%{afternoon}` - afternoon
     - 🌃 `%{evening}` - evening
+    - `%{default}` - without a specific time (same day or next day)
 
     To change the time: 
-    - Specify its type: `default|morning|afternoon|evening`. 
+    - Specify its type: `morning|afternoon|evening|default`. 
     - Then the time separated by a colon: `09:00`, `21:00`. 
     - For example: `/%{cmd} time --evening 22:30`.
   de: |
