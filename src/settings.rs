@@ -58,15 +58,15 @@ pub struct RawSetting {
     pub user_id: String,
 }
 
-#[derive(EnumString, Display)]
+#[derive(Debug, PartialEq, EnumString, Display)]
 #[strum(serialize_all = "snake_case")]
-pub enum SettingName {
-    #[strum(serialize = "lang")] Lang,
-    #[strum(serialize = "timezone")] TimeZone,
-    #[strum(serialize = "default_time")] DefaultTime,
-    #[strum(serialize = "morning")] Morning,
-    #[strum(serialize = "afternoon")] Afternoon,
-    #[strum(serialize = "evening")] Evening,
+pub enum SettingKey {
+    Lang,
+    Timezone,
+    DefaultTime,
+    Morning,
+    Afternoon,
+    Evening,
 }
 
 pub enum SettingScope {
@@ -75,7 +75,7 @@ pub enum SettingScope {
 }
 
 pub struct SettingUpdate {
-    pub key: SettingName,
+    pub key: SettingKey,
     pub value: String,
     pub scope: SettingScope,
 }

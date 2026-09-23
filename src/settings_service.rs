@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, str::FromStr};
 use matrix_sdk::{
     deserialized_responses::SyncOrStrippedState,
     Room, ruma::{
@@ -12,7 +12,7 @@ use jiff::{tz::TimeZone, civil::Time};
 
 use crate::{db::DbContext, config::BotConfig};
 use crate::settings::{
-    Settings, SettingError, SettingName, SettingScope, 
+    Settings, SettingError, SettingKey, SettingScope, 
     SettingUpdate, RawSetting, 
     RoomTimezoneContent
 };
@@ -84,14 +84,18 @@ impl SettingsService {
 
         // Set values.
         for setting in raw_settings {
-            match setting.key.as_str() {
-                "timezone" => timezone = Some(setting.value),
-                "lang" => lang = Some(setting.value),
-                "default_time" => default_time = Some(setting.value),
-                "morning" => morning = Some(setting.value),
-                "afternoon" => afternoon = Some(setting.value),
-                "evening" => evening = Some(setting.value),
-                _ => {}
+            if let Ok(key) = SettingKey::from_str(&setting.key) {
+                match key {
+                    SettingKey::Timezone => timezone = Some(setting.value),
+                    SettingKey::Lang => lang = Some(setting.value),
+                    SettingKey::DefaultTime => default_time = Some(setting.value),
+                    SettingKey::Morning => morning = Some(setting.value),
+                    SettingKey::Afternoon => afternoon = Some(setting.value),
+                    SettingKey::Evening => evening = Some(setting.value),
+                }
+            }
+            else {
+                tracing::warn!("Unknown setting key in database: {}", setting.key);
             }
         }
 
@@ -105,10 +109,10 @@ impl SettingsService {
             room_tz_name: room_tz.iana_name().unwrap().to_string(),
             room_tz,
             room_lang: lang.unwrap_or_else(|| self.config.lang.clone()),
-            default_time: self.parse_time_or_default(default_time),
-            morning: self.parse_time_or_default(morning),
-            afternoon: self.parse_time_or_default(afternoon),
-            evening: self.parse_time_or_default(evening),
+            default_time: self.parse_time_or_default(default_time, &self.config.morning),
+            morning: self.parse_time_or_default(morning, &self.config.morning),
+            afternoon: self.parse_time_or_default(afternoon, &self.config.afternoon),
+            evening: self.parse_time_or_default(evening, &self.config.evening),
         }
     }
 
@@ -154,7 +158,7 @@ impl SettingsService {
 
         // Send to the convenience set_settings method.
         let new_setting = SettingUpdate {
-            key: SettingName::TimeZone,
+            key: SettingKey::Timezone,
             value: tz_name.clone(),
             scope: SettingScope::Room
         };
@@ -217,7 +221,7 @@ impl SettingsService {
     }
 
     /// Parse Option<String> to Time -> or return default -> or DEFAULT_MORNING_TIME.
-    pub fn parse_time_or_default(&self, time_str: Option<String>) -> Time {
+    pub fn parse_time_or_default(&self, time_str: Option<String>, default: &str) -> Time {
         if let Some(ref s) = time_str {
             if let Ok(t) = s.parse::<Time>() {
                 return t;
@@ -225,11 +229,11 @@ impl SettingsService {
             tracing::warn!("Invalid time format in DB: {}, falling back to config", s);
         }
 
-        if let Ok(t) = self.config.morning.parse::<Time>() {
+        if let Ok(t) = default.parse::<Time>() {
             return t;
         }
 
-        tracing::error!("Invalid default time in config: {}, falling back to default {}: ", &self.config.morning, super::config::DEFAULT_MORNING_TIME);
+        tracing::error!("Invalid default time in config: {}, falling back to default {}: ", default, super::config::DEFAULT_MORNING_TIME);
         super::config::DEFAULT_MORNING_TIME.parse::<Time>().unwrap()
     }
 

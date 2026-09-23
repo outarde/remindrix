@@ -21,7 +21,7 @@ use clap::Parser;
 use crate::context::CommandContext;
 use crate::reminder::{ReminderData, ReminderError};
 use crate::settings_service::{SettingsService};
-use crate::settings::{Settings, SettingError, SettingUpdate, SettingScope, SettingName};
+use crate::settings::{Settings, SettingError, SettingUpdate, SettingScope, SettingKey};
 use crate::parsers::{
     ParsedDate, ParsedTime,
     resolve_date, resolve_date_interval, resolve_time, resolve_time_interval, resolve_target_dt,
@@ -483,10 +483,10 @@ pub async fn handle_settings(
         SettingsArgs::Lang {lang_key} => handle_lang_settings(lang_key, cmd_ctx.clone()).await?,
         SettingsArgs::Time {default, morning, afternoon, evening} => {
             let updates = vec![
-                (SettingName::DefaultTime, default),
-                (SettingName::Morning, morning),
-                (SettingName::Afternoon, afternoon),
-                (SettingName::Evening, evening),
+                (SettingKey::DefaultTime, default),
+                (SettingKey::Morning, morning),
+                (SettingKey::Afternoon, afternoon),
+                (SettingKey::Evening, evening),
             ];
             handle_time_settings(event, cmd_ctx.clone(), updates).await?
         },
@@ -533,7 +533,7 @@ pub async fn handle_lang_settings(
 
     // Set new language and send message IN NEW LANGUAGE if it was successful.
     let new_setting = SettingUpdate { 
-        key: SettingName::Lang,
+        key: SettingKey::Lang,
         value: lang.to_string(),
         scope: SettingScope::Room
     };
@@ -552,7 +552,7 @@ pub async fn handle_lang_settings(
 pub async fn handle_time_settings(
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
-    settings: Vec<(SettingName, Option<String>)>,
+    settings: Vec<(SettingKey, Option<String>)>,
 ) -> Result<(), SettingError> {
     // Filter Some(String) and validate its format.
     let valid_settings: Result<Vec<SettingUpdate>, SettingError> = settings

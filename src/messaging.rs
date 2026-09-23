@@ -88,7 +88,7 @@ impl RoomMessenger {
     /// Send markdown message with the typing indciator (Typing Guard).
     pub async fn text_md(&self, text: &str) {
         let _ = self.room.typing_notice(true).await;
-        tokio::time::sleep(Duration::from_millis(250)).await;
+        tokio::time::sleep(Duration::from_millis(200)).await;
         let _ = self.room.typing_notice(false).await;
 
         let _ = self.room.send(RoomMessageEventContent::text_markdown(text)).await;

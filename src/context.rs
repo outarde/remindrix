@@ -223,10 +223,10 @@ impl CommandContext {
             "settings.default-times",
             locale = &self.settings.room_lang,
             cmd = self.bot_config().settings_commands.join("|"),
-            default = self.settings.default_time.to_string(),
-            morning = self.settings.morning.to_string(),
-            afternoon = self.settings.afternoon.to_string(),
-            evening = self.settings.evening.to_string(),
+            default = self.settings.default_time.strftime("%H:%M").to_string(),
+            morning = self.settings.morning.strftime("%H:%M").to_string(),
+            afternoon = self.settings.afternoon.strftime("%H:%M").to_string(),
+            evening = self.settings.evening.strftime("%H:%M").to_string(),
         );
 
         self.msng.text_md_long(&msg).await;
