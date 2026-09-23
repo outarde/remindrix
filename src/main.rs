@@ -45,6 +45,8 @@ rust_i18n::i18n!("locales", fallback = "en", backend = RemoteI18n::new());
 /// and app sqlite database: reminders.db
 /// Located in dirs::data_dir() directory.
 pub const APP_FOLDER: &str = "remindrix";
+/// Docker Healthcheck.
+const HEALTHCHECK_PATH: &str = "/tmp/healthy";
 
 pub struct AppConfig {
     pub bot: config::BotConfig,
@@ -112,8 +114,34 @@ impl BotRuntime {
         })
     }
 
+    // ===== Docker Healthcheck =====
+    /// Heartbeat
+    fn start_healthcheck_heartbeat(&self) -> tokio::task::JoinHandle<()> {
+        tokio::spawn(async move {
+            loop {
+                if let Err(e) = tokio::fs::write(HEALTHCHECK_PATH, "ok").await {
+                    tracing::error!("❌ Failed to write healthcheck heartbeat: {}", e);
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+            }
+        })
+    }
+    /// Delete heartbeat file
+    async fn cleanup_healthcheck() {
+        if let Err(e) = tokio::fs::remove_file(HEALTHCHECK_PATH).await {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                tracing::warn!("⚠️ Could not remove healthcheck file during cleanup: {}", e);
+            }
+        } else {
+            tracing::info!("🧹 Healthcheck file removed successfully.");
+        }
+    }
+
+    // ===== Sync =====
     /// Sync
     pub async fn sync(&self) -> Result<()> {
+        let heartbeat_handle = self.start_healthcheck_heartbeat();
+
         tokio::select! {
             result = auth::sync(self.client.clone(), self.sync_settings.clone(), &self.session_file) => {
                 result?;
@@ -121,8 +149,11 @@ impl BotRuntime {
             _ = signal::ctrl_c() => {
                 info!("🛑 The application is terminating...");
                 // https://docs.rs/matrix-sdk/latest/matrix_sdk/struct.Client.html#method.sync
-                // client.sync_service().stop().await?;
+                // https://docs.rs/matrix-sdk/latest/matrix_sdk/sliding_sync/struct.SlidingSync.html#method.stop_sync
                 // drop(client); or let _ = client;
+
+                heartbeat_handle.abort();
+                Self::cleanup_healthcheck().await;
             }
         }
 
