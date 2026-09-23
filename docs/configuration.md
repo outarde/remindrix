@@ -46,7 +46,7 @@ Confirm that you want to create or overwrite a settings file.
 
 | Field             | Description                                                                                                                                                                                          | Default        |
 | :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- |
-| `lang`            | Language for bot commands and messages. See below for a list of available languages. Applies to all users.                                                                                           | `en`           |
+| `lang`            | Language for bot commands and messages. See below for a list of available languages. The setting applies to all users who have not set a language.                                                                                           | `en`           |
 | `remind_commands` | Aliases that override the standard bot invocation command. These are formatted as a list. The command for the selected language is available regardless of this variable.                            | `[ "remind" ]` |
 | `list_commands`   | Same for the reminders list command. Does not have a localized version.                                                                                                                                                                | `[ "list" ]`   |
 | `tz_commands`     | Same for the timezone set up command. Does not have a localized version.                                                                                                                                                                | `[ "tz" ]`     |
@@ -58,7 +58,7 @@ Confirm that you want to create or overwrite a settings file.
 | `send_reactions`      | The bot will send emoji reactions instead of success messages, but errors will remain in text format.                                                          | `true`        |
 | `send_digits_reactions`      | The bot will send reactions in the form of a number of the longest duration before the reminder time. The Matrix doesn't allow two identical reactions to be sent to the same message, so numbers like 11 and 22 are replaced with the timer emoji ⏲️.                                                          | `true`        |
 | `tz`         | Default time zone for all rooms on the server. Use [TZ identifier base](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). | `Europe/Paris`        |
-| `morning`         | The time that is considered morning. Please follow the format `%H:%M`, otherwise you will see a general error `Error parsing regex` only when the bot tries to access the variables.                 | `09:00`        |
+| `morning`         | The time that is considered morning. Please follow the format `%H:%M`, like `09:00`, `21:00`. The setting applies to all users who have not changed it.                | `09:00`        |
 | `afternoon`       | The time that is considered afternoon.                                                                                                                                                               | `14:00`        |
 | `evening`         | The time that is considered evening.                                                                                                                                                                 | `19:00`        |
 
@@ -86,7 +86,7 @@ If you notice an incorrect translation or would like to request an other languag
 ### Using a Custom Translation File
 A custom translation file is a great way to add a language that isn't yet in the bot, or to customize an existing translation to suit your needs, for a themed homeserver or special occasion 🎃!
 
-**Step one.** Create a `locales` folder in the folder already bound to `/app/data/reminder_bot`.
+**Step one.** Create a `locales` folder in the folder already bound to `/app/data/remindrix`.
 
 **Step two.** Create an `app.yml` file inside it. 
 
