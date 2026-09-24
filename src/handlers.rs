@@ -10,7 +10,7 @@ use matrix_sdk::{
 };
 use anyhow::Result;
 use tokio::time::{Duration, sleep};
-use jiff::ToSpan;
+use jiff::{civil::time, ToSpan};
 use regex::Regex;
 use std::{string::ToString, sync::{OnceLock, Arc}, borrow::Cow};
 use rust_i18n::t;
@@ -21,7 +21,12 @@ use clap::Parser;
 use crate::context::CommandContext;
 use crate::reminder::{ReminderData, ReminderError};
 use crate::settings_service::{SettingsService};
-use crate::settings::{SettingError, SettingUpdate, SettingScope, SettingKey};
+use crate::settings::{
+    SettingError,
+    ActiveSettings, RoomSettings, UserSettings, 
+    SettingUpdate, SettingKey, RawSetting, 
+    RoomTimezoneContent
+};
 use crate::parsers::{
     ParsedDate, ParsedTime,
     resolve_date, resolve_date_interval, resolve_time, resolve_time_interval, resolve_target_dt,
@@ -299,7 +304,7 @@ pub async fn on_room_message(
     // If there is an error
     if let Err(err) = result {
         // or use unwrap_err() and call to_local()
-        let msg = err.to_local(&cmd_ctx.settings.room_lang);
+        let msg = err.to_local(&cmd_ctx.settings.room.room_lang);
         cmd_ctx.msng.text_md(&msg).await;
     }
 }
@@ -387,13 +392,13 @@ pub async fn process_cli_reminder(
     let text = args.text.join(" ").to_string();
 
     // Settings for the room for which the reminder was delegated or intended.
-    let target_settings = if let Some(to) = args.to.as_deref() {
+    let room_settings = if let Some(to) = args.to.as_deref() {
         let room = parse_room(&to, &cmd_ctx).await?;
-        cmd_ctx.ctx.settings_service.load_for_background_room(&room).await
-    } else { cmd_ctx.settings.clone() };
+        cmd_ctx.ctx.settings_service.load_room(room.room_id(), None).await
+    } else { cmd_ctx.settings.room.clone() };
 
     // Set room_tz from settings.
-    let room_tz = target_settings.room_tz.clone();
+    let room_tz = room_settings.room_tz.clone();
 
     // Parse date.
     let date: ParsedDate = if args.interval {
@@ -406,7 +411,8 @@ pub async fn process_cli_reminder(
     let time: ParsedTime = if args.interval {
         resolve_time_interval(&args, &room_tz)?
     } else {
-        resolve_time(&args, &room_tz, target_settings.default_time.clone())?
+        // TODO!
+        resolve_time(&args, &room_tz, time(9, 0, 0, 0))?
     };
 
     // Get times.
@@ -414,12 +420,12 @@ pub async fn process_cli_reminder(
 
     // Fill a structure.
     let reminder_data = ReminderData {
-        room_id: target_settings.room_id.clone(),
+        room_id: room_settings.room_id.clone(),
         utc_dt,
         civil_dt,
         text,
         created_by: cmd_ctx.user_id.clone(),
-        settings: target_settings.into()
+        room_settings
     };
 
     // Saving.
@@ -441,29 +447,39 @@ async fn handle_tz(
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
 ) -> Result<(), OutputError> {
-    // Update timezone if we have one in the input.
-    if !body.is_empty() {
-        // Parse user's input timezone code
-        let input_tz = SettingsService::parse_tz(&body)?;
-
-        // If user's input timezone is equal to current room timezone
-        if input_tz == cmd_ctx.settings.room_tz {
-            return Err(ReminderError::TzNotSet.into());
-        }
-        else {
-            let input_tz_name = cmd_ctx.ctx.settings_service.set_room_tz(
-                &cmd_ctx.room, 
-                &cmd_ctx.user_id, 
-                input_tz
-            ).await?;
-            cmd_ctx.send_tz_success(event.clone(), &input_tz_name).await;
-        }
-    }
-    // Send current timezone.
-    else {
-        let msg = t!("tz.current", locale = &cmd_ctx.settings.room_lang, tz = &cmd_ctx.settings.room_tz_name);
+    if body.is_empty() {
+        let msg = t!("tz.current", locale = &cmd_ctx.settings.room.room_lang, tz = &cmd_ctx.settings.room.room_tz_name);
         cmd_ctx.msng.text_md(&msg).await;
+        return Ok(());
     }
+
+    // Parse user's input timezone code
+    let tz = SettingsService::parse_tz(&body)?;
+
+    // If user's input timezone is equal to current room timezone
+    if tz == cmd_ctx.settings.room.room_tz {
+        return Err(ReminderError::TzNotSet.into());
+    }
+
+    // Get name
+    let tz_name = tz.iana_name().ok_or(SettingError::InvalidTzFormat)?.to_string();
+
+    // Update by Matrix State Event.
+    // suppress the error
+    let _res = cmd_ctx.ctx.settings_service.set_matrix_tz(&cmd_ctx.room, &tz_name).await;
+
+    // Update in DB
+    let new_setting = SettingUpdate { 
+        key: SettingKey::Timezone,
+        value: tz_name.clone(),
+    };
+    cmd_ctx.ctx.settings_service.set_room_settings(
+        &cmd_ctx.room.room_id(),
+        vec![new_setting],
+        &cmd_ctx.user_id,
+    ).await?;
+
+    cmd_ctx.send_tz_success(event.clone(), &tz_name).await;
 
     Ok(())
 }
@@ -512,11 +528,11 @@ pub async fn handle_lang_settings(
         Some(l) => l,
         None => {
             // Send a list of available languages.
-            let msg_list = t!("settings.lang-list", locale = &cmd_ctx.settings.room_lang);
+            let msg_list = t!("settings.lang-list", locale = &cmd_ctx.settings.room.room_lang);
             cmd_ctx.msng.text_md(&msg_list).await;
             let msg = t!(
                 "settings.lang-help", 
-                locale = &cmd_ctx.settings.room_lang, 
+                locale = &cmd_ctx.settings.room.room_lang, 
                 cmd = cmd_ctx.bot_config().settings_commands.join("|")
             );
             cmd_ctx.msng.text_md_long(&msg).await;
@@ -529,18 +545,17 @@ pub async fn handle_lang_settings(
     if !languages.contains(&Cow::from(lang.as_str())) { return Err(SettingError::NoLanguage) };
 
     // Check if language is not a current one.
-    if &cmd_ctx.settings.room_lang == &lang { return Err(SettingError::LanguageNotSet) };
+    if &cmd_ctx.settings.room.room_lang == &lang { return Err(SettingError::LanguageNotSet) };
 
     // Set new language and send message IN NEW LANGUAGE if it was successful.
     let new_setting = SettingUpdate { 
         key: SettingKey::Lang,
         value: lang.to_string(),
-        scope: SettingScope::Room
     };
-    cmd_ctx.ctx.settings_service.set_settings(
-        &cmd_ctx.room.room_id(), 
-        &cmd_ctx.user_id, 
-        vec![new_setting]
+    cmd_ctx.ctx.settings_service.set_room_settings(
+        &cmd_ctx.room.room_id(),
+        vec![new_setting],
+        &cmd_ctx.user_id,
     ).await?;
     let msg = t!("settings.lang-set", locale = lang);
     cmd_ctx.msng.text_md(&msg).await;
@@ -563,8 +578,7 @@ pub async fn handle_time_settings(
             if super::reminder::is_time_valid(&val) {
                 Ok(SettingUpdate { 
                     key: k, 
-                    value: val.into(), 
-                    scope: SettingScope::User(cmd_ctx.user_id.clone()) 
+                    value: val.into(),
                 })
             } else {
                 Err(SettingError::InvalidTimeFormat)
@@ -579,10 +593,10 @@ pub async fn handle_time_settings(
         return Ok(())
     };
 
-    cmd_ctx.ctx.settings_service.set_settings(
-        &cmd_ctx.room.room_id(), 
+    cmd_ctx.ctx.settings_service.set_user_settings(
+        &cmd_ctx.user_id, 
+        valid_settings,
         &cmd_ctx.user_id,
-        valid_settings
     ).await?;
     cmd_ctx.send_setting_success(event, "settings.time-set").await;
 

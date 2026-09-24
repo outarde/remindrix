@@ -107,7 +107,7 @@ impl ReminderRepository {
         let text = data.text.clone();
         let target_time = data.civil_dt.to_string();
         let utc_time = data.utc_dt.to_string();
-        let tz = data.settings.room_tz.iana_name().unwrap_or("UTC").to_string();
+        let tz = data.room_settings.room_tz.iana_name().unwrap_or("UTC").to_string();
         let created_by = data.created_by.to_string();
         let created_at = Timestamp::now().round(Unit::Second)?.to_string();
 
@@ -157,6 +157,7 @@ impl SettingRepository {
     pub fn new(conn: Arc<Connection>) -> Self {
         Self { conn }
     }
+    /*
     /// Get all setings for the room, merged with room (bot) > user settings.
     pub async fn get_settings(&self, room_id: &RoomId, bot_id: &UserId, user_id: Option<&UserId>) -> Result<Vec<RawSetting>, SettingError> {
         let conn = self.conn.clone();
@@ -223,6 +224,61 @@ impl SettingRepository {
 
         Ok(settings)
     }
+    */
+    /// Get room setings.
+    pub async fn get_room_settings(&self, room_id: &RoomId) -> Result<Vec<RawSetting>, SettingError> {
+        let conn = self.conn.clone();
+        let room_id_s = room_id.to_string();
+        
+        let settings = conn.call(move |conn| {
+            let mut stmt = conn.prepare("SELECT key, value FROM room_settings WHERE room_id = ?1 ORDER BY key;")?;
+            let mut rows = stmt.query([room_id_s])?;
+
+            let mut result: Vec<RawSetting> = Vec::new();
+            
+            while let Some(row) = rows.next()? {
+                let key: String = row.get(0)?;
+                let value: String = row.get(1)?;
+                
+                result.push(RawSetting {
+                    key,
+                    value,
+                });
+            }
+            
+            Ok(result)
+        }).await?;
+
+        Ok(settings)
+    }
+
+    /// Get user settings.
+    pub async fn get_user_settings(&self, user_id: &UserId) -> Result<Vec<RawSetting>, SettingError> {
+        let conn = self.conn.clone();
+        let user_id_s = user_id.to_string();
+        
+        let settings = conn.call(move |conn| {
+            let mut stmt = conn.prepare("SELECT key, value FROM user_settings WHERE user_id = ?1 ORDER BY key;")?;
+            let mut rows = stmt.query([user_id_s])?;
+
+            let mut result: Vec<RawSetting> = Vec::new();
+            
+            while let Some(row) = rows.next()? {
+                let key: String = row.get(0)?;
+                let value: String = row.get(1)?;
+                
+                result.push(RawSetting {
+                    key,
+                    value,
+                });
+            }
+            
+            Ok(result)
+        }).await?;
+
+        Ok(settings)
+    }
+
     /// Save one setting.
     pub async fn _set_setting(&self, room_id: &RoomId, user_id: &UserId, updated_by: &UserId, key: &str, value: &str,) -> Result<(), SettingError> {
         let conn = self.conn.clone();
@@ -248,11 +304,11 @@ impl SettingRepository {
         Ok(())
     }
 
-    /// Save Vecs of RawSetting.
-    pub async fn update_settings(
+    /// Save Vecs of RawSetting for the room.
+    pub async fn update_room_settings(
         &self,
-        settings: Vec<RawSetting>,
         room_id: &RoomId,
+        settings: Vec<RawSetting>,
         updated_by: &UserId,
     ) -> Result<(), SettingError> {
         let conn = self.conn.clone();
@@ -265,13 +321,51 @@ impl SettingRepository {
 
             for setting in settings {
                 tx.execute(
-                    "INSERT INTO settings (room_id, user_id, key, value, updated_by, updated_at) 
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-                     ON CONFLICT(room_id, user_id, key) 
+                    "INSERT INTO room_settings (room_id, key, value, updated_by, updated_at) 
+                     VALUES (?1, ?2, ?3, ?4, ?5)
+                     ON CONFLICT(room_id, key) 
                      DO UPDATE SET value=excluded.value, updated_by=excluded.updated_by, updated_at=excluded.updated_at;",
                     [
                         &room_id_s,
-                        &setting.user_id,
+                        &setting.key,
+                        &setting.value,
+                        &updated_by_s,
+                        &Timestamp::now().to_string(),
+                    ],
+                )?;
+            }
+
+            tx.commit()?;
+            Ok(())
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    /// Save Vecs of RawSetting for the user.
+    pub async fn update_user_settings(
+        &self,
+        user_id: &UserId,
+        settings: Vec<RawSetting>,
+        updated_by: &UserId,
+    ) -> Result<(), SettingError> {
+        let conn = self.conn.clone();
+
+        let user_id_s = user_id.to_string();
+        let updated_by_s = updated_by.to_string();
+
+        conn.call(move |conn| {
+            let tx = conn.transaction()?;
+
+            for setting in settings {
+                tx.execute(
+                    "INSERT INTO user_settings (user_id, key, value, updated_by, updated_at) 
+                     VALUES (?1, ?2, ?3, ?4, ?5)
+                     ON CONFLICT(user_id, key) 
+                     DO UPDATE SET value=excluded.value, updated_by=excluded.updated_by, updated_at=excluded.updated_at;",
+                    [
+                        &user_id_s,
                         &setting.key,
                         &setting.value,
                         &updated_by_s,

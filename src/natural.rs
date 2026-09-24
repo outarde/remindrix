@@ -114,7 +114,7 @@ pub async fn process_natural_reminder(
         civil_dt,
         text: reminder_data.text,
         created_by: cmd_ctx.user_id.clone(),
-        settings: cmd_ctx.settings.clone().into()
+        room_settings: cmd_ctx.settings.room.clone()
     };
 
     // Saving.
@@ -169,7 +169,7 @@ fn parse_reminder_data(
     //i18n: &Arc<I18nManager>,
 ) -> Result<ParsedReminder, ReminderError> {
     // Get current date for user's timezone
-    let now = Zoned::now().with_time_zone(cmd_ctx.settings.room_tz.clone());
+    let now = Zoned::now().with_time_zone(cmd_ctx.settings.room.room_tz.clone());
     // If date is set to default
     let mut is_auto = false;
     
@@ -206,15 +206,15 @@ fn parse_reminder_data(
     else if let Some(t_nat) = caps.name("time_natural") {
         let natural_time = NaturalTime::from_str(&t_nat.as_str().to_lowercase(), &cmd_ctx.i18n);
         let (h, m) = match natural_time {
-            Some(NaturalTime::Morning) => (cmd_ctx.settings.morning.hour().to_string(), cmd_ctx.settings.morning.minute().to_string()),
-            Some(NaturalTime::Afternoon) => (cmd_ctx.settings.afternoon.hour().to_string(), cmd_ctx.settings.afternoon.minute().to_string()),
-            Some(NaturalTime::Evening) => (cmd_ctx.settings.evening.hour().to_string(), cmd_ctx.settings.evening.minute().to_string()),
+            Some(NaturalTime::Morning) => (cmd_ctx.settings.user.morning.hour().to_string(), cmd_ctx.settings.user.morning.minute().to_string()),
+            Some(NaturalTime::Afternoon) => (cmd_ctx.settings.user.afternoon.hour().to_string(), cmd_ctx.settings.user.afternoon.minute().to_string()),
+            Some(NaturalTime::Evening) => (cmd_ctx.settings.user.evening.hour().to_string(), cmd_ctx.settings.user.evening.minute().to_string()),
             None => return Err(ReminderError::InvalidTimeFormat)
         };
         (h.to_string(), m.to_string())
     } else {
         // TODO: return custom time interval
-        (cmd_ctx.settings.default_time.hour().to_string(), cmd_ctx.settings.default_time.minute().to_string())
+        (cmd_ctx.settings.user.default_time.hour().to_string(), cmd_ctx.settings.user.default_time.minute().to_string())
     };
 
     // Is time post meridiem
@@ -270,7 +270,7 @@ fn build_datetime_utc(
         .map_err(|_| ReminderError::InvalidDateTime)?;
 
     // Convert it to Zoned.
-    let user_dt = civil_dt.to_zoned(cmd_ctx.settings.room_tz.clone()).map_err(|_| ReminderError::UnsafeDateTime)?;
+    let user_dt = civil_dt.to_zoned(cmd_ctx.settings.room.room_tz.clone()).map_err(|_| ReminderError::UnsafeDateTime)?;
     // let utc_dt = user_dt.with_time_zone(TimeZone::UTC);
     let utc_dt = user_dt.timestamp();
 

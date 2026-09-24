@@ -14,7 +14,9 @@ use rust_i18n::t;
 // app crates
 use crate::db::{ReminderRepository, SettingRepository};
 use crate::reminder::ReminderData;
-use crate::settings::Settings;
+use crate::settings::{
+    ActiveSettings,
+};
 use crate::messaging::{
     RoomMessenger, MessageReaction,
 };
@@ -104,18 +106,19 @@ pub struct CommandContext {
     pub room: Room,
     pub user_id: OwnedUserId,
     pub ctx: Arc<super::BotContext>,
-    pub settings: Settings,
+    pub settings: ActiveSettings,
     pub i18n: Arc<I18nManager>,
     pub msng: RoomMessenger,
 }
 
 impl CommandContext {
     pub async fn new(user_id: OwnedUserId, room: Room, ctx: Arc<super::BotContext>) -> Self {
-        let settings = ctx.settings_service.load_for_active( 
-            &room, 
+        let settings = ctx.settings_service.load_active( 
+            room.room_id(),
+            Some(&room), 
             &user_id
         ).await;
-        let i18n = ctx.get_i18n_manager(&settings.room_lang).await;
+        let i18n = ctx.get_i18n_manager(&settings.room.room_lang).await;
         let msng = RoomMessenger::new(room.clone(), i18n.clone());
 
         Self { room, user_id, ctx, settings, i18n, msng } 
@@ -141,7 +144,7 @@ impl CommandContext {
     /// Send welcome message with help to the room.
     pub async fn send_welcome_message(&self) {
         let tomorrow = Zoned::now()
-            .with_time_zone(self.settings.room_tz.clone())
+            .with_time_zone(self.settings.room.room_tz.clone())
             .checked_add(1.days()).unwrap_or_else(|_| {
                 Zoned::now().with_time_zone(TimeZone::UTC).checked_add(1.days()).unwrap()
             });
@@ -153,7 +156,7 @@ impl CommandContext {
 
         let welcome_msg = t!(
             welcome_type,
-            locale = &self.settings.room_lang,
+            locale = &self.settings.room.room_lang,
             cmd_local = self.i18n.cmd_remind,
             cmd_list = self.ctx.bot_config.remind_commands.join("|"),
             cmd_tz_list = self.ctx.bot_config.tz_commands.join("|"),
@@ -184,7 +187,7 @@ impl CommandContext {
             // this setting is on, it is not an interval, it is not delegated.
             if self.bot_config().send_digits_reactions 
                 && !interval 
-                && &reminder.room_id == &self.settings.room_id 
+                && &reminder.room_id == &self.settings.room.room_id 
             {
                 let numbers = super::messaging::calculate_durations(reminder.utc_dt);
                 let emojis = super::messaging::get_emojis_for_duration(numbers);
@@ -196,7 +199,7 @@ impl CommandContext {
         } else {
             let date = reminder.civil_dt.strftime("%d.%m.%Y").to_string();
             let time = reminder.civil_dt.strftime("%H:%M").to_string();
-            let msg = t!("reminder.saved", locale = &self.settings.room_lang, date = date, time = time);
+            let msg = t!("reminder.saved", locale = &self.settings.room.room_lang, date = date, time = time);
             self.msng.text_plain(&msg).await;
         }
     }
@@ -210,7 +213,7 @@ impl CommandContext {
         if self.bot_config().send_reactions {
             self.msng.react(event.event_id.clone(), MessageReaction::Check).await;
         } else {
-            let msg = t!("tz.set", locale = &self.settings.room_lang, tz = tz); 
+            let msg = t!("tz.set", locale = &self.settings.room.room_lang, tz = tz); 
             self.msng.text_md(&msg).await;
         }
     }
@@ -220,12 +223,12 @@ impl CommandContext {
     pub async fn send_default_times(&self) {
         let msg = t!(
             "settings.default-times",
-            locale = &self.settings.room_lang,
+            locale = &self.settings.room.room_lang,
             cmd = self.bot_config().settings_commands.join("|"),
-            default = self.settings.default_time.strftime("%H:%M").to_string(),
-            morning = self.settings.morning.strftime("%H:%M").to_string(),
-            afternoon = self.settings.afternoon.strftime("%H:%M").to_string(),
-            evening = self.settings.evening.strftime("%H:%M").to_string(),
+            default = self.settings.user.default_time.strftime("%H:%M").to_string(),
+            morning = self.settings.user.morning.strftime("%H:%M").to_string(),
+            afternoon = self.settings.user.afternoon.strftime("%H:%M").to_string(),
+            evening = self.settings.user.evening.strftime("%H:%M").to_string(),
         );
 
         self.msng.text_md_long(&msg).await;
@@ -241,7 +244,7 @@ impl CommandContext {
         if self.bot_config().send_reactions {
             self.msng.react(event.event_id.clone(), MessageReaction::Check).await;
         } else {
-            let msg = t!(key, locale = &self.settings.room_lang); 
+            let msg = t!(key, locale = &self.settings.room.room_lang); 
             self.msng.text_md(&msg).await;
         }
     }

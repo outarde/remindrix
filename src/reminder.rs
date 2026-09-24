@@ -19,7 +19,7 @@ use anyhow::Result;
 use strum_macros::{Display, EnumString};
 use thiserror::Error;
 
-use crate::settings::ReminderSettings;
+use crate::settings::RoomSettings;
 
 /// British classification of time ante and post meridiem/noon (am and pm).
 #[derive(Debug, PartialEq, Eq)]
@@ -108,12 +108,11 @@ pub struct Reminder {
 #[derive(Debug, Clone)]
 pub struct ReminderData {
     pub room_id: OwnedRoomId,
-    // pub tz: TimeZone,
     pub utc_dt: Timestamp,
     pub civil_dt: CivilDateTime,
     pub text: String,
     pub created_by: OwnedUserId,
-    pub settings: ReminderSettings
+    pub room_settings: RoomSettings
 }
 
 /// Type of message for a new reminder.
@@ -165,6 +164,7 @@ pub async fn schedule_reminder(
             }
         };
 
+        // TODO!
         // Add "from" if reminder has a probability of delegation.
         let msg_key = if room.joined_members_count() <= 2 as u64 {
             let members = room.members(RoomMemberships::JOIN).await;
@@ -184,7 +184,7 @@ pub async fn schedule_reminder(
 
         let reminder_text = t!(
             msg_key.to_string(),
-            locale = &reminder.data.settings.room_lang,
+            locale = &reminder.data.room_settings.room_lang,
             from = reminder.data.created_by,
             text = reminder.data.text
         );
@@ -277,7 +277,7 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
         let civil_dt = dt_zoned.datetime();
 
         // Get Settings.
-        let settings = ctx.settings_service.load_for_background(&room_id).await;
+        let room_settings = ctx.settings_service.load_room(&room_id, None).await;
 
         // Prepare ReminderData.
         let reminder_data = ReminderData {
@@ -287,7 +287,7 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
             civil_dt,
             text,
             created_by,
-            settings: settings.into(),
+            room_settings,
         };
 
         reminders.push(Reminder {
@@ -374,7 +374,7 @@ async fn summary_missed(
                     let time = r.data.civil_dt.strftime("%H:%M").to_string();
                     let sum = t!(
                         "reminder.list", 
-                        locale = r.data.settings.room_lang.as_ref(), 
+                        locale = r.data.room_settings.room_lang.as_ref(), 
                         text = r.data.text, 
                         date = date, 
                         time = time
@@ -386,7 +386,7 @@ async fn summary_missed(
             // Prepare a final summary message.
             let message = t!(
                 "reminder.missed", 
-                locale = reminders[0].data.settings.room_lang.as_ref(), 
+                locale = reminders[0].data.room_settings.room_lang.as_ref(), 
                 sum = summary
             );
 
