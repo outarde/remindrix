@@ -24,6 +24,10 @@ const MIGRATIONS: &[Migration] = &[
         version: 1,
         sql: include_str!("../migrations/000_init.sql"),
     },
+    Migration {
+        version: 2,
+        sql: include_str!("../migrations/001_settings.sql"),
+    },
 ];
 
 /// Database initialization.
