@@ -9,8 +9,9 @@ use jiff::{tz::TimeZone, civil::Time};
 
 use crate::{db::DbContext, config::BotConfig};
 use crate::settings::{
-    Settings, SettingError, SettingKey, SettingScope, 
-    SettingUpdate, RawSetting, 
+    SettingError,
+    ActiveSettings, RoomSettings, UserSettings, 
+    SettingUpdate, SettingKey, RawSetting, 
     RoomTimezoneContent
 };
 
@@ -26,43 +27,37 @@ impl SettingsService {
         Self { db, config, bot_id }
     }
 
-    /// Loading settings for active interaction (chat commands)
-    pub async fn load_for_active(&self, room: &Room, user_id: &UserId) -> Settings {
-        let raw_settings = self.db.settings.get_settings(room.room_id(), &self.bot_id, Some(user_id.as_ref()))
+    /// Loading settings for room
+    pub async fn load_room(&self, room_id: &RoomId, room: Option<&Room>) -> RoomSettings {
+        let raw_settings = self.db.settings.get_room_settings(room_id)
             .await
             .unwrap_or_default();
 
-        self.build_settings_manager(room.room_id().to_owned(), Some(room), raw_settings).await
+        self.build_room_settings(room_id.to_owned(), room, raw_settings).await
     }
 
-    /// Loading settings for background tasks (recovery after restart)
-    pub async fn load_for_background(&self, room_id: &RoomId) -> Settings {
-        let raw_settings = self.db.settings.get_settings(room_id, &self.bot_id, None)
+    /// Loading settings for user
+    pub async fn load_user(&self, user_id: &UserId) -> UserSettings {
+        let raw_settings = self.db.settings.get_user_settings(user_id)
             .await
             .unwrap_or_default();
 
-        self.build_settings_manager(room_id.to_owned(), None, raw_settings).await
+        self.build_user_settings(raw_settings).await
     }
 
-    /// Loading settings for background with room (reminders delegation)
-    pub async fn load_for_background_room(&self, room: &Room) -> Settings {
-        // In this case, we use the Room since the it has already been received. 
-        // If it is shared, then in addition to the bot settings 
-        // the rows may contain individual settings of other users, 
-        // because we don't know UserId. That's why we prevent it.
-        let user_id = if room.active_members_count() > 2 as u64 {
-            Some(self.bot_id.as_ref())
-        } else { None };
-        let room_id = room.room_id();
+    /// Loading all settings
+    pub async fn load_active(&self, room_id: &RoomId, room: Option<&Room>, user_id: &UserId) -> ActiveSettings {
+        let (room_s, user_s) = tokio::join!(
+            self.load_room(room_id, room),
+            self.load_user(user_id),
+        );
 
-        let raw_settings = self.db.settings.get_settings(&room_id, &self.bot_id, user_id)
-            .await
-            .unwrap_or_default();
+        ActiveSettings { room: room_s, user: user_s }
 
-        self.build_settings_manager(room_id.to_owned(), None, raw_settings).await
+        // self.build_settings_manager(room_id.to_owned(), None, raw_settings).await
     }
 
-
+    /*
     async fn build_settings_manager(
         &self,
         room_id: OwnedRoomId,
@@ -112,60 +107,122 @@ impl SettingsService {
             evening: self.parse_time_or_default(evening, &self.config.evening),
         }
     }
+    */
+
+    async fn build_room_settings(&self, room_id: OwnedRoomId, room: Option<&Room>, raw: Vec<RawSetting>) -> RoomSettings {
+        let mut tz = None;
+        let mut lang = None;
+        for s in raw {
+            match SettingKey::from_str(&s.key) {
+                Ok(SettingKey::Timezone) => tz = Some(s.value),
+                Ok(SettingKey::Lang) => lang = Some(s.value),
+                Ok(_) => tracing::warn!("User-scoped key in room_settings: {}", s.key),
+                Err(_) => tracing::warn!("Unknown setting key: {}", s.key),
+            }
+        }
+        let room_tz = self.parse_tz_or_fetch_or_default(tz, room).await;
+        RoomSettings { 
+            room_id, 
+            room_tz_name: room_tz.iana_name().unwrap_or("UTC").into(), 
+            room_tz, 
+            room_lang: lang.unwrap_or_else(|| self.config.lang.clone()) 
+        }
+    }
+
+    async fn build_user_settings(&self, raw: Vec<RawSetting>) -> UserSettings {
+        let mut default_time = None;
+        let mut morning = None;
+        let mut afternoon = None;
+        let mut evening = None;
+        for s in raw {
+            match SettingKey::from_str(&s.key) {
+                Ok(SettingKey::DefaultTime) => default_time = Some(s.value),
+                Ok(SettingKey::Morning) => morning = Some(s.value),
+                Ok(SettingKey::Afternoon) => afternoon = Some(s.value),
+                Ok(SettingKey::Evening) => evening = Some(s.value),
+                Ok(_) => tracing::warn!("Room-scoped key in user_settings: {}", s.key),
+                Err(_) => tracing::warn!("Unknown setting key: {}", s.key),
+            }
+        }
+        UserSettings {
+            default_time: self.parse_time_or_default(default_time, &self.config.default_time),
+            morning: self.parse_time_or_default(morning, &self.config.morning),
+            afternoon: self.parse_time_or_default(afternoon, &self.config.afternoon),
+            evening: self.parse_time_or_default(evening, &self.config.evening),
+        }
+    }
 
     // ===== Update Settings =====
     /// Set settings via Vec with key and value as a String.
-    pub async fn set_settings(
+    pub async fn set_room_settings(
         &self,
         room_id: &RoomId,
-        user_id: &UserId,
         updates: Vec<SettingUpdate>,
+        updated_by: &UserId,
     ) -> Result<(), SettingError> {
-        // SettingUpate to RawSetting
-        let settings = updates.into_iter().map(|upd| RawSetting {
+        // TODO!
+        /*
+        for u in &updates {
+            if !u.key.is_room_scoped() {
+                // TODO!
+                return Err(SettingError::WrongScope(u.key.to_string()));
+            }
+        }
+        */
+        self.db.settings.update_room_settings(room_id, self.to_raw_settings(updates), updated_by).await
+    }
+
+    // SettingUpate to RawSetting
+    fn to_raw_settings(&self, updates: Vec<SettingUpdate>) -> Vec<RawSetting> {
+        updates.into_iter().map(|upd| RawSetting {
             key: upd.key.to_string(),
             value: upd.value,
-            user_id: match upd.scope {
-                SettingScope::Room => self.bot_id.to_string(),
-                SettingScope::User(uid) => uid.to_string()
-            },
-        }).collect();
+        }).collect()
+    }
 
-        let result = self.db.settings.update_settings(settings, room_id, user_id).await?;
+    pub async fn set_user_settings(
+        &self,
+        user_id: &UserId,
+        updates: Vec<SettingUpdate>,
+        updated_by: &UserId,
+    ) -> Result<(), SettingError> {
+        let result = self.db.settings.update_user_settings(user_id, self.to_raw_settings(updates), updated_by).await?;
         Ok(result)
     }
 
     /// Special wrapper for time zone settings which updates it using Matrix Custom Events
     /// and sends then to convenience set_settings().
-    pub async fn set_room_tz(
+    pub async fn set_matrix_tz(
         &self,
         room: &Room,
-        user_id: &UserId,
-        tz: TimeZone,
-    ) -> Result<String, SettingError> {
-        let tz_name = tz.iana_name().ok_or(SettingError::InvalidTzFormat)?.to_string();
+        tz_name: &str,
+    ) -> Result<(), SettingError> {
+        // let tz_name = tz.iana_name().ok_or(SettingError::InvalidTzFormat)?.to_string();
 
         // Prepare Matrix State Event.
         let content = RoomTimezoneContent {
-            timezone: tz_name.clone(),
+            timezone: tz_name.to_string(),
         };
         // Save as a custom state.
         // let state_key = client.user_id().unwrap().to_string(); 
         room.send_state_event(content).await?;
 
+        Ok(())
+
+        /*
         // Send to the convenience set_settings method.
         let new_setting = SettingUpdate {
             key: SettingKey::Timezone,
             value: tz_name.clone(),
-            scope: SettingScope::Room
         };
-        let _ = self.set_settings(
-            room.room_id(),
-            user_id,
-            vec![new_setting], 
+        let _ = self.set_room_settings(
+            room_id,
+            vec![new_setting],
+            updated_id,
         ).await?;
 
         Ok(tz_name)
+        */
     }
 
     //===== Parsers and Validators =====
