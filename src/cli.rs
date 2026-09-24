@@ -175,6 +175,10 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
         .with_validator(validate_config_tz)
         .prompt()?.to_string();
 
+    let default_time = Text::new("Set default time for reminders without time (HH:MM):")
+        .with_default(config::DEFAULT_TIME)
+        .with_validator(validate_config_time)
+        .prompt()?.to_string();
     let morning = Text::new("Set morning time (HH:MM):")
         .with_default(config::DEFAULT_MORNING_TIME)
         .with_validator(validate_config_time)
@@ -204,6 +208,7 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
         send_reactions,
         send_digits_reactions,
         tz,
+        default_time,
         morning,
         afternoon,
         evening,

@@ -20,6 +20,7 @@ pub const DEFAULT_TZ: &str = "Europe/Paris";
 /// Default bot settings command.
 pub const DEFAULT_SETTINGS_COMMAND: &str = "settings";
 /// Default times
+pub const DEFAULT_TIME: &str = "10:00";
 pub const DEFAULT_MORNING_TIME: &str = "09:00";
 pub const DEFAULT_AFTERNOON_TIME: &str = "14:00";
 pub const DEFAULT_EVENING_TIME: &str = "19:00";
@@ -82,6 +83,8 @@ pub struct BotConfig {
     pub send_digits_reactions: bool,
     #[serde(default = "BotConfig::default_tz")]
     pub tz: String,
+    #[serde(default = "BotConfig::default_time")]
+    pub default_time: String,
     #[serde(default = "BotConfig::default_morning_time")]
     pub morning: String,
     #[serde(default = "BotConfig::default_afternoon_time")]
@@ -154,6 +157,9 @@ impl BotConfig {
     }
     fn default_settings_command() -> Vec<String> {
         vec![DEFAULT_SETTINGS_COMMAND.to_string()]
+    }
+    fn default_time() -> String {
+        DEFAULT_TIME.into()
     }
     fn default_morning_time() -> String {
         DEFAULT_MORNING_TIME.into()
