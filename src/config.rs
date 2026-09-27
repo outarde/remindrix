@@ -301,7 +301,7 @@ impl AppConfig {
 
         // Check some values
         // Times
-        check_times(vec![&bot.morning, &bot.afternoon, &bot.evening])?;
+        check_times(vec![&bot.default_time, &bot.morning, &bot.afternoon, &bot.evening])?;
         tracing::info!("Default times are valid");
 
         Ok(Self { auth, recovery, bot })

@@ -38,6 +38,8 @@ struct RawReminder {
     utc_time: String,
     tz: String,
     created_by: String,
+    target_user_id: Option<String>,
+    delegation_kind: String,
 }
 
 /// Statuses of Reminder.
@@ -112,7 +114,15 @@ pub struct ReminderData {
     pub civil_dt: CivilDateTime,
     pub text: String,
     pub created_by: OwnedUserId,
-    pub room_settings: RoomSettings
+    pub room_settings: RoomSettings,
+    pub delegation: DelegationType,
+}
+
+#[derive(Debug, Clone)]
+pub enum DelegationType {
+    Personal,
+    User(OwnedUserId),
+    Room
 }
 
 /// Type of message for a new reminder.
