@@ -19,7 +19,7 @@ use clap::Parser;
 
 // app crates
 use crate::context::CommandContext;
-use crate::reminder::{ReminderData, ReminderError};
+use crate::reminder::{ReminderData, DelegationType, ReminderError};
 use crate::settings_service::{SettingsService};
 use crate::settings::{
     SettingError,
@@ -163,10 +163,14 @@ pub struct RemindArgs {
     /// Reminder **text**
     pub text: Vec<String>,
 
-    /// The room to **delegate** the reminder to, in the `!unique_room_code:homeserver_url` format. 
+    /// The **room to delegate** the reminder to, in the `!unique_room_code:homeserver_url` format. 
     /// You can get it from the share menu in the Element X client
     #[arg(long)]
-    pub to: Option<String>,
+    pub room: Option<String>,
+    /// The **user to delegate** the reminder to, in the `!user_name:homeserver_url` format.
+    /// You can even mention yourself so that a mention notification appears in the group chat
+    #[arg(long)]
+    pub user: Option<String>,
     /// Are the time and date an **interval**
     #[arg(short, long)]
     pub interval: bool,
@@ -188,7 +192,7 @@ impl RemindArgs {
             self.hour.as_ref(),
             self.min.as_ref(),
             self.time.as_ref(),
-            self.to.as_ref(),
+            self.room.as_ref(),
             // self.repeat.as_ref(),
         ];
 
@@ -392,10 +396,24 @@ pub async fn process_cli_reminder(
     let text = args.text.join(" ").to_string();
 
     // Settings for the room for which the reminder was delegated or intended.
-    let room_settings = if let Some(to) = args.to.as_deref() {
-        let room = parse_room(&to, &cmd_ctx).await?;
-        cmd_ctx.ctx.settings_service.load_room(room.room_id(), None).await
-    } else { cmd_ctx.settings.room.clone() };
+    let (room_settings, delegation) = if let Some(room) = args.room.as_deref() {
+        let room = parse_room(&room, &cmd_ctx).await?;
+        let settings = cmd_ctx.ctx.settings_service.load_room(room.room_id(), None).await;
+        let delegation = if let Some(uid) = args.user.as_deref() {
+            let uid = UserId::parse(uid).map_err(ReminderError::InvalidUserId)?;
+            DelegationType::User(Some(uid))
+        } else {
+            DelegationType::Room
+        };
+
+        (settings, delegation)
+    } else if let Some(uid) = args.user.as_deref() {
+        let uid = UserId::parse(uid).map_err(ReminderError::InvalidUserId)?;
+        (cmd_ctx.settings.room.clone(), DelegationType::User(Some(uid)))
+    }
+    else { 
+        (cmd_ctx.settings.room.clone(), DelegationType::Personal)
+    };
 
     // Set room_tz from settings.
     let room_tz = room_settings.room_tz.clone();
@@ -425,7 +443,7 @@ pub async fn process_cli_reminder(
         civil_dt,
         text,
         created_by: cmd_ctx.user_id.clone(),
-        room_settings
+        delegation,
     };
 
     // Saving.
