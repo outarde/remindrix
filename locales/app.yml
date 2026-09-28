@@ -549,6 +549,33 @@ reminder.new:
     🟢 %{text}
   uk: >
     🟢 %{text}
+reminder.new-to-from:
+  en: >
+    🟢 A reminder from %{from} for %{to}: %{text}
+  de: >
+    🟢 Eine Erinnerung von %{from} für %{to}: %{text}
+  fr: >
+    🟢 Un rappel de %{from} pour %{to}: %{text}
+  it: >
+    🟢 Un promemoria da %{from} per %{to}: %{text}
+  es: >
+    🟢 Un recordatorio de %{from} para %{to}: %{text}
+  sv: >
+    🟢 En påminnelse från %{from} till %{to}: %{text}
+  pl: >
+    🟢 Przypomnienie od %{from} dla %{to}: %{text}
+  cs: >
+    🟢 Připomínka od %{from} pro %{to}: %{text}
+  fi: >
+    🟢 Muistutus lähettäjältä %{from} vastaanottajalle %{to}: %{text}
+  ja: >
+    🟢 %{from}から%{to}へのリマインダー: %{text}
+  zh: >
+    🟢 来自 %{from} 给 %{to} 的提醒: %{text}
+  ru: >
+    🟢 Напоминание от %{from} для %{to}: %{text}
+  uk: >
+    🟢 Вам нагадування від %{from} для %{to}: %{text}
 reminder.new-from:
   en: >
     🟢 A reminder from %{from} for you: %{text}
@@ -766,6 +793,9 @@ error.delegation:
   ru: Неверный формат комнаты или комната не найдена.
   uk: Невірний формат кімнати або кімнату не знайдено.
 
+error.delegation-options:
+  en: Invalid or empty options for delegation.
+
 error.delegation-room-format:
   en: Invalid room format.
   de: Ungültiges Raumformat.
@@ -795,6 +825,21 @@ error.delegation-no-room:
   zh: 未找到房间。
   ru: Комната не найдена.
   uk: Кімнату не знайдено.
+
+error.delegation-user-format:
+  en: Invalid user id (%{user}) format.
+  de: Ungültiges Format der Benutzer-ID.
+  fr: Format d'identifiant utilisateur invalide.
+  it: Formato dell'ID utente non valido.
+  es: Formato de ID de usuario no válido.
+  sv: Ogiltigt format för användar-ID.
+  pl: Nieprawidłowy format identyfikatora użytkownika.
+  cs: Neplatný formát ID uživatele.
+  fi: Virheellinen käyttäjätunnuksen muoto.
+  ja: ユーザーIDの形式が無効です。
+  zh: 用户 ID 格式无效。
+  ru: Неверный id пользователя.
+  uk: Недійсний формат ідентифікатора користувача.
 
 error.delegation-denied:
   en: The room is not allowed to delegate reminders.
