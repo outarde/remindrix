@@ -16,7 +16,7 @@ use regex::Regex;
 use std::{string::ToString, sync::{OnceLock, Arc}};
 
 // app crates
-use crate::reminder::{ReminderError, ReminderData, DayPeriod};
+use crate::reminder::{ReminderError, ReminderData, DelegationType, DayPeriod};
 use crate::context::{
     CommandContext, I18nManager
 };
@@ -112,9 +112,10 @@ pub async fn process_natural_reminder(
         room_id: cmd_ctx.room.room_id().to_owned(),
         utc_dt,
         civil_dt,
+        tz: cmd_ctx.settings.room.room_tz.clone(),
         text: reminder_data.text,
         created_by: cmd_ctx.user_id.clone(),
-        room_settings: cmd_ctx.settings.room.clone()
+        delegation: DelegationType::Personal,
     };
 
     // Saving.

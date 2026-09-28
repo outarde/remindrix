@@ -1,12 +1,15 @@
 use matrix_sdk::{
     Room, RoomState,
-    ruma::events::{
+    ruma::{
+        UserId, 
+        events::{
             reaction::OriginalSyncReactionEvent,
             room::{
                 member::StrippedRoomMemberEvent, 
                 message::{MessageType, OriginalSyncRoomMessageEvent},
             }
         }
+    }
 };
 use anyhow::Result;
 use tokio::time::{Duration, sleep};
@@ -23,7 +26,7 @@ use crate::reminder::{ReminderData, DelegationType, ReminderError};
 use crate::settings_service::{SettingsService};
 use crate::settings::{
     SettingError,
-    ActiveSettings, RoomSettings, UserSettings, 
+    ActiveSettings, UserSettings, 
     SettingUpdate, SettingKey, RawSetting, 
     RoomTimezoneContent
 };
@@ -218,7 +221,7 @@ enum SettingsArgs {
 }
 
 /// Erros in the CLi processing.
-#[derive(Debug, Display)]
+#[derive(Debug)]
 pub enum CliError {
     ClapError(clap::Error),
     NaturalFallback,
@@ -396,51 +399,52 @@ pub async fn process_cli_reminder(
     let text = args.text.join(" ").to_string();
 
     // Settings for the room for which the reminder was delegated or intended.
-    let (room_settings, delegation) = if let Some(room) = args.room.as_deref() {
-        let room = parse_room(&room, &cmd_ctx).await?;
-        let settings = cmd_ctx.ctx.settings_service.load_room(room.room_id(), None).await;
-        let delegation = if let Some(uid) = args.user.as_deref() {
-            let uid = UserId::parse(uid).map_err(ReminderError::InvalidUserId)?;
-            DelegationType::User(Some(uid))
-        } else {
-            DelegationType::Room
-        };
-
-        (settings, delegation)
-    } else if let Some(uid) = args.user.as_deref() {
-        let uid = UserId::parse(uid).map_err(ReminderError::InvalidUserId)?;
-        (cmd_ctx.settings.room.clone(), DelegationType::User(Some(uid)))
-    }
-    else { 
-        (cmd_ctx.settings.room.clone(), DelegationType::Personal)
+    let (room_settings, delegation) = match (args.room.as_deref(), args.user.as_deref()) {
+        (Some(room), Some(uid)) => {
+            let room = parse_room(&room, &cmd_ctx).await?;
+            let settings = cmd_ctx.ctx.settings_service.load_room(room.room_id(), None).await;
+            let uid = UserId::parse(uid).map_err(|_| ReminderError::InvalidUserId)?;
+            (settings, DelegationType::User(uid))
+        },
+        (Some(room), None) => {
+            let room = parse_room(&room, &cmd_ctx).await?;
+            let settings = cmd_ctx.ctx.settings_service.load_room(room.room_id(), None).await;
+            (settings, DelegationType::Room)
+        },
+        (None, Some(uid)) => {
+            let uid = UserId::parse(uid).map_err(|_| ReminderError::InvalidUserId)?;
+            (cmd_ctx.settings.room.clone(), DelegationType::User(uid))
+        },
+        (None, None) => (cmd_ctx.settings.room.clone(), DelegationType::Personal)
     };
 
     // Set room_tz from settings.
-    let room_tz = room_settings.room_tz.clone();
+    let tz = room_settings.room_tz.clone();
 
     // Parse date.
     let date: ParsedDate = if args.interval {
-        resolve_date_interval(&args, &room_tz)?
+        resolve_date_interval(&args, &tz)?
     } else {
-        resolve_date(&args, &room_tz)?
+        resolve_date(&args, &tz)?
     };
 
     // Parse time.
     let time: ParsedTime = if args.interval {
-        resolve_time_interval(&args, &room_tz)?
+        resolve_time_interval(&args, &tz)?
     } else {
         // TODO!
-        resolve_time(&args, &room_tz, time(9, 0, 0, 0))?
+        resolve_time(&args, &tz, time(9, 0, 0, 0))?
     };
 
     // Get times.
-    let (utc_dt, civil_dt) = resolve_target_dt(date, time, &room_tz)?;
+    let (utc_dt, civil_dt) = resolve_target_dt(date, time, &tz)?;
 
     // Fill a structure.
     let reminder_data = ReminderData {
         room_id: room_settings.room_id.clone(),
         utc_dt,
         civil_dt,
+        tz,
         text,
         created_by: cmd_ctx.user_id.clone(),
         delegation,

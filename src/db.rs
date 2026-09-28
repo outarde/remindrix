@@ -7,10 +7,10 @@ use std::{
     path::PathBuf,
     sync::Arc, 
 };
-use tokio_rusqlite::Connection;
+use tokio_rusqlite::{Connection, params};
 use anyhow::{Result, Context};
 
-use crate::reminder::{Reminder, ReminderData, ReminderStatus, ReminderError};
+use crate::reminder::{Reminder, ReminderData, DelegationType, ReminderStatus, ReminderError};
 use crate::settings::{SettingError, RawSetting};
 use jiff::{Timestamp, Unit};
 
@@ -107,22 +107,25 @@ impl ReminderRepository {
         let text = data.text.clone();
         let target_time = data.civil_dt.to_string();
         let utc_time = data.utc_dt.to_string();
-        let tz = data.room_settings.room_tz.iana_name().unwrap_or("UTC").to_string();
+        let tz = data.tz.iana_name().unwrap_or("UTC").to_string();
         let created_by = data.created_by.to_string();
         let created_at = Timestamp::now().round(Unit::Second)?.to_string();
+        let (target_user_id, delegation_kind) = data.delegation.to_raw();
 
         let result = conn.call(move |c| {
             c.execute(
-                "INSERT INTO reminders (room_id, text, target_time, utc_time, tz, created_at, created_by) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                [
+                "INSERT INTO reminders (room_id, text, target_time, utc_time, tz, created_at, created_by, target_user_id, delegation_kind) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![
                     &room_id, 
                     &text, 
                     &target_time, 
                     &utc_time, 
                     &tz, 
                     &created_at, 
-                    &created_by
+                    &created_by,
+                    &target_user_id,
+                    &delegation_kind
                 ],
             )?;
             

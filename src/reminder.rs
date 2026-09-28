@@ -73,6 +73,8 @@ pub enum ReminderError {
     #[error("error.datetime")] InvalidDateTime,
     #[error("error.delegation-room-format")] InvalidDelegationRoomFormat,
     #[error("error.delegation-no-room")] NoDelegatedRoom,
+    #[error("error.delegation-user-format")] InvalidUserId,
+    #[error("error.delegation-options")] DelegationOptions,
     #[error("tz.not-set")] TzNotSet,
     #[error("error.unsafe-datetime")] JiffError(#[from] jiff::Error), 
     #[error("error.matrix")] MatrixError(#[from] matrix_sdk::Error), 
@@ -106,18 +108,19 @@ pub struct Reminder {
     pub status: ReminderStatus,
 }
 
-/// ReminderData
+/// Reminder data goes into schedule_reminder() method.
 #[derive(Debug, Clone)]
 pub struct ReminderData {
     pub room_id: OwnedRoomId,
     pub utc_dt: Timestamp,
     pub civil_dt: CivilDateTime,
+    pub tz: TimeZone,
     pub text: String,
     pub created_by: OwnedUserId,
-    pub room_settings: RoomSettings,
     pub delegation: DelegationType,
 }
 
+/// Delegation data for ReminderData.
 #[derive(Debug, Clone)]
 pub enum DelegationType {
     Personal,
@@ -125,12 +128,28 @@ pub enum DelegationType {
     Room
 }
 
-/// Type of message for a new reminder.
-#[derive(EnumString, Display)]
-#[strum(serialize_all = "snake_case")]
-enum ReminderMsg {
-    #[strum(serialize = "reminder.new")] New,
-    #[strum(serialize = "reminder.new-from")] DelegatedNew,
+impl DelegationType {
+    pub fn to_raw(&self) -> (&'static str, Option<String>) {
+        match self {
+            Self::Personal => ("personal", None),
+            Self::User(user_id) => ("delegated_user", Some(user_id.to_string())),
+            Self::Room => ("delegated_room", None),
+        }
+    }
+
+    pub fn from_raw(delegation_kind: &str, target_user_id: Option<&str>) -> Result<Self, ReminderError> {
+        match (delegation_kind, target_user_id) {
+            ("personal", None) => Ok(Self::Personal),
+            ("personal", Some(_)) => Err(ReminderError::DelegationOptions),
+            ("delegated_user", Some(uid)) => Ok(Self::User(
+                UserId::parse(uid).map_err(|_| ReminderError::InvalidUserId)?
+            )),
+            ("delegated_user", None) => Err(ReminderError::InvalidUserId),
+            ("delegated_room", None) => Ok(Self::Room),
+            ("delegated_room", Some(_)) => Err(ReminderError::DelegationOptions),
+            (other, _) => Err(ReminderError::DelegationOptions),
+        }
+    }
 }
 
 // ===== Reminders =====
@@ -174,33 +193,39 @@ pub async fn schedule_reminder(
             }
         };
 
-        // TODO!
-        // Add "from" if reminder has a probability of delegation.
-        let msg_key = if room.joined_members_count() <= 2 as u64 {
-            let members = room.members(RoomMemberships::JOIN).await;
-            match members {
-                Ok(ms) => {
-                    if ms.iter().find(|&m| m.user_id() == &reminder.data.created_by).is_some() { 
-                        ReminderMsg::New 
-                    } else {
-                        ReminderMsg::DelegatedNew 
-                    }
-                },
-                Err(_) => { ReminderMsg::New }
+        // Get Settings.
+        let room_settings = ctx.settings_service.load_room(&reminder.data.room_id, Some(&room)).await;
+
+        // Message depending on whether the reminder has been delegated.
+        let msg = match reminder.data.delegation {
+            DelegationType::Personal => {
+                t!(
+                    "reminder.new",
+                    locale = &room_settings.room_lang,
+                    text = reminder.data.text
+                )
+            },
+            DelegationType::User(user_id) => {
+                t!(
+                    "reminder.new-to-from",
+                    locale = &room_settings.room_lang,
+                    to = &user_id.to_string(),
+                    from = reminder.data.created_by,
+                    text = reminder.data.text
+                )
+            },
+            DelegationType::Room => {
+                t!(
+                    "reminder.new-from",
+                    locale = &room_settings.room_lang,
+                    from = reminder.data.created_by,
+                    text = reminder.data.text
+                )
             }
-        } else {
-            ReminderMsg::DelegatedNew
         };
 
-        let reminder_text = t!(
-            msg_key.to_string(),
-            locale = &reminder.data.room_settings.room_lang,
-            from = reminder.data.created_by,
-            text = reminder.data.text
-        );
-
         // If the message was sent successfully, update the status!
-        match room.send(RoomMessageEventContent::text_markdown(reminder_text)).await {
+        match room.send(RoomMessageEventContent::text_markdown(msg)).await {
             Ok(_) => {
                 if let Err(e) = update_reminder_status(ctx.db.clone(), reminder.id, ReminderStatus::Sent).await {
                     tracing::error!("Failed to update status for reminder: {:?}", e);
@@ -227,6 +252,8 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
                 utc_time: row.get(4)?,
                 tz: row.get(5)?,
                 created_by: row.get(6)?,
+                target_user_id: row.get(7)?,
+                delegation_kind: row.get(8)?,
             })
         })?;
 
@@ -253,8 +280,22 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
         let room_id = RoomId::parse(&room_id_str)?;
         let created_by = UserId::parse(&created_by_str)?;
 
+        // Delegation data
+        let delegation = match DelegationType::from_raw(&raw.delegation_kind, raw.target_user_id.as_deref()) {
+            Ok(d) => d,
+            Err(e) => {
+                tracing::warn!(
+                    reminder_id = raw.id,
+                    delegation_kind = %raw.delegation_kind,
+                    target_user = %raw.target_user_id,
+                    "invalid delegation in DB, falling back to Personal: {e}"
+                );
+                DelegationType::Personal
+            }
+        };
+
         // Get TZ
-        let room_tz = ctx.settings_service.parse_tz_or_default(&room_tz_str);
+        let tz = ctx.settings_service.parse_tz_or_default(&room_tz_str);
 
         // Parse Utc as Timestamp
         let timestamp: Timestamp = match utc_time_str.parse() {
@@ -263,7 +304,7 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
             Err(_) => {
                 let parts: Vec<&str> = utc_time_str.split(|c| c == '-' || c == ' ' || c == ':').collect();
                 if parts.len() < 5 {
-                    return Err(anyhow::anyhow!("Err"));
+                    return Err(anyhow::anyhow!("Error restoring reminders with the legacy date format; delete the database to fix this."));
                 }
 
                 let target_time = CivilDateTime::new(
@@ -283,21 +324,18 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
 
         // Parse Civil from Timestamp -> Zoned.
         // let target_zoned = timestamp.in_tz(&room_tz_str);
-        let dt_zoned = timestamp.to_zoned(room_tz.clone());
+        let dt_zoned = timestamp.to_zoned(tz.clone());
         let civil_dt = dt_zoned.datetime();
-
-        // Get Settings.
-        let room_settings = ctx.settings_service.load_room(&room_id, None).await;
 
         // Prepare ReminderData.
         let reminder_data = ReminderData {
             room_id,
-            // tz
             utc_dt: timestamp,
             civil_dt,
+            tz,
             text,
             created_by,
-            room_settings,
+            delegation,
         };
 
         reminders.push(Reminder {
@@ -373,6 +411,8 @@ async fn summary_missed(
                 }
             };
 
+            let room_settings = ctx_clone.settings_service.load_room(&room_id, None).await;
+
             // Sorting by time and combining into a summary, can also be numbered.
             let mut sorted = reminders.clone();
             sorted.sort_by_key(|r| r.data.civil_dt);
@@ -384,7 +424,7 @@ async fn summary_missed(
                     let time = r.data.civil_dt.strftime("%H:%M").to_string();
                     let sum = t!(
                         "reminder.list", 
-                        locale = r.data.room_settings.room_lang.as_ref(), 
+                        locale = room_settings.room_lang.as_ref(), 
                         text = r.data.text, 
                         date = date, 
                         time = time
@@ -396,7 +436,7 @@ async fn summary_missed(
             // Prepare a final summary message.
             let message = t!(
                 "reminder.missed", 
-                locale = reminders[0].data.room_settings.room_lang.as_ref(), 
+                locale = room_settings.room_lang.as_ref(), 
                 sum = summary
             );
 

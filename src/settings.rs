@@ -14,7 +14,7 @@ use thiserror::Error;
 pub enum SettingError {
     #[error("error.db")] Db(#[from] tokio_rusqlite::Error),
     #[error("error.matrix")] MatrixError(#[from] matrix_sdk::Error),
-    #[error("error.matrix")] WrongScope(String),
+    #[error("error.matrix")] WrongScope,
     #[error("settings.help")] NoCommand,
     #[error("error.lang.not-exist")] NoLanguage,
     #[error("error.lang.not-set")] LanguageNotSet,
