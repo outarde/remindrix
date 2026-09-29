@@ -512,11 +512,11 @@ pub async fn handle_settings(
     let args_vec: Vec<&str> = args_str.split_whitespace().collect();
     let mut clap_input = vec!["settings"];
     clap_input.extend(&args_vec);
-    let args = SettingsArgs::try_parse_from(clap_input).map_err(|_| SettingError::NoCommand)?;
+    let args = SettingsArgs::try_parse_from(clap_input);
 
     let result = match args {
-        SettingsArgs::Lang {lang_key} => handle_lang_settings(lang_key, cmd_ctx.clone()).await?,
-        SettingsArgs::Time {default, morning, afternoon, evening} => {
+        Ok(SettingsArgs::Lang {lang_key}) => handle_lang_settings(lang_key, cmd_ctx.clone()).await?,
+        Ok(SettingsArgs::Time {default, morning, afternoon, evening}) => {
             let updates = vec![
                 (SettingKey::DefaultTime, default),
                 (SettingKey::Morning, morning),
@@ -525,13 +525,15 @@ pub async fn handle_settings(
             ];
             handle_time_settings(event, cmd_ctx.clone(), updates).await?
         },
-        /*
         Err(_) => {
-            let msg = t!("settings.help", locale = &cmd_ctx.settings.room_lang);
+            let msg = t!(
+                "settings.help",
+                locale = &cmd_ctx.settings.room.room_lang,
+                set_cmd = cmd_ctx.bot_config().settings_commands.join(" | "),
+            );
             cmd_ctx.msng.text_md_long(&msg).await;
             return Ok(());
         },
-        */
     };
 
     Ok(result)
