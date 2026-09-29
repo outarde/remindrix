@@ -19,12 +19,12 @@ use crate::settings::{
 pub struct SettingsService {
     db: Arc<DbContext>,
     config: Arc<BotConfig>,
-    bot_id: OwnedUserId,
+    // bot_id: OwnedUserId,
 }
 
 impl SettingsService {
-    pub fn new(db: Arc<DbContext>, config: Arc<BotConfig>, bot_id: OwnedUserId) -> Self {
-        Self { db, config, bot_id }
+    pub fn new(db: Arc<DbContext>, config: Arc<BotConfig>, _bot_id: OwnedUserId) -> Self {
+        Self { db, config }
     }
 
     /// Loading settings for room
@@ -34,14 +34,10 @@ impl SettingsService {
             .unwrap_or_default();
 
         /*
-        let raw_settings = match room {
-            Some(r) => {
-                if let Some(tz) = Self::fetch_room_tz(r) {
-                    pre_settings.push_back(RawSetting { key: TimeZone.into(), value: tz.into() })
-                }
-                else { pre_settings }
+        if let Some(r) = room {
+            if let Some(tz) = Self::fetch_room_tz(r).await {
+                raw_settings.push(RawSetting { key: SettingKey::Timezone.to_string(), value: tz.into() });
             }
-            None => pre_settings
         };
         */
         

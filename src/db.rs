@@ -10,7 +10,7 @@ use std::{
 use tokio_rusqlite::{Connection, params};
 use anyhow::{Result, Context};
 
-use crate::reminder::{Reminder, ReminderData, DelegationType, ReminderStatus, ReminderError};
+use crate::reminder::{Reminder, ReminderData, ReminderStatus, ReminderError};
 use crate::settings::{SettingError, RawSetting};
 use jiff::{Timestamp, Unit};
 
@@ -141,11 +141,11 @@ impl ReminderRepository {
         Ok(result)
     }
 
-    pub async fn get_by_id(&self, _id: i64) -> Result<Reminder> {
+    pub async fn _get_by_id(&self, _id: i64) -> Result<Reminder> {
         todo!()
     }
 
-    pub async fn update_status(&self, _id: i64, _status: i32) -> Result<()> {
+    pub async fn _update_status(&self, _id: i64, _status: i32) -> Result<()> {
         todo!()
     }
 }

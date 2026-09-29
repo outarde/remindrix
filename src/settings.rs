@@ -1,5 +1,5 @@
 use matrix_sdk::ruma::{
-    OwnedUserId, OwnedRoomId,
+    OwnedRoomId,
         events::{
         EmptyStateKey, macros::EventContent,
         }
@@ -88,11 +88,6 @@ impl SettingKey {
     pub fn is_user_scoped(&self) -> bool {
         matches!(self, Self::DefaultTime | Self::Morning | Self::Afternoon | Self::Evening)
     }
-}
-
-pub enum SettingScope {
-    Room,
-    User(OwnedUserId),
 }
 
 pub struct SettingUpdate {

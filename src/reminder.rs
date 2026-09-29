@@ -1,10 +1,7 @@
-use matrix_sdk::{
-    RoomMemberships,
-    ruma::{
+use matrix_sdk::ruma::{
         UserId, OwnedUserId, OwnedRoomId, RoomId,
         events::room::message::{RoomMessageEventContent},
-    },
-};
+    };
 use tokio_rusqlite::{params, Connection};
 use jiff::{
     Zoned, ToSpan, tz::TimeZone, Timestamp, Unit,
@@ -16,10 +13,8 @@ use std::{
 };
 use rust_i18n::t;
 use anyhow::Result;
-use strum_macros::{Display, EnumString};
 use thiserror::Error;
 
-use crate::settings::RoomSettings;
 
 /// British classification of time ante and post meridiem/noon (am and pm).
 #[derive(Debug, PartialEq, Eq)]
@@ -65,7 +60,7 @@ pub enum ReminderError {
     #[error("error.db")] Db(#[from] tokio_rusqlite::Error),
     #[error("error.month")] InvalidMonth,
     #[error("error.past-time")] TimeInPast(Zoned),
-    #[error("error.time")] InvalidTime,
+    #[error("error.time")] _InvalidTime,
     #[error("error.empty-text")] EmptyText,
     #[error("error.unsafe-datetime")] UnsafeDateTime,
     #[error("error.date-format")] InvalidDateFormat,
@@ -147,7 +142,7 @@ impl DelegationType {
             ("delegated_user", None) => Err(ReminderError::InvalidUserId),
             ("delegated_room", None) => Ok(Self::Room),
             ("delegated_room", Some(_)) => Err(ReminderError::DelegationOptions),
-            (other, _) => Err(ReminderError::DelegationOptions),
+            (_other, _) => Err(ReminderError::DelegationOptions),
         }
     }
 }

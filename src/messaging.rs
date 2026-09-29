@@ -77,12 +77,12 @@ impl MessageReaction {
 #[derive(Clone, Debug)]
 pub struct RoomMessenger {
     room: Room,
-    i18n: Arc<I18nManager>,
+    // i18n: Arc<I18nManager>,
 }
 
 impl RoomMessenger {
-    pub fn new(room: Room, i18n: Arc<I18nManager>) -> Self {
-        Self { room, i18n }
+    pub fn new(room: Room, _i18n: Arc<I18nManager>) -> Self {
+        Self { room }
     }
 
     /// Send markdown message with the typing indciator (Typing Guard).

@@ -17,7 +17,6 @@ use jiff::{civil::time, ToSpan};
 use regex::Regex;
 use std::{string::ToString, sync::{OnceLock, Arc}, borrow::Cow};
 use rust_i18n::t;
-use strum_macros::Display;
 use clap::Parser;
 
 // app crates
@@ -25,10 +24,8 @@ use crate::context::CommandContext;
 use crate::reminder::{ReminderData, DelegationType, ReminderError};
 use crate::settings_service::{SettingsService};
 use crate::settings::{
-    SettingError,
-    ActiveSettings, UserSettings, 
-    SettingUpdate, SettingKey, RawSetting, 
-    RoomTimezoneContent
+    SettingError, 
+    SettingUpdate, SettingKey
 };
 use crate::parsers::{
     ParsedDate, ParsedTime,
