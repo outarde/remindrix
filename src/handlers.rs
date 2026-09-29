@@ -429,8 +429,8 @@ pub async fn process_cli_reminder(
     let time: ParsedTime = if args.interval {
         resolve_time_interval(&args, &tz)?
     } else {
-        // TODO!
-        resolve_time(&args, &tz, time(9, 0, 0, 0))?
+        let default_time = cmd_ctx.ctx.settings_service.get_fallback_time(SettingKey::DefaultTime);
+        resolve_time(&args, &tz, default_time)?
     };
 
     // Get times.
@@ -473,7 +473,7 @@ async fn handle_tz(
     }
 
     // Parse user's input timezone code
-    let tz = SettingsService::parse_tz(&body)?;
+    let tz = SettingsService::parse_tz(body)?;
 
     // If user's input timezone is equal to current room timezone
     if tz == cmd_ctx.settings.room.room_tz {
