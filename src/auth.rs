@@ -425,8 +425,8 @@ pub async fn devices_list(client: Client) -> anyhow::Result<()> {
     }
 
     println!("\
-        Use command reminder-bot verify-device <device-id> to verify some of your own device \
-        and command reminder-bot recover <recovery-key> for your current bot's device to recover your \
+        Use command remindrix verify-device <device-id> to verify some of your own device \
+        and command remindrix recover <recovery-key> for your current bot's device to recover your \
         cross-signing key on which depends device verification\
     ");
 
@@ -526,7 +526,6 @@ pub async fn reset_recovery_with_backup(
 }
 
 /// Save recovery key to recovery.json.
-// TODO: reshape to AppConfig structure
 async fn save_recovery_key(recovery_key: &str) -> anyhow::Result<()> {
     let data = config::RecoveryConfig {
         recovery_key: recovery_key.to_string(),
@@ -593,8 +592,8 @@ pub async fn recall_recovery_key() -> anyhow::Result<()> {
 
     println!("\
         If you have recovery key and your device is not verified you should provide \
-        active key via reminder-bot recover <recovery-key> or reset it via \
-        reminder-bot reset-recovery-key.");
+        active key via remindrix recover <recovery-key> or reset it via \
+        remindrix reset-recovery-key.");
 
     Ok(())
 }
