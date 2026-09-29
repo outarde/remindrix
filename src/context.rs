@@ -10,6 +10,7 @@ use jiff::{
 };
 use std::{string::ToString, sync::Arc};
 use rust_i18n::t;
+use itertools::Itertools;
 
 // app crates
 use crate::db::{ReminderRepository, SettingRepository};
@@ -154,12 +155,20 @@ impl CommandContext {
             "welcome.on_command_off"
         } else { "welcome.on_command" };
 
+        // Remove duplicates from commands list (eg: `remind` is standard and localised command for en)
+        let formatted_cmd_list = self.ctx.bot_config.remind_commands
+            .iter()
+            .filter(|&v| v != &self.i18n.cmd_remind)
+            .map(|s| s.as_str())
+            .chain(std::iter::once(self.i18n.cmd_remind.as_str()))
+            .join(" | ");
+
         let welcome_msg = t!(
             welcome_type,
             locale = &self.settings.room.room_lang,
-            cmd_local = self.i18n.cmd_remind,
-            cmd_list = self.ctx.bot_config.remind_commands.join("|"),
-            cmd_tz_list = self.ctx.bot_config.tz_commands.join("|"),
+            cmd_local = &self.i18n.cmd_remind,
+            cmd_list = formatted_cmd_list,
+            cmd_tz_list = self.ctx.bot_config.tz_commands.join(" | "),
             date = tomorrow.strftime("%d.%m.%Y").to_string(),
             date_slash = tomorrow.strftime("%d/%m/%Y").to_string(),
             date_hyphen = tomorrow.strftime("%d-%m").to_string(),
