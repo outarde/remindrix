@@ -169,6 +169,7 @@ impl CommandContext {
             cmd_local = &self.i18n.cmd_remind,
             cmd_list = formatted_cmd_list,
             cmd_tz_list = self.ctx.bot_config.tz_commands.join(" | "),
+            cmd_set_list = self.ctx.bot_config.settings_commands.join(" | "),
             date = tomorrow.strftime("%d.%m.%Y").to_string(),
             date_slash = tomorrow.strftime("%d/%m/%Y").to_string(),
             date_hyphen = tomorrow.strftime("%d-%m").to_string(),
