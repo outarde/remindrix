@@ -28,6 +28,7 @@ pub enum MessageReaction {
     #[strum(serialize = "⏲️")] Timer, 
     #[strum(serialize = "🕒")] Clock,
     #[strum(serialize = "🕛")] ClockHour,
+    #[strum(serialize = "📆")] CalendarDay,
     #[strum(serialize = "🗓️")] CalendarMonth,
     #[strum(serialize = "0️⃣")] Zero,
     #[strum(serialize = "1️⃣")] One,
@@ -59,14 +60,14 @@ impl MessageReaction {
         }
     }
     /// Returns the emoji corresponding to the interval measure type:
-    /// Months, weeks, days, hours, minutes.
+    /// Months, ~~weeks~~ (not used), days, hours, minutes.
     fn from_digit_time_type(digit: u32) -> Self {
         match digit {
             0 => Self::CalendarMonth,
-            1 => Self::CalendarMonth,
-            2 => Self::CalendarMonth,
-            3 => Self::ClockHour,
-            4 => Self::Clock,
+            // 1 => Self::CalendarMonth,
+            1 => Self::CalendarDay,
+            2 => Self::ClockHour,
+            3 => Self::Clock,
             _ => Self::Cross,
         }
     }
@@ -211,7 +212,7 @@ pub fn calculate_durations(timestamp: Timestamp) -> Vec<i32> {
 
     let numbers = vec![
         span.total((Unit::Month, &relative)).unwrap() as i32,
-        span.total((Unit::Week, &relative)).unwrap() as i32, 
+        // span.total((Unit::Week, &relative)).unwrap() as i32, 
         span.total((Unit::Day, &relative)).unwrap() as i32,
         span.total((Unit::Hour, &relative)).unwrap() as i32,
         span.total((Unit::Minute, &relative)).unwrap() as i32
