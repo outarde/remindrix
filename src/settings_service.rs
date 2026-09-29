@@ -33,6 +33,18 @@ impl SettingsService {
             .await
             .unwrap_or_default();
 
+        /*
+        let raw_settings = match room {
+            Some(r) => {
+                if let Some(tz) = Self::fetch_room_tz(r) {
+                    pre_settings.push_back(RawSetting { key: TimeZone.into(), value: tz.into() })
+                }
+                else { pre_settings }
+            }
+            None => pre_settings
+        };
+        */
+        
         self.build_room_settings(room_id.to_owned(), room, raw_settings).await
     }
 
@@ -53,62 +65,9 @@ impl SettingsService {
         );
 
         ActiveSettings { room: room_s, user: user_s }
-
-        // self.build_settings_manager(room_id.to_owned(), None, raw_settings).await
     }
 
-    /*
-    async fn build_settings_manager(
-        &self,
-        room_id: OwnedRoomId,
-        room: Option<&Room>,
-        // user_id: Option<&UserId>,
-        raw_settings: Vec<RawSetting>,
-    ) -> Settings {
-        
-        // Default values.
-        let mut timezone = None;
-        let mut lang = None;
-        let mut default_time = None;
-        let mut morning = None;
-        let mut afternoon = None;
-        let mut evening = None;
-
-        // Set values.
-        for setting in raw_settings {
-            if let Ok(key) = SettingKey::from_str(&setting.key) {
-                match key {
-                    SettingKey::Timezone => timezone = Some(setting.value),
-                    SettingKey::Lang => lang = Some(setting.value),
-                    SettingKey::DefaultTime => default_time = Some(setting.value),
-                    SettingKey::Morning => morning = Some(setting.value),
-                    SettingKey::Afternoon => afternoon = Some(setting.value),
-                    SettingKey::Evening => evening = Some(setting.value),
-                }
-            }
-            else {
-                tracing::warn!("Unknown setting key in database: {}", setting.key);
-            }
-        }
-
-        // A chance to get time zone via Matrix State Event.
-        // let room_tz = parse_tz_or_default(timezone.as_deref().or_else(|| fetch_tz(room)), &ctx.bot_config.tz);
-        let room_tz = self.parse_tz_or_fetch_or_default(timezone, room).await;
-
-        Settings {
-            room_id: room_id.to_owned(),
-            // user_id: user_id,
-            room_tz_name: room_tz.iana_name().unwrap().to_string(),
-            room_tz,
-            room_lang: lang.unwrap_or_else(|| self.config.lang.clone()),
-            default_time: self.parse_time_or_default(default_time, &self.config.morning),
-            morning: self.parse_time_or_default(morning, &self.config.morning),
-            afternoon: self.parse_time_or_default(afternoon, &self.config.afternoon),
-            evening: self.parse_time_or_default(evening, &self.config.evening),
-        }
-    }
-    */
-
+    // Builder for room settings
     async fn build_room_settings(&self, room_id: OwnedRoomId, room: Option<&Room>, raw: Vec<RawSetting>) -> RoomSettings {
         let mut tz = None;
         let mut lang = None;
@@ -120,7 +79,11 @@ impl SettingsService {
                 Err(_) => tracing::warn!("Unknown setting key: {}", s.key),
             }
         }
-        let room_tz = self.parse_tz_or_fetch_or_default(tz, room).await;
+        // Attempting to retrieve time zone via Matrix State Event
+        if !tz.is_some() && let Some(r) = room {
+            tz = Self::fetch_room_tz(r).await;
+        }
+        let room_tz = self.parse_input_tz_or_default(tz).await;
         RoomSettings { 
             room_id, 
             room_tz_name: room_tz.iana_name().unwrap_or("UTC").into(), 
@@ -128,7 +91,7 @@ impl SettingsService {
             room_lang: lang.unwrap_or_else(|| self.config.lang.clone()) 
         }
     }
-
+    // Builder for user settings
     async fn build_user_settings(&self, raw: Vec<RawSetting>) -> UserSettings {
         let mut default_time = None;
         let mut morning = None;
@@ -160,20 +123,18 @@ impl SettingsService {
         updates: Vec<SettingUpdate>,
         updated_by: &UserId,
     ) -> Result<(), SettingError> {
-        // TODO!
-        /*
-        for u in &updates {
+        let mut raw = Vec::with_capacity(updates.len());
+        for u in updates {
             if !u.key.is_room_scoped() {
-                // TODO!
-                return Err(SettingError::WrongScope(u.key.to_string()));
+                return Err(SettingError::WrongScope);
             }
+            raw.push(RawSetting { key: u.key.to_string(), value: u.value });
         }
-        */
-        self.db.settings.update_room_settings(room_id, self.to_raw_settings(updates), updated_by).await
+        self.db.settings.update_room_settings(room_id, raw, updated_by).await
     }
 
     // SettingUpate to RawSetting
-    fn to_raw_settings(&self, updates: Vec<SettingUpdate>) -> Vec<RawSetting> {
+    fn _to_raw_settings(&self, updates: Vec<SettingUpdate>) -> Vec<RawSetting> {
         updates.into_iter().map(|upd| RawSetting {
             key: upd.key.to_string(),
             value: upd.value,
@@ -186,7 +147,15 @@ impl SettingsService {
         updates: Vec<SettingUpdate>,
         updated_by: &UserId,
     ) -> Result<(), SettingError> {
-        let result = self.db.settings.update_user_settings(user_id, self.to_raw_settings(updates), updated_by).await?;
+        let mut raw = Vec::with_capacity(updates.len());
+        for u in updates {
+            if !u.key.is_user_scoped() {
+                tracing::error!("Wrong scope for the setting key: {}", u.key);
+                return Err(SettingError::WrongScope);
+            }
+            raw.push(RawSetting { key: u.key.to_string(), value: u.value });
+        }
+        let result = self.db.settings.update_user_settings(user_id, raw, updated_by).await?;
         Ok(result)
     }
 
@@ -244,24 +213,14 @@ impl SettingsService {
         }
     }
 
-    /// Parse Option<String> to TimeZone with attempting to retrieve it via Matrix State Event.
-    pub async fn parse_tz_or_fetch_or_default(&self, tz_str: Option<String>, room: Option<&Room>) -> TimeZone {
+    /// Parse Option<String> to TimeZone.
+    pub async fn parse_input_tz_or_default(&self, tz_str: Option<String>) -> TimeZone {
         // From str
         if let Some(t) = tz_str.as_ref().and_then(|s| TimeZone::get(s).ok()) {
             return t;
         }
         if tz_str.is_some() {
             tracing::warn!("Invalid timezone in DB, trying Matrix...", );
-        }
-
-        // From Matrix State Event
-        match room {
-            Some(r) => {
-                if let Some(t) = Self::fetch_room_tz(r).await {
-                    return t;
-                }
-            }
-            None => {}
         }
 
         // From config
@@ -293,7 +252,7 @@ impl SettingsService {
 
     // ===== Matrix State Event =====
     /// Fetch time zone for the room by Matrix State Event.
-    pub async fn fetch_room_tz(room: &Room) -> Option<TimeZone> {
+    pub async fn fetch_room_tz(room: &Room) -> Option<String> {
         // Raw JSON: Option<Raw<StateEvent<C>>>
         if let Ok(Some(raw)) = room.get_state_event_static::<RoomTimezoneContent>().await {
             // Pattern matching to Sync variant, not Stripped. SyncStateEvent
@@ -305,7 +264,8 @@ impl SettingsService {
                 // Check if it is not Redacted
                 // https://docs.rs/ruma-events/0.34.0/ruma_events/enum.SyncStateEvent.html
                 if let Some(original) = sync_event.as_original() {
-                    TimeZone::get(&original.content.timezone).ok()
+                    // TimeZone::get(&original.content.timezone).ok()
+                    Some(original.content.timezone.to_string())
                 } else {
                     tracing::warn!("Redacted timezone can not be viewed.");
                     None

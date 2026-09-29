@@ -287,7 +287,7 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
                 tracing::warn!(
                     reminder_id = raw.id,
                     delegation_kind = %raw.delegation_kind,
-                    target_user = %raw.target_user_id,
+                    target_user = ?raw.target_user_id,
                     "invalid delegation in DB, falling back to Personal: {e}"
                 );
                 DelegationType::Personal
