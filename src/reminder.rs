@@ -240,7 +240,7 @@ pub async fn schedule_reminder(
 pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()> {
     // Get reminders
     let raw_reminders: Vec<RawReminder> = ctx.db.call(move |c| {
-        let mut stmt = c.prepare("SELECT id, room_id, text, target_time, utc_time, tz, created_by FROM reminders WHERE status = 0")?;
+        let mut stmt = c.prepare("SELECT id, room_id, text, target_time, utc_time, tz, created_by, target_user_id, delegation_kind FROM reminders WHERE status = 0")?;
         
         // Get rows with a RawReminder
         let mapped_rows = stmt.query_map([], |row| {

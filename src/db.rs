@@ -110,7 +110,7 @@ impl ReminderRepository {
         let tz = data.tz.iana_name().unwrap_or("UTC").to_string();
         let created_by = data.created_by.to_string();
         let created_at = Timestamp::now().round(Unit::Second)?.to_string();
-        let (target_user_id, delegation_kind) = data.delegation.to_raw();
+        let (delegation_kind, target_user_id) = data.delegation.to_raw();
 
         let result = conn.call(move |c| {
             c.execute(
