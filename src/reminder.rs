@@ -290,7 +290,7 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
         };
 
         // Get TZ
-        let tz = ctx.settings_service.parse_tz_or_default(&room_tz_str);
+        let tz = ctx.settings_service.get_tz_or_fallback(Some(room_tz_str)).await;
 
         // Parse Utc as Timestamp
         let timestamp: Timestamp = match utc_time_str.parse() {

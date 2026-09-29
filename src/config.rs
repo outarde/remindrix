@@ -195,50 +195,6 @@ impl BotConfig {
 
         Ok(())
     }
-
-    /*
-    /// Interactive setup config
-    pub fn setup_config(&mut self, data_dir: &PathBuf) -> anyhow::Result<()> {
-        // let languages = vec!["en", "de", "fr", "it", "es", "sv", "pl", "cs", "fi", "ja", "zh", "ru", "uk"];
-        let languages = rust_i18n::available_locales!();
-        self.lang = Select::new("Select language:", languages).prompt()?.to_string();
-
-        let remind_commands = Text::new("Aliases for the reminder creation command:")
-            .with_help_message("The command in your chosen language will always be available.")
-            .with_placeholder("separated by spaces")
-            .with_default("remind").prompt()?.to_string();
-        self.remind_commands = remind_commands
-            .split_whitespace()
-            .map(String::from)
-            .collect();
-
-        self.on_command = Confirm::new("Activate the bot only on command?")
-            .with_help_message("If you select \"no\", the bot will attempt to create a reminder whenever it receives a message.")
-            .with_default(true).prompt()?;
-        self.on_mention = Confirm::new("Activate the bot only when mentioned in group rooms?")
-            .with_help_message("In rooms with only two people, the bot will respond regardless of whether it is mentioned.")
-            .with_default(false).prompt()?;
-
-        self.morning = Text::new("Set morning time (HH:MM):")
-            .with_default(DEFAULT_MORNING_TIME)
-            .with_validator(validate_config_time)
-            .prompt()?.to_string();
-        self.afternoon = Text::new("Set afternoon time (HH:MM):")
-            .with_default(DEFAULT_AFTERNOON_TIME)
-            .with_validator(validate_config_time)
-            .prompt()?.to_string();
-        self.evening = Text::new("Set evening time (HH:MM):")
-            .with_default(DEFAULT_EVENING_TIME)
-            .with_validator(validate_config_time)
-            .prompt()?.to_string();
-
-        let overwrite = Confirm::new("Overwrite current configuration if any?").with_default(true).prompt()?;
-        
-        self.save_to_file(overwrite, &data_dir)?;
-
-        Ok(())
-    }
-    */
 }
 
 impl AppConfig {
@@ -304,6 +260,10 @@ impl AppConfig {
         check_times(vec![&bot.default_time, &bot.morning, &bot.afternoon, &bot.evening])?;
         tracing::info!("Default times are valid");
 
+        super::settings_service::SettingsService::parse_optional_tz(Some(bot.tz.clone()))
+            .ok_or(anyhow::anyhow!("The time zone in config.yaml has an invalid format: {}", bot.tz))?;
+        tracing::info!("Default time zone is valid");
+
         Ok(Self { auth, recovery, bot })
     }
 }
@@ -312,7 +272,7 @@ impl AppConfig {
 fn check_times(times: Vec<&str>) -> anyhow::Result<()> {
     for t in times {
         if !super::reminder::is_time_valid(t) {
-            return Err(anyhow::anyhow!("Defaul time {} has invalid format", t));
+            return Err(anyhow::anyhow!("Defaul time {} has an invalid format", t));
         }
     }
     Ok(())

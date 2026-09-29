@@ -79,7 +79,7 @@ impl SettingsService {
         if !tz.is_some() && let Some(r) = room {
             tz = Self::fetch_room_tz(r).await;
         }
-        let room_tz = self.parse_input_tz_or_default(tz).await;
+        let room_tz = self.get_tz_or_fallback(tz).await;
         RoomSettings { 
             room_id, 
             room_tz_name: room_tz.iana_name().unwrap_or("UTC").into(), 
@@ -104,10 +104,10 @@ impl SettingsService {
             }
         }
         UserSettings {
-            default_time: self.parse_time_or_default(default_time, &self.config.default_time),
-            morning: self.parse_time_or_default(morning, &self.config.morning),
-            afternoon: self.parse_time_or_default(afternoon, &self.config.afternoon),
-            evening: self.parse_time_or_default(evening, &self.config.evening),
+            default_time: self.get_time_or_fallback(default_time, SettingKey::DefaultTime),
+            morning: self.get_time_or_fallback(morning, SettingKey::Morning),
+            afternoon: self.get_time_or_fallback(afternoon, SettingKey::Afternoon),
+            evening: self.get_time_or_fallback(evening, SettingKey::Evening),
         }
     }
 
@@ -190,60 +190,60 @@ impl SettingsService {
         */
     }
 
-    //===== Parsers and Validators =====
-    /// Parse user input to Tz
+    // ===== Parsers and Validators =====
+    // ===== TimeZone =====
+    pub async fn get_tz_or_fallback(&self, tz_str: Option<String>) -> TimeZone {
+        if let Some(tz) = Self::parse_optional_tz(tz_str.clone()) {
+            return tz;
+        }
+
+        tracing::warn!(
+            "Failed to parse tz '{:?}'. Using fallback.", 
+            tz_str
+        );
+
+        self.get_fallback_tz()
+    }
+
+    pub fn parse_optional_tz(tz_str: Option<String>) -> Option<TimeZone> {
+        TimeZone::get(tz_str.as_deref()?).ok()
+    }
+
     pub fn parse_tz(tz_str: &str) -> Result<TimeZone, SettingError> {
         TimeZone::get(tz_str).map_err(|_| SettingError::InvalidTzFormat)
     }
-    /// Return parsed Timezone from &tz_str, or BotConfig &tz, or DEFAULT_TZ.
-    pub fn parse_tz_or_default(&self, tz_str: &str) -> TimeZone {
-        match TimeZone::get(tz_str) {
-            Ok(t) => t,
-            Err(_) => {
-                TimeZone::get(&self.config.tz)
-                    .unwrap_or_else(|_| {
-                        tracing::warn!("Failed to parse config time zone, falling back to default {}", super::config::DEFAULT_TZ);
-                        TimeZone::get(super::config::DEFAULT_TZ).unwrap()
-                    })
-            }
-        }
+
+    pub fn get_fallback_tz(&self) -> TimeZone {
+        TimeZone::get(&self.config.tz).unwrap()
     }
 
-    /// Parse Option<String> to TimeZone.
-    pub async fn parse_input_tz_or_default(&self, tz_str: Option<String>) -> TimeZone {
-        // From str
-        if let Some(t) = tz_str.as_ref().and_then(|s| TimeZone::get(s).ok()) {
-            return t;
-        }
-        if tz_str.is_some() {
-            tracing::warn!("Invalid timezone in DB, trying Matrix...", );
+    // ===== Time =====
+    pub fn get_time_or_fallback(&self, time_str: Option<String>, key: SettingKey) -> Time {
+        if let Some(time) = self.parse_optional_time(time_str.clone()) {
+            return time;
         }
 
-        // From config
-        if let Ok(t) = TimeZone::get(&self.config.tz) {
-            return t;
-        }
+        tracing::warn!(
+            "Failed to parse time for key {:?}: '{:?}'. Using fallback.", 
+            key, time_str
+        );
 
-        // From constant value
-        tracing::error!("Invalid default timezone in config: {}, falling back to default {}: ", &self.config.tz, super::config::DEFAULT_TZ);
-        TimeZone::get(super::config::DEFAULT_TZ).unwrap()
+        self.get_fallback_time(key)
     }
 
-    /// Parse Option<String> to Time -> or return default -> or DEFAULT_MORNING_TIME.
-    pub fn parse_time_or_default(&self, time_str: Option<String>, default: &str) -> Time {
-        if let Some(ref s) = time_str {
-            if let Ok(t) = s.parse::<Time>() {
-                return t;
-            }
-            tracing::warn!("Invalid time format in DB: {}, falling back to config", s);
-        }
+    fn parse_optional_time(&self, time_str: Option<String>) -> Option<Time> {
+        time_str?.parse::<Time>().ok()
+    }
 
-        if let Ok(t) = default.parse::<Time>() {
-            return t;
-        }
+    pub fn get_fallback_time(&self, key: SettingKey) -> Time {
+        let time = match key {
+            SettingKey::Morning => &self.config.morning,
+            SettingKey::Afternoon => &self.config.afternoon,
+            SettingKey::Evening => &self.config.evening,
+            _ => &self.config.default_time,
+        };
 
-        tracing::error!("Invalid default time in config: {}, falling back to default {}: ", default, super::config::DEFAULT_MORNING_TIME);
-        super::config::DEFAULT_MORNING_TIME.parse::<Time>().unwrap()
+        time.parse::<Time>().unwrap()
     }
 
     // ===== Matrix State Event =====
