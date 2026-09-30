@@ -167,7 +167,7 @@ pub struct RemindArgs {
     /// You can get it from the share menu in the Element X client
     #[arg(long)]
     pub room: Option<String>,
-    /// The **user to delegate** the reminder to, in the `!user_name:homeserver_url` format.
+    /// The **user to delegate** the reminder to, in the `@user_name:homeserver_url` format.
     /// You can even mention yourself so that a mention notification appears in the group chat
     #[arg(long)]
     pub user: Option<String>,
