@@ -1,7 +1,7 @@
 # None of these parameters are mandatory; default values will be used if they are not specified.
 # For a description of the fields, see 
-# https://github.com/outarde/reminder-bot/tree/main/docs/configuration.md
-# or use interactive setup via <config-setup> command.
+# https://github.com/outarde/remindrix/tree/main/docs/configuration.md
+# or use interactive setup via `remindrix config-setup` command.
 
 # Message parsing and sending language.
 lang: en
@@ -10,9 +10,11 @@ remind_commands:
   - "remind"
 list_commands:
   - "list"
-tz_commands:
-  - "tz"
-# The bot will only respond to messages with the prefix </> or <!>.
+settings_commands:
+  - "settings"
+# The bot will only respond to messages with the prefix '/' or '!'.
+# If disabled, the bot will **also** wait for commands without a prefix.
+# This parameter is more about 'only_prefixed'.
 on_command: true
 # The same but for rooms with more than two active or invited participants.
 on_command_group: true
@@ -30,9 +32,10 @@ send_reactions: true
 # Matrix protocol's limitations on the number of identical reactions.
 send_digits_reactions: true
 # Default time zone in IANA format. 
-# You can change the time zone for each room using a command <tz> in the room.
+# You can change the time zone for each room using a command `/settings tz` in the room.
 tz: "Europe/Paris"
 # Default time values.
+default_time: "10:00"
 morning: "09:00"
 afternoon: "14:00"
 evening: "19:00"
