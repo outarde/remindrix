@@ -103,14 +103,15 @@ Create a conversation with the bot or add it to a room. Send the `/remind`, `!re
 > - `today`, `tomorrow`
 >   
 > **🕐 Time**
-> - `20:03`, `at 20:03`
+> - `20:03`, `20.03`, `at 20:03`, `8 p.m.`
 > - `morning`, `afternoon`, `evening`
 > - If you do not specify the time, the reminder will come at `09:00`
 >   
 > **⚙️ Commands**
 > - Put `/` or `!` at the beginning
-> - `r|remind` - create a reminder
-> - `tz Europe/Paris` - set the time zone
+> - `remind` - create a reminder
+> - `settings` - bot settings, including time zone
+> - `remind --help` - print help for Pro mode
 
 ## Feature Roadmap
 #### Reminders Preferences:
@@ -123,8 +124,8 @@ Create a conversation with the bot or add it to a room. Send the `/remind`, `!re
 - [x] Bot’s replies via reactions
 - [x] Delegation of reminders
 - [ ] Sending a list of reminders
-- [ ] Reaction-as-a-button
 - [ ] Recurring reminders
+- [ ] Reaction-as-a-button
 #### Language and Translation:
 - [x] Adding languages
 - [x] Upload your own translation
@@ -160,7 +161,7 @@ Cons:
 - It is essentially a task manager within a messenger - or an interface for a full-fledged task management app - rather than a simple reminder bot. Its functionality is overkill for most servers.
 - Supports only English.
 
-#### Others
+#### Other
 
 - [reminder](https://github.com/maubot/reminder) for Maubot: supports time zones as well as multilingual command input (with an easy way to add your own language). However, it is designed for a plugin-based Matrix bot system that requires installation (though a [web version of the bot](https://t2bot.io/reminderbot/) is available). The last release was in 2022.
 - [matrix_tomato_reminder_bot](https://gitverse.ru/progserega/matrix_tomato_reminder_bot) by **progserega**: a bilingual bot based on `matrix-nio` with basic functionality.
