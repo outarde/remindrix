@@ -101,14 +101,16 @@ Create a conversation with the bot or add it to a room. Send the `/remind`, `!re
 > - `19.08.2026`, `19/08/2026`, `19-08`
 > - `19 August`, `19 aug`
 > - `today`, `tomorrow`
->   
+> 
 > **🕐 Time**
 > - `20:03`, `20.03`, `at 20:03`, `8 p.m.`
 > - `morning`, `afternoon`, `evening`
-> - If you do not specify the time, the reminder will come at `09:00`
->   
+> 
+> If you do not specify the time, the reminder will come at `09:00`.
+> 
 > **⚙️ Commands**
-> - Put `/` or `!` at the beginning
+>
+> Put `/` or `!` at the beginning.
 > - `remind` - create a reminder
 > - `settings` - bot settings, including time zone
 > - `remind --help` - print help for Pro mode
