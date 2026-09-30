@@ -10,10 +10,22 @@ Example commands:
 - `/errinern einen Stuhl reparieren` - creates a reminder for the localized (German) command, if that language is selected, for default `morning` time this or the next day, since neither time nor date is specified and, as expected, `remind_undated` is turned on in the settings.
 
 > [!WARNING]
-> Currently, the American format of writing the month and then the day are not supported, as is the 12-hour system.
+> Currently, the American format of writing the month and then the day are not supported, as is the 12-hour system without am/pm labels.
+
+### Change the Language
+You can change the room language via the settings:
+
+- `/settings lang` displays the available languages ​​(including those loaded via your localization file)
+- `/settings lang fr` sets the language using its code (in this case, French)
+
+### Change Default Times
+You can also change the default time settings. These are the times used when no specific time is specified, as well as when you type `morning`, `afternoon`, or `evening` (including in the language set for the room).
+
+- `/settings time` displays the current values.
+- `/settings time --default 11:00 --evening 22:00` updates the values ​​(in this case, for the default time and evening).
 
 ### Change the Time Zone
-Use the `/tz` command to display the room's time zone - by default this is the time zone from the bot settings. To change it, add [time zone code](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) to the command, for example: `/tz Europe/Paris`.
+Use the `/settings tz` command to display the room's time zone - by default this is the time zone from the bot settings. To change it, add [time zone code](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) to the command, for example: `/tz Europe/Paris`.
 
 ## Behaviour Details
 ### Summary
@@ -26,6 +38,15 @@ After reminders are sent, they are not deleted from the database but marked as s
 
 ### Statuses
 Currently, only two statuses are implemented for reminders: pending and sent. Interaction with them is not provided.
+
+## Rooms and Users Settings
+### Settings Distribution
+Room settings (configured individually for each room where the bot is present, or using values ​​from the config):
+- language
+- time zone
+
+User settings (apply to the same user across all rooms):
+- all default time values
 
 ### Localization
 In languages that have cases and declension, the keywords `morning`, `tomorrow`, etc., are written in the localization file in the declension corresponding to the phrase "remind me at such-and-such a time, in the morning, etc." 
@@ -51,17 +72,25 @@ You don't need to enable this mode specifically: the bot tries to recognize any 
 | `-d`, `--day` | Day as a number. | No. If only a day is specified without a month, the current month is used. If the specified day has already passed in the current month, the next month is used. |
 | `-m`, `--month` | Month as a number. | No. |
 | `-y`, `--year` | Year as a number. | No. |
-| `-t, --time` | Time as a number, without spaces. The colon and dot characters (`:`, `.`) are supported as separators. | No. Overridden by the values below. If time is not specified, default morning time from the settings is used. If the date was also specified automatically and the reminder time is in the past, the reminder will be moved forward one day. |
+| `-t, --time` | Time as a number, without spaces. The colon and dot characters (`:`, `.`) are supported as separators. You can specify am/pm, but only without dots between the letters. | No. Overridden by the values below. If time is not specified, default time from the settings is used. If the date was also specified automatically and the reminder time is in the past, the reminder will be moved forward one day. |
 | `--hour` | Hour as a number. | No. |
-| `--min` | Minutes as a number. | No. |
-| `--to` | The room to delegate the reminder to, in the `!unique_room_code:homeserver_url` format. You can get it from the *share* in the Element X client. | No. |
+| `--min` | Minutes as a number. If only minutes are specified, the current or next hour will be used. | No. |
+| `--room` | The room to delegate the reminder to, in the `!unique_room_code:homeserver_url` format. You can get it from the *share* in the Element X client. | No. |
+| `--user` | The user to delegate the reminder to, in the `@user:homeserver_url` format. You can even mention yourself so that a mention notification appears in the group chat. This option does not search for a room containing the specified user! | No. |
 | `-i`, `--interval` | If the flag is specified, the entered date and time will be used as an interval. | No, defaults to `false`. |
 >[!IMPORTANT]
 >Use the short form of parameters only where they are specified in the short form in the table. Time parameters do not have a short form because their first letter would either match the date parameters or the system help command `-h`.
 
 **Example commands**:
-- `remind --date=12.10.2026 make hot chocolate`
+- `remind --date=30.11.2026 make hot chocolate`
+- `remind -t 8pm take a bath`
 - `remind -d 1 -m 11 --time 00:00 Halloween` - creates a reminder on November 1st at midnight.
 - `remind --hour 1 -i Check the pie in the oven` - creates a reminder one hour from the current time.
 - `remind --time 00:30 -i take a hot bath` or `remind --min 30 -i take a hot bath` - remind in half an hour.
+- `remind --user=@reminder-bot:matrix.org call my name`
 
+### Time and Delegation
+If you delegate a reminder to another room, the reminder will use that room's time zone. Default time settings cannot be used in this case, as it is unknown which specific user they would apply to. Even if you specify a user via the `--user` parameter, the Remindrix-bot will use your `default_time` rather than the one saved for that user.
+
+### User Delegation
+This feature is designed to mention the user to whom the reminder is delegated when the notification appears, rather than to search for that user's personal chat with the bot. The idea of ​​an "address book" is being considered, but for now, it seems too cumbersome for a messenger interface.
