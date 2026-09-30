@@ -25,28 +25,7 @@ A chatbot for reminders on Matrix servers focused on multilingual support and us
 - Manual verification with a recovery key if the bot account has been logged in to before, and backup enabled via the command line (CLI)
 - Verification of other devices on which the bot is authorized
 - Reset all verification settings with the ability to save or delete the backup and receive a new recovery key
-## Feature Roadmap
-#### Reminders Preferences:
-- [x] Optional activation of the bot without a command
-- [x] Optional requirement to mention the bot in group chats
-- [x] Time zone settings
-- [ ] Individual user settings
-#### Commands:
-- [x] Alternative text for the bot activation command
-- [x] Bot’s replies via reactions
-- [x] Delegation of reminders
-- [ ] Sending a list of reminders
-- [ ] Reaction-as-a-button
-- [ ] Recurring reminders
-#### Language and Translation:
-- [x] Adding languages
-- [x] Upload your own translation
-- [x] Pro/CLI mode
-- [ ] More advanced parsing of reminder date and time from user messages
-#### Other:
-- [ ] Database cleanup settings
-- [ ] Alarm mode
-- [ ] Learn to not be late
+
 ## Screenshots
 <table>
   <tr>
@@ -132,6 +111,61 @@ Create a conversation with the bot or add it to a room. Send the `/remind`, `!re
 > - Put `/` or `!` at the beginning
 > - `r|remind` - create a reminder
 > - `tz Europe/Paris` - set the time zone
+
+## Feature Roadmap
+#### Reminders Preferences:
+- [x] Optional activation of the bot without a command
+- [x] Optional requirement to mention the bot in group chats
+- [x] Time zone settings
+- [x] Individual user settings
+#### Commands:
+- [x] Alternative text for the bot activation command
+- [x] Bot’s replies via reactions
+- [x] Delegation of reminders
+- [ ] Sending a list of reminders
+- [ ] Reaction-as-a-button
+- [ ] Recurring reminders
+#### Language and Translation:
+- [x] Adding languages
+- [x] Upload your own translation
+- [x] Pro/CLI mode
+- [ ] More advanced parsing of reminder date and time from user messages
+#### Other:
+- [ ] Database cleanup settings
+- [ ] Alarm mode
+- [ ] Learn to not be late
+
+## Alternatives
+#### 🐍 [matrix-reminder-bot](https://github.com/anoadragon453/matrix-reminder-bot) by **anoadragon**
+
+Pros:
+- Boasts extensive reminder functionality, including recurring reminders and alarm-style reminders with notifications.
+- Supports natural language date and time recognition with virtually no limitations.
+
+Cons:
+- Built using the `matrix-nio` framework, which does not support retrieving cross-signing keys or room key backups. In other words, bot device verification likely fails, requiring a fresh account with a single device. I was unable to even launch the bot on my server using the Matrix Authentication System (MAS).
+- Supports only English.
+- Lacks time zone support.
+- Lacks user-specific settings and offers limited configuration via `config.yaml`.
+- Infrequent updates.
+
+#### 🌈 [RemindMe](https://github.com/CubicrootXYZ/RemindMe) by **CubicrootXYZ**
+
+Pros:
+- Offers the most extensive feature set of any bot.
+- Supports time zones.
+- Includes an API.
+
+Cons:
+- It is essentially a task manager within a messenger - or an interface for a full-fledged task management app - rather than a simple reminder bot. Its functionality is overkill for most servers.
+- Supports only English.
+
+#### Others
+
+- [reminder](https://github.com/maubot/reminder) for Maubot: supports time zones as well as multilingual command input (with an easy way to add your own language). However, it is designed for a plugin-based Matrix bot system that requires installation (though a [web version of the bot](https://t2bot.io/reminderbot/) is available). The last release was in 2022.
+- [matrix_tomato_reminder_bot](https://gitverse.ru/progserega/matrix_tomato_reminder_bot) by **progserega**: a bilingual bot based on `matrix-nio` with basic functionality.
+- [YARB](https://github.com/dfuchss/YARB) by **dfuchss**: supports advance notifications and features a particularly interesting function for creating reminder polls with a voting deadline; these polls send the winning result to participants once the set time arrives. However, it does not support encrypted rooms or time zones. It is monolingual.
+- Bots based on an obsolescent framework [matrix-bot-sdk](https://github.com/turt2live/matrix-bot-sdk).
 
 ## Beyond the Quick Start
 | ⚙️                                                                                                                                                          | 💬                                                                                                             | ☑️                                                                                                                                                                                                         |
