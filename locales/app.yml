@@ -59,7 +59,7 @@ welcome.on_command:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Time
-    - `20:03`, `20.03`, `at 20:03`
+    - `20:03`, `20.03`, `at 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - if you do not specify the time, the reminder will come at `%{default_time}`
     ###### 🪄 Commands
@@ -75,7 +75,7 @@ welcome.on_command:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Uhrzeit
-    - `20:03`, `20.03`, `um 20:03`
+    - `20:03`, `20.03`, `um 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - Wenn du keine Uhrzeit angibst, erfolgt die Erinnerung um `%{default_time}` Uhr
     ###### 🪄 Befehle
@@ -91,7 +91,7 @@ welcome.on_command:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Heure
-    - `20:03`, `20.03`, `à 20:03`
+    - `20:03`, `20.03`, `à 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - Si vous ne spécifiez pas l'heure, le rappel sera envoyé à `%{default_time}`
     ###### 🪄 Commandes
@@ -107,7 +107,7 @@ welcome.on_command:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ##### 🕐 Ora
-    - `20:03`, `20.03`, `alle 20:03`
+    - `20:03`, `20.03`, `alle 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - Se non specifichi l'ora, il promemoria arriverà alle `%{default_time}`
     ###### 🪄 Comandi: inserisci `/` o `!` prima di un comando
@@ -122,7 +122,7 @@ welcome.on_command:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Hora
-    - `20:03`, `20.03`, `a las 20:03`
+    - `20:03`, `20.03`, `a las 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - Si no especificas la hora, el recordatorio llegará a las `%{default_time}`
     ###### 🪄 Comandos
@@ -138,7 +138,7 @@ welcome.on_command:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Tid
-    - `20:03`, `20.03`, `mig 20:03`
+    - `20:03`, `20.03`, `mig 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - om du inte anger tiden kommer påminnelsen klockan `%{default_time}`
     ###### 🪄 Kommandon
@@ -154,7 +154,7 @@ welcome.on_command:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Godzina
-    - `20:03`, `20.03`, `o 20:03`
+    - `20:03`, `20.03`, `o 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - jeśli nie podasz godziny, przypomnienie pojawi się o `%{default_time}`
     ###### 🪄 Polecenia
@@ -170,7 +170,7 @@ welcome.on_command:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Čas
-    - `20:03`, `20.03`, `v 20:03`
+    - `20:03`, `20.03`, `v 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - pokud nezadáte čas, připomenutí se zobrazí v `%{default_time}`
     ###### 🪄 Příkazy
@@ -186,7 +186,7 @@ welcome.on_command:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Aika
-    - `20:03`, `20.03`, `kello 20:03`
+    - `20:03`, `20.03`, `kello 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - jos et määritä aikaa, muistutus tulee klo `%{default_time}`
     ###### 🪄 Komennot
@@ -202,7 +202,7 @@ welcome.on_command:
     - `%{date_d} %{month}`、`%{date_d} %{month_truncated}`
     - `%{today}`、`%{tomorrow}`
     ###### 🕐 時間
-    - `20:03`, `20.03`
+    - `20:03`, `20.03`, `8 p.m.`
     - `%{morning}`、`%{afternoon}`、`%{evening}`
     - 時間を指定しない場合、リマインダーは`%{default_time}`に送信されます
     ###### 🪄 コマンド
@@ -218,7 +218,7 @@ welcome.on_command:
     - `%{date_d} %{month}`、`%{date_d} %{month_truncated}`
     - `%{today}`、`%{tomorrow}`
     ###### 🕐 时间
-    - `20:03`,  `20.03`
+    - `20:03`,  `20.03`, `8 p.m.`
     - `%{morning}`、`%{afternoon}`、`%{evening}`
     - 如果您未指定时间，提醒将在 `%{default_time}` 发送
     ###### 🪄 命令
@@ -234,7 +234,7 @@ welcome.on_command:
       - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
       - `%{today}`, `%{tomorrow}`
     ###### 🕐 Время
-      - `20:03`, `20.03`, `в 20:03`
+      - `20:03`, `20.03`, `в 20:03`, `8 p.m.`
       - `%{morning}`, `%{afternoon}`, `%{evening}`
       - если вы не укажете время, напоминание придет в `%{default_time}`
     ###### 🪄 Команды
@@ -250,7 +250,7 @@ welcome.on_command:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Час
-    - `20:03`, `20.03`, `о 20:03`
+    - `20:03`, `20.03`, `о 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - якщо не вказати час, нагадування надійде о `%{default_time}`
     ###### 🪄 Команди
@@ -267,7 +267,7 @@ welcome.on_command_off:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Time 
-    - `20:03`, `20.03`, `at 20:03`
+    - `20:03`, `20.03`, `at 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - if you do not specify the time, the reminder will come at `%{default_time}`
     ###### 🪄 Commands
@@ -283,7 +283,7 @@ welcome.on_command_off:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Uhrzeit
-    - `20:03`, `20.03`, `um 20:03`
+    - `20:03`, `20.03`, `um 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - Wenn du keine Uhrzeit angibst, erfolgt die Erinnerung um 9:00 Uhr
     ###### 🪄 Befehle
@@ -299,7 +299,7 @@ welcome.on_command_off:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Heure
-    - `20:03`, `20.03`, `à 20:03`
+    - `20:03`, `20.03`, `à 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - Si vous ne précisez pas l'heure, le rappel sera envoyé à `%{default_time}`
     ###### 🪄 Commandes
@@ -315,7 +315,7 @@ welcome.on_command_off:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Ora
-    - `20:03`, `20.03`, `alle 20:03`
+    - `20:03`, `20.03`, `alle 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - Se non specifichi l'ora, il promemoria arriverà alle `%{default_time}`
     ###### 🪄 Comandi: inserisci `/` o `!` prima di un comando
@@ -330,7 +330,7 @@ welcome.on_command_off:
     - `%{fecha_d} %{mes}`, `%{fecha_d} %{mes_truncado}`
     - `%{hoy}`, `%{mañana}`
     ###### 🕐 Hora
-    - `20:03`, `20.03`, `a las 20:03`
+    - `20:03`, `20.03`, `a las 20:03`, `8 p.m.`
     - `%{mañana}`, `%{tarde}`, `%{noche}`
     - Si no especificas la hora, el recordatorio llegará a las `%{default_time}`
     ###### 🪄 Comandos
@@ -346,7 +346,7 @@ welcome.on_command_off:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Tid
-    - `20:03`, `20.03`, `mig 20:03`
+    - `20:03`, `20.03`, `mig 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - om du inte anger tiden kommer påminnelsen klockan `%{default_time}`
     ###### 🪄 Kommandon
@@ -362,7 +362,7 @@ welcome.on_command_off:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Godzina
-    - `20:03`, `20.03`, `o 20:03`
+    - `20:03`, `20.03`, `o 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - jeśli nie podasz godziny, przypomnienie pojawi się o `%{default_time}`
     ###### 🪄 Polecenia
@@ -378,7 +378,7 @@ welcome.on_command_off:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Čas
-    - `20:03`, `20.03`, `v 20:03`
+    - `20:03`, `20.03`, `v 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - pokud nezadáte čas, připomenutí se zobrazí v `%{default_time}`
     ###### 🪄 Příkazy
@@ -394,7 +394,7 @@ welcome.on_command_off:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Aika
-    - `20:03`, `20.03`, `kello 20:03`
+    - `20:03`, `20.03`, `kello 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - jos et määritä aikaa, muistutus tulee klo `%{default_time}`
     ###### 🪄 Komennot
@@ -410,7 +410,7 @@ welcome.on_command_off:
     - `%{date_d} %{month}`、`%{date_d} %{month_truncated}`
     - `%{today}`、`%{tomorrow}`
     ###### 🕐 時刻
-    - `20:03`, `20.03`
+    - `20:03`, `20.03`, `8 p.m.`
     - `%{morning}`、`%{afternoon}`、`%{evening}`
     - 時刻を指定しない場合、リマインダーは`%{default_time}`に送信されます
     ###### 🪄 コマンド
@@ -427,7 +427,7 @@ welcome.on_command_off:
     - `%{today}`, `%{tomorrow}`
 
     ###### 🕐 时间
-    - `20:03`, `20.03`
+    - `20:03`, `20.03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - 如果您未指定时间，提醒将在 `%{default_time}` 发送
     ###### 🪄 命令
@@ -443,7 +443,7 @@ welcome.on_command_off:
       - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
       - `%{today}`, `%{tomorrow}`
     ###### 🕐 Время
-      - `20:03`, `20.03`, `в 20:03`
+      - `20:03`, `20.03`, `в 20:03`, `8 p.m.`
       - `%{morning}`, `%{afternoon}`, `%{evening}`
       - если вы не укажете время, напоминание придет в `%{default_time}`
       ###### 🪄 Команды
@@ -459,7 +459,7 @@ welcome.on_command_off:
     - `%{date_d} %{month}`, `%{date_d} %{month_truncated}`
     - `%{today}`, `%{tomorrow}`
     ###### 🕐 Час
-    - `20:03`, `20.03`, `о 20:03`
+    - `20:03`, `20.03`, `о 20:03`, `8 p.m.`
     - `%{morning}`, `%{afternoon}`, `%{evening}`
     - якщо не вказати час, нагадування надійде о `%{default_time}`
     ###### 🪄 Команди
