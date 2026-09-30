@@ -168,7 +168,6 @@ impl CommandContext {
             locale = &self.settings.room.room_lang,
             cmd_local = &self.i18n.cmd_remind,
             cmd_list = formatted_cmd_list,
-            cmd_tz_list = self.ctx.bot_config.tz_commands.join(" | "),
             cmd_set_list = self.ctx.bot_config.settings_commands.join(" | "),
             date = tomorrow.strftime("%d.%m.%Y").to_string(),
             date_slash = tomorrow.strftime("%d/%m/%Y").to_string(),
@@ -180,7 +179,8 @@ impl CommandContext {
             tomorrow = self.i18n.tomorrow,
             morning = self.i18n.morning,
             afternoon = self.i18n.afternoon,
-            evening = self.i18n.evening
+            evening = self.i18n.evening,
+            default_time = self.settings.user.default_time.strftime("%H:%M").to_string(),
         );
 
         self.msng.text_md_long(&welcome_msg).await;
@@ -214,20 +214,6 @@ impl CommandContext {
         }
     }
 
-    /// Send a message or reaction about a successfully created reminder to the room.
-    pub async fn send_tz_success(
-        &self,
-        event: OriginalSyncRoomMessageEvent,
-        tz: &str,
-    ) {
-        if self.bot_config().send_reactions {
-            self.msng.react(event.event_id.clone(), MessageReaction::Check).await;
-        } else {
-            let msg = t!("tz.set", locale = &self.settings.room.room_lang, tz = tz); 
-            self.msng.text_md(&msg).await;
-        }
-    }
-
     //===== Messages for Settings =====
     /// Send list with default times and format help.
     pub async fn send_default_times(&self) {
@@ -242,6 +228,20 @@ impl CommandContext {
         );
 
         self.msng.text_md_long(&msg).await;
+    }
+
+    /// Send a message or reaction about a successfully created reminder to the room.
+    pub async fn send_tz_success(
+        &self,
+        event: OriginalSyncRoomMessageEvent,
+        tz: &str,
+    ) {
+        if self.bot_config().send_reactions {
+            self.msng.react(event.event_id.clone(), MessageReaction::Check).await;
+        } else {
+            let msg = t!("tz.set", locale = &self.settings.room.room_lang, tz = tz); 
+            self.msng.text_md(&msg).await;
+        }
     }
 
     /// Send a message or reaction about a successfully changed setting.

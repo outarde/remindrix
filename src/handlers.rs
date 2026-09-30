@@ -87,8 +87,8 @@ impl OutputError {
 enum BotCommand {
     Remind,
     List,
-    Tz,
     Settings,
+    Beep,
 }
 
 impl BotCommand {
@@ -118,10 +118,10 @@ impl BotCommand {
             Some((BotCommand::Remind, args))
         } else if cmd_ctx.bot_config().list_commands.contains(&cmd_str) {
             Some((BotCommand::List, args))
-        } else if cmd_ctx.bot_config().tz_commands.contains(&cmd_str) {
-            Some((BotCommand::Tz, args))
         } else if cmd_ctx.bot_config().settings_commands.contains(&cmd_str) {
             Some((BotCommand::Settings, args))
+        } else if &cmd_str == "beep" || &cmd_str == "egg" {
+            Some((BotCommand::Beep, args))
         } else {
             // Return "remind" command for fast only-remind creations only in private rooms.
             if cmd_ctx.bot_config().quick_remind && !cmd_ctx.is_room_group() {
@@ -200,11 +200,18 @@ impl RemindArgs {
     }
 }
 
+/// Bot settings.
 #[derive(Parser, Debug)]
 enum SettingsArgs {
+    /// **Time zone** for the room.
+    Tz { 
+        tz: Option<String>,
+    },
+    /// **Language** for the room for commands recognition and responses.
     Lang { 
         lang_key: Option<String>,
     },
+    /// **Default times values** recognized in all rooms on a per-user basis.
     Time {
         #[arg(long)]
         default: Option<String>,
@@ -297,11 +304,12 @@ pub async fn on_room_message(
         BotCommand::List => {
             Ok(())
         }
-        BotCommand::Tz => {
-            handle_tz(&args, event.clone(), cmd_ctx.clone()).await
-        }
         BotCommand::Settings => {
             handle_settings(&args, event.clone(), cmd_ctx.clone()).await
+        }
+        BotCommand::Beep => {
+            cmd_ctx.msng.text_md("🪺").await;
+            Ok(())
         }
     };
 
@@ -460,20 +468,63 @@ pub async fn process_cli_reminder(
     Ok(())
 }
 
-/// Handle changing time zone.
-async fn handle_tz(
-    body: &str,
+/// Room (optional, user) Settings.
+pub async fn handle_settings(
+    args_str: &str,
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
 ) -> Result<(), OutputError> {
-    if body.is_empty() {
-        let msg = t!("tz.current", locale = &cmd_ctx.settings.room.room_lang, tz = &cmd_ctx.settings.room.room_tz_name);
-        cmd_ctx.msng.text_md(&msg).await;
-        return Ok(());
-    }
+    let args_vec: Vec<&str> = args_str.split_whitespace().collect();
+    let mut clap_input = vec!["settings"];
+    clap_input.extend(&args_vec);
+    let args = SettingsArgs::try_parse_from(clap_input);
 
+    let result = match args {
+        Ok(SettingsArgs::Tz {tz}) => handle_tz_setting(tz, event, cmd_ctx.clone()).await?,
+        Ok(SettingsArgs::Lang {lang_key}) => handle_lang_setting(lang_key, cmd_ctx.clone()).await?,
+        Ok(SettingsArgs::Time {default, morning, afternoon, evening}) => {
+            let updates = vec![
+                (SettingKey::DefaultTime, default),
+                (SettingKey::Morning, morning),
+                (SettingKey::Afternoon, afternoon),
+                (SettingKey::Evening, evening),
+            ];
+            handle_time_setting(event, cmd_ctx.clone(), updates).await?
+        },
+        Err(_) => {
+            let msg = t!(
+                "settings.help",
+                locale = &cmd_ctx.settings.room.room_lang,
+                set_cmd = cmd_ctx.bot_config().settings_commands.join(" | "),
+            );
+            cmd_ctx.msng.text_md_long(&msg).await;
+            return Ok(());
+        },
+    };
+
+    Ok(result)
+}
+
+/// Handle changing time zone.
+async fn handle_tz_setting(
+    tz_str: Option<String>,
+    event: OriginalSyncRoomMessageEvent,
+    cmd_ctx: CommandContext,
+) -> Result<(), OutputError> {
     // Parse user's input timezone code
-    let tz = SettingsService::parse_tz(body)?;
+    let tz = match tz_str {
+        None => {
+            let msg = t!(
+                "tz.current", 
+                locale = &cmd_ctx.settings.room.room_lang,
+                tz = &cmd_ctx.settings.room.room_tz_name,
+                cmd_list = cmd_ctx.ctx.bot_config.settings_commands.join(" | ")
+            );
+            cmd_ctx.msng.text_md(&msg).await;
+            return Ok(());
+        },
+        Some(t) => SettingsService::parse_tz(&t)?
+    };
 
     // If user's input timezone is equal to current room timezone
     if tz == cmd_ctx.settings.room.room_tz {
@@ -503,44 +554,8 @@ async fn handle_tz(
     Ok(())
 }
 
-/// Room (optional, user) Settings.
-pub async fn handle_settings(
-    args_str: &str,
-    event: OriginalSyncRoomMessageEvent,
-    cmd_ctx: CommandContext,
-) -> Result<(), OutputError> {
-    let args_vec: Vec<&str> = args_str.split_whitespace().collect();
-    let mut clap_input = vec!["settings"];
-    clap_input.extend(&args_vec);
-    let args = SettingsArgs::try_parse_from(clap_input);
-
-    let result = match args {
-        Ok(SettingsArgs::Lang {lang_key}) => handle_lang_settings(lang_key, cmd_ctx.clone()).await?,
-        Ok(SettingsArgs::Time {default, morning, afternoon, evening}) => {
-            let updates = vec![
-                (SettingKey::DefaultTime, default),
-                (SettingKey::Morning, morning),
-                (SettingKey::Afternoon, afternoon),
-                (SettingKey::Evening, evening),
-            ];
-            handle_time_settings(event, cmd_ctx.clone(), updates).await?
-        },
-        Err(_) => {
-            let msg = t!(
-                "settings.help",
-                locale = &cmd_ctx.settings.room.room_lang,
-                set_cmd = cmd_ctx.bot_config().settings_commands.join(" | "),
-            );
-            cmd_ctx.msng.text_md_long(&msg).await;
-            return Ok(());
-        },
-    };
-
-    Ok(result)
-}
-
 /// Handle language settings.
-pub async fn handle_lang_settings(
+pub async fn handle_lang_setting(
     lang_key: Option<String>,
     cmd_ctx: CommandContext,
 ) -> Result<(), SettingError> {
@@ -585,7 +600,7 @@ pub async fn handle_lang_settings(
 }
 
 /// Handle time settings.
-pub async fn handle_time_settings(
+pub async fn handle_time_setting(
     event: OriginalSyncRoomMessageEvent,
     cmd_ctx: CommandContext,
     settings: Vec<(SettingKey, Option<String>)>,

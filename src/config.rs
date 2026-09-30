@@ -13,8 +13,6 @@ pub const DEFAULT_LANG: &str = "en";
 pub const DEFAULT_COMMAND: &str = "remind";
 /// Default command for the list of reminders.
 pub const DEFAULT_LIST_COMMAND: &str = "list";
-/// Default bot command for time zone management.
-pub const DEFAULT_TIMEZONE_COMMAND: &str = "tz";
 /// Default timezone.
 pub const DEFAULT_TZ: &str = "Europe/Paris";
 /// Default bot settings command.
@@ -63,8 +61,6 @@ pub struct BotConfig {
     pub remind_commands: Vec<String>,
     #[serde(default = "BotConfig::default_list_command")]
     pub list_commands: Vec<String>,
-    #[serde(default = "BotConfig::default_tz_command")]
-    pub tz_commands: Vec<String>,
     #[serde(default = "BotConfig::default_settings_command")]
     pub settings_commands: Vec<String>,
     #[serde(default = "BotConfig::default_on_command")]
@@ -148,9 +144,6 @@ impl BotConfig {
     }
     fn default_list_command() -> Vec<String> {
         vec![DEFAULT_LIST_COMMAND.to_string()]
-    }
-    fn default_tz_command() -> Vec<String> {
-        vec![DEFAULT_TIMEZONE_COMMAND.to_string()]
     }
     fn default_tz() -> String {
         DEFAULT_TZ.into()
