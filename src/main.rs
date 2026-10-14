@@ -30,6 +30,7 @@ mod natural;
 mod messaging;
 mod db;
 mod reminder;
+mod list;
 mod settings;
 mod settings_service;
 mod remote_i18n;
