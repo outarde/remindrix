@@ -79,7 +79,7 @@ impl SettingsService {
         if !tz.is_some() && let Some(r) = room {
             tz = Self::fetch_room_tz(r).await;
         }
-        let room_tz = self.get_tz_or_fallback(tz).await;
+        let room_tz = self.get_tz_or_fallback(tz);
         RoomSettings { 
             room_id, 
             room_tz_name: room_tz.iana_name().unwrap_or("UTC").into(), 
@@ -122,6 +122,7 @@ impl SettingsService {
         let mut raw = Vec::with_capacity(updates.len());
         for u in updates {
             if !u.key.is_room_scoped() {
+                tracing::error!("Wrong scope for the setting key: {}", u.key);
                 return Err(SettingError::WrongScope);
             }
             raw.push(RawSetting { key: u.key.to_string(), value: u.value });
@@ -192,7 +193,7 @@ impl SettingsService {
 
     // ===== Parsers and Validators =====
     // ===== TimeZone =====
-    pub async fn get_tz_or_fallback(&self, tz_str: Option<String>) -> TimeZone {
+    pub fn get_tz_or_fallback(&self, tz_str: Option<String>) -> TimeZone {
         if let Some(tz) = Self::parse_optional_tz(tz_str.clone()) {
             return tz;
         }
