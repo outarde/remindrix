@@ -874,6 +874,75 @@ error.db:
 error.matrix:
   en: Internal Matrix SDK error, sorry.
 
+list.error:
+  en: Error creating the reminder list.
+list.ended:
+  en: There are no reminders on this page.
+list.empty:
+  en: There are no reminders.
+list.empty-affectionately:
+  en: There are no reminders yet. Remind me it's time to create one!
+list.help:
+  en: |
+    To display the list of reminders, specify the selection type:
+    - `sent` sent,
+    - `missed` missed,
+    - `pending` scheduled,
+    the page number and the number of reminders on the page (default is %{list_size}).
+    For example: `/%{cmd} pending 1 30`. 
+    Without additional parameters, the command will always display the first page of scheduled reminders.
+  ru: |
+    Для отображения списка напоминаний укажите тип выборки:
+    - `sent` отправленные,
+    - `missed` пропущенные,
+    - `pending` планируемые
+    число страницы и количество элементов на странице (по умолчанию %{list_size}).
+    Например: `/%{cmd} pending 1 30`.
+    Без дополнительных параметров команда всегда отобразит первую страницу планируемых напоминаний.
+list.unknown-scope:
+  en: Invalid selection type. Specify whether to display sent (`sent`), missed (`missed`), or scheduled (`pending`) reminders.
+  ru: Неверный тип выборки. Укажите, отобразить отправленные (`sent`), пропущенные (`missed`) или планируемые (`pending`) напоминания.
+list.by-date:
+  en: |
+    👇 **List of reminders**, page %{page}:
+
+    %{list}
+  ru: |
+    👇 **Список напоминаний**, страница %{page}:
+
+    %{list}
+list.by-date.section:
+  en: |
+    *%{date}*: 
+    %{items}
+list.by-date.item:
+  en: >
+    %{text} at %{time}
+  de: >
+    %{text} um %{time}
+  fr: >
+    %{text} à %{time}
+  it: >
+    %{text} alle %{time}
+  es: >
+    %{text} a las %{time}
+  sv: >
+    %{text} kl. %{time}
+  pl: >
+    %{text} o godzinie %{time}
+  cs: >
+    %{text} v %{time}
+  fi: >
+    %{text} kello %{time}
+  ja: >
+    %{text} (%{time})
+  zh: >
+    %{text} (%{time})
+  ru: >
+    %{text} (в %{time})
+  uk: >
+    %{text} (у %{time})
+
 tz.current:
   en: >
     Room time zone is **%{tz}**. 
