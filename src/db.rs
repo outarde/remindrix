@@ -10,7 +10,8 @@ use std::{
 use tokio_rusqlite::{Connection, params};
 use anyhow::{Result, Context};
 
-use crate::reminder::{Reminder, ReminderData, ReminderStatus, ReminderError};
+use crate::reminder::{RawReminder, Reminder, ReminderData, ReminderStatus, ReminderError};
+use crate::list::ListScopes;
 use crate::settings::{SettingError, RawSetting};
 use jiff::{Timestamp, Unit};
 
@@ -27,6 +28,10 @@ const MIGRATIONS: &[Migration] = &[
     Migration {
         version: 2,
         sql: include_str!("../migrations/001_settings.sql"),
+    },
+    Migration {
+        version: 3,
+        sql: include_str!("../migrations/002_states.sql"),
     },
 ];
 
@@ -148,6 +153,53 @@ impl ReminderRepository {
     pub async fn _update_status(&self, _id: i64, _status: i32) -> Result<()> {
         todo!()
     }
+
+    pub async fn get_by_page(&self, room_id: &RoomId, scope: ListScopes, page: i32, size: i32) -> Result<Vec<RawReminder>, SettingError> {
+        let conn = self.conn.clone();
+        let room_id_s = room_id.to_string();
+        let status = scope as i64;
+
+        let offset = (page - 1) * size;
+        
+        let reminders = conn.call(move |conn| {
+            let mut stmt = conn.prepare("
+                SELECT id, 
+                room_id, 
+                text, 
+                target_time, 
+                utc_time, 
+                tz, 
+                created_by, 
+                target_user_id, 
+                delegation_kind 
+                FROM reminders WHERE room_id = ?1 AND status = ?2
+                ORDER by utc_time
+                LIMIT ?3
+                OFFSET ?4")?;
+            let mut rows = stmt.query(params![room_id_s, status as i64, size, offset])?;
+
+            let mut result: Vec<RawReminder> = Vec::new();
+            
+            while let Some(row) = rows.next()? {
+                result.push(RawReminder {
+                    id: row.get(0)?,
+                    room_id: row.get(1)?,
+                    text: row.get(2)?,
+                    target_time: row.get(3)?,
+                    utc_time: row.get(4)?,
+                    tz: row.get(5)?,
+                    created_by: row.get(6)?,
+                    // status: row.get(7)?,
+                    target_user_id: row.get(7)?,
+                    delegation_kind: row.get(8)?,
+                });
+            }
+            
+            Ok(result)
+        }).await?;
+
+        Ok(reminders)
+    }
 }
 
 /// Settings Repository.
@@ -222,8 +274,6 @@ impl SettingRepository {
             
             Ok(result)
         }).await?;
-
-        println!("{:?}", settings);
 
         Ok(settings)
     }

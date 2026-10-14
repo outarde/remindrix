@@ -192,7 +192,7 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
         .with_validator(validate_config_time)
         .prompt()?.to_string();
 
-    // let strict_settings = false;
+    let list_size = 30;
 
     let new_config = config::BotConfig {
         lang,
@@ -211,7 +211,7 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
         morning,
         afternoon,
         evening,
-        // strict_settings,
+        list_size,
     };
 
     let overwrite = Confirm::new("Overwrite current configuration if any?").with_default(true).prompt()?;

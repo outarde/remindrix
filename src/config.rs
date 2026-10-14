@@ -22,6 +22,8 @@ pub const DEFAULT_TIME: &str = "10:00";
 pub const DEFAULT_MORNING_TIME: &str = "09:00";
 pub const DEFAULT_AFTERNOON_TIME: &str = "14:00";
 pub const DEFAULT_EVENING_TIME: &str = "19:00";
+/// Default lists size
+pub const DEFAULT_LIST_SIZE: i32 = 30;
 
 
 /// Config for AppContext
@@ -63,20 +65,24 @@ pub struct BotConfig {
     pub list_commands: Vec<String>,
     #[serde(default = "BotConfig::default_settings_command")]
     pub settings_commands: Vec<String>,
+
     #[serde(default = "BotConfig::default_on_command")]
     pub on_command: bool,
     #[serde(default = "BotConfig::default_on_command_group")]
     pub on_command_group: bool,
     #[serde(default = "BotConfig::default_on_mention")]
     pub on_mention: bool,
+
     #[serde(default = "BotConfig::default_quick_remind")]
     pub quick_remind: bool,
     #[serde(default = "BotConfig::default_remind_undated")]
     pub remind_undated: bool,
+
     #[serde(default = "BotConfig::default_send_reactions")]
     pub send_reactions: bool,
     #[serde(default = "BotConfig::default_send_digits_reactions")]
     pub send_digits_reactions: bool,
+
     #[serde(default = "BotConfig::default_tz")]
     pub tz: String,
     #[serde(default = "BotConfig::default_time")]
@@ -87,6 +93,9 @@ pub struct BotConfig {
     pub afternoon: String,
     #[serde(default = "BotConfig::default_evening_time")]
     pub evening: String,
+
+    #[serde(default = "BotConfig::default_list_size")]
+    pub list_size: i32,
 
     // If the "strict" mode is defined in the config, then 
     // any settings will be saved under the bot ID, 
@@ -163,8 +172,8 @@ impl BotConfig {
     fn default_evening_time() -> String {
         DEFAULT_EVENING_TIME.into()
     }
-    fn _default_strict_settings() -> bool {
-        false
+    fn default_list_size() -> i32 {
+        30
     }
 
     /// Create config.yaml from config variable

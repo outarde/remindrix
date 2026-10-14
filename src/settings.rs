@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use jiff::{tz::TimeZone, civil::Time};
 use strum_macros::{Display, EnumString};
 use thiserror::Error;
+use rust_i18n::t;
 
 /// Error types for setting processing.
 #[derive(Debug, Error)]
@@ -19,6 +20,27 @@ pub enum SettingError {
     #[error("error.lang.not-set")] LanguageNotSet,
     #[error("tz.invalid-format")] InvalidTzFormat,
     #[error("error.invalid-time-format")] InvalidTimeFormat,
+}
+
+impl SettingError {
+    /// In some cases, to obtain the localized error text, 
+    /// we need to pass its value, not just its name as a key by thiserror.
+    pub fn to_local(&self, locale: &str) -> String {
+        match self {
+            SettingError::Db(error) => {
+                tracing::error!("{:?}", error);
+
+                let key = self.to_string(); 
+                let msg = t!(key, locale = locale);
+                msg.to_string()
+            },
+            _ => {
+                let key = self.to_string(); 
+                let msg = t!(key, locale = locale);
+                msg.to_string()
+            }
+        }
+    }
 }
 
 // Matrix State Event for a time zone.

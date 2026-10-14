@@ -15,13 +15,14 @@ use anyhow::Result;
 use tokio::time::{Duration, sleep};
 use jiff::{civil::time, ToSpan};
 use regex::Regex;
-use std::{string::ToString, sync::{OnceLock, Arc}, borrow::Cow};
+use std::{string::ToString, str::FromStr, sync::{OnceLock, Arc}, borrow::Cow};
 use rust_i18n::t;
 use clap::Parser;
 
 // app crates
 use crate::context::CommandContext;
 use crate::reminder::{ReminderData, DelegationType, ReminderError};
+use crate::list::ListScopes;
 use crate::settings_service::{SettingsService};
 use crate::settings::{
     SettingError, 
@@ -76,9 +77,8 @@ impl OutputError {
                 error.to_local(locale)
             },
             OutputError::Setting(error) => {
-                let msg = t!(error.to_string(), locale = locale);
-                msg.to_string()
-            }
+                error.to_local(locale)
+            },
         }
     }
 }
@@ -200,6 +200,14 @@ impl RemindArgs {
     }
 }
 
+/// List of reminders.
+#[derive(Parser, Debug)]
+pub struct ListArgs {
+    pub scope: Option<String>,
+    pub page: Option<i32>,
+    pub size: Option<i32>,
+}
+
 /// Bot settings.
 #[derive(Parser, Debug)]
 enum SettingsArgs {
@@ -246,13 +254,6 @@ impl From<ReminderError> for CliError {
 #[derive(Parser, Debug)]
 pub struct TzArgs {
     pub set: Option<String>,
-}
-
-/// CLI commands for list of reminders.
-#[derive(Parser, Debug)]
-pub struct ListArgs {
-    #[arg(short, long)]
-    pub pending: bool,
 }
 
 // ===== Entry Point =====
@@ -302,7 +303,7 @@ pub async fn on_room_message(
             handle_remind(&args, event.clone(), cmd_ctx.clone()).await
         }
         BotCommand::List => {
-            Ok(())
+            handle_list(&args, event.clone(), cmd_ctx.clone()).await
         }
         BotCommand::Settings => {
             handle_settings(&args, event.clone(), cmd_ctx.clone()).await
@@ -464,6 +465,71 @@ pub async fn process_cli_reminder(
         
     // Send success reaction or message to the room.
     cmd_ctx.send_reminder_success(event, reminder.data, args.interval).await;
+
+    Ok(())
+}
+
+/// List of reminders.
+pub async fn handle_list(
+    args_str: &str,
+    event: OriginalSyncRoomMessageEvent,
+    cmd_ctx: CommandContext,
+) -> Result<(), OutputError> {
+    let args_vec: Vec<&str> = args_str.split_whitespace().collect();
+    let mut clap_input = vec!["list"];
+    clap_input.extend(&args_vec);
+    let args = match ListArgs::try_parse_from(clap_input) {
+        Ok(a) => a,
+        Err(_) => {
+            // TODO: Send help message *with* statistics.
+            let msg = t!(
+                "list.help",
+                locale = &cmd_ctx.settings.room.room_lang,
+                cmd = cmd_ctx.bot_config().list_commands.join(" | "),
+                list_size = cmd_ctx.bot_config().list_size,
+            );
+            cmd_ctx.msng.text_md_long(&msg).await;
+            return Ok(());
+        }
+    };
+
+    // Check scope and page.
+    let scope = if let Some(s) = args.scope {
+        ListScopes::from_str(&s).map_err(|_| ReminderError::ListUnknownScope)?
+    } else { ListScopes::Pending };
+
+    let page = args.page.unwrap_or(1);
+    let size = args.size.unwrap_or(cmd_ctx.bot_config().list_size);
+
+    // Get reminders.
+    let raw_reminders = cmd_ctx.ctx.db_ctx.reminders.get_by_page(cmd_ctx.room.room_id(), scope.clone(), page, size).await?;
+    // If there is no reminders, send an error depending on whether there are no reminders or they have run out.
+    if raw_reminders.is_empty() {
+        if page > 1 {
+            return Err(ReminderError::ListEnded.into())
+        }
+        match scope {
+            ListScopes::Pending => return Err(ReminderError::ListEmptyAffectionately.into()),
+            _ => return Err(ReminderError::ListEmpty.into())
+        }
+    }
+
+    // Get Reminder's and sort them by date (to a HashMap), then get localized summary list items.
+    let reminders = super::list::from_raw_reminders(cmd_ctx.ctx.clone(), raw_reminders).map_err(|_| ReminderError::ListError)?;
+    // let reminders = super::list::get_list_for_page(&cmd_ctx.ctx.db_ctx.reminders, cmd_ctx.room.room_id(), scope, page).await?;
+
+    let sorted_reminders = super::list::sort_by_date(reminders);
+    let list = super::list::get_list_by_date(sorted_reminders, &cmd_ctx.settings.room.room_lang);
+
+    // Send final message.
+    let message = t!(
+        "list.by-date", 
+        locale = &cmd_ctx.settings.room.room_lang,
+        page = page,
+        list = list.join("\n")
+    );
+
+    cmd_ctx.msng.text_md_long(&message).await;
 
     Ok(())
 }

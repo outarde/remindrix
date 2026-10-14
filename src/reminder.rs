@@ -1,7 +1,7 @@
 use matrix_sdk::ruma::{
         UserId, OwnedUserId, OwnedRoomId, RoomId,
         events::room::message::{RoomMessageEventContent},
-    };
+};
 use tokio_rusqlite::{params, Connection};
 use jiff::{
     Zoned, ToSpan, tz::TimeZone, Timestamp, Unit,
@@ -25,16 +25,17 @@ pub enum DayPeriod {
 }
 
 /// Structure for restoring reminders from DB.
-struct RawReminder {
-    id: i64,
-    room_id: String,
-    text: String,
-    target_time: String,
-    utc_time: String,
-    tz: String,
-    created_by: String,
-    target_user_id: Option<String>,
-    delegation_kind: String,
+pub struct RawReminder {
+    pub id: i64,
+    pub room_id: String,
+    pub text: String,
+    pub target_time: String,
+    pub utc_time: String,
+    pub tz: String,
+    pub created_by: String,
+    // pub status: i64,
+    pub target_user_id: Option<String>,
+    pub delegation_kind: String,
 }
 
 /// Statuses of Reminder.
@@ -72,7 +73,13 @@ pub enum ReminderError {
     #[error("error.delegation-options")] DelegationOptions,
     #[error("tz.not-set")] TzNotSet,
     #[error("error.unsafe-datetime")] JiffError(#[from] jiff::Error), 
-    #[error("error.matrix")] MatrixError(#[from] matrix_sdk::Error), 
+    #[error("error.matrix")] MatrixError(#[from] matrix_sdk::Error),
+    #[error("list.help")] ListHelp,
+    #[error("list.unknown-scope")] ListUnknownScope,
+    #[error("list.error")] ListError,
+    #[error("list.empty")] ListEmpty,
+    #[error("list.empty-affectionately")] ListEmptyAffectionately,
+    #[error("list.ended")] ListEnded,
 }
 
 impl ReminderError {
@@ -290,7 +297,7 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
         };
 
         // Get TZ
-        let tz = ctx.settings_service.get_tz_or_fallback(Some(room_tz_str)).await;
+        let tz = ctx.settings_service.get_tz_or_fallback(Some(room_tz_str));
 
         // Parse Utc as Timestamp
         let timestamp: Timestamp = match utc_time_str.parse() {
