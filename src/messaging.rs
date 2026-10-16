@@ -5,7 +5,8 @@ use matrix_sdk::{
         events::{
             reaction::ReactionEventContent, relation::Annotation,
             room::message::RoomMessageEventContent
-        }
+        },
+        api::client::message::send_message_event::v3::Response
     }
 };
 use std::{sync::Arc, iter::once};
@@ -40,6 +41,8 @@ pub enum MessageReaction {
     #[strum(serialize = "7️⃣")] Seven,
     #[strum(serialize = "8️⃣")] Eight,
     #[strum(serialize = "9️⃣")] Nine,
+    #[strum(serialize = "⏩")] Next,
+    #[strum(serialize = "⏪")] Previous,
 }
 
 impl MessageReaction {
@@ -102,6 +105,35 @@ impl RoomMessenger {
         let _ = self.room.typing_notice(false).await;
 
         let _ = self.room.send(RoomMessageEventContent::text_markdown(text)).await;
+    }
+
+    /// Send message with response (usually for event_id).
+    pub async fn _text_md_long_with_response(&self, text: &str) -> anyhow::Result<Response> {
+        let _ = self.room.typing_notice(true).await;
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let _ = self.room.typing_notice(false).await;
+
+        // Response has type: `ruma::api::client::message::send_message_event::v3::Response`
+        // or `matrix_sdk::ruma::api::ruma_client_api::message::send_message_event::v3::Response`.
+        // `matrix_sdk::room::futures::SendMessageLikeEvent` is what you get before response.response.
+        let response = self.room.send(RoomMessageEventContent::text_markdown(text)).await?;
+        
+        Ok(response.response)
+    }
+
+    /// Send message with returning event_id.
+    pub async fn text_md_long_with_event_id(&self, text: &str) -> anyhow::Result<OwnedEventId> {
+        let _ = self.room.typing_notice(true).await;
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let _ = self.room.typing_notice(false).await;
+
+        // Full response has type: `ruma::api::client::message::send_message_event::v3::Response`
+        // or `matrix_sdk::ruma::api::ruma_client_api::message::send_message_event::v3::Response`.
+        // `matrix_sdk::room::futures::SendMessageLikeEvent` is what you get before response.response
+        let response = self.room.send(RoomMessageEventContent::text_markdown(text)).await?;
+        let event_id = response.response.event_id.to_owned();
+        
+        Ok(event_id)
     }
 
     /// Send plain text message with the typing indciator.

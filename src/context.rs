@@ -1,7 +1,7 @@
 use matrix_sdk::{
     Room,
     ruma::{
-        OwnedUserId,
+        OwnedUserId, EventId,
         events::room::message::OriginalSyncRoomMessageEvent
     }
 };
@@ -249,7 +249,6 @@ impl CommandContext {
         &self,
         event: OriginalSyncRoomMessageEvent,
         key: &str,
-        // locale: &str,
     ) {
         if self.bot_config().send_reactions {
             self.msng.react(event.event_id.clone(), MessageReaction::Check).await;
@@ -257,5 +256,10 @@ impl CommandContext {
             let msg = t!(key, locale = &self.settings.room.room_lang); 
             self.msng.text_md(&msg).await;
         }
+    }
+
+    // Reactions-as-buttons
+    pub async fn send_nextprev_buttons(&self, event_id: &EventId) {
+        self.msng.react_bundle(event_id.to_owned(), vec![MessageReaction::Next, MessageReaction::Previous]).await;
     }
 }

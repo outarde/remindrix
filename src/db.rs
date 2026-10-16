@@ -1,6 +1,6 @@
 use matrix_sdk::{
     ruma::{
-        RoomId, UserId,
+        RoomId, UserId, EventId,
     }
 };
 use std::{
@@ -11,7 +11,7 @@ use tokio_rusqlite::{Connection, params};
 use anyhow::{Result, Context};
 
 use crate::reminder::{RawReminder, Reminder, ReminderData, ReminderStatus, ReminderError};
-use crate::list::ListScopes;
+use crate::list::{ListScopes, StateKey, PageState};
 use crate::settings::{SettingError, RawSetting};
 use jiff::{Timestamp, Unit};
 
@@ -154,6 +154,9 @@ impl ReminderRepository {
         todo!()
     }
 
+
+    // ===== Pages =====
+    // Get page of reminders.
     pub async fn get_by_page(&self, room_id: &RoomId, scope: ListScopes, page: i32, size: i32) -> Result<Vec<RawReminder>, SettingError> {
         let conn = self.conn.clone();
         let room_id_s = room_id.to_string();
@@ -199,6 +202,54 @@ impl ReminderRepository {
         }).await?;
 
         Ok(reminders)
+    }
+
+    // Get current page and scope from the message event_id bound to list of reminders.
+    pub async fn get_list_page(&self, event_id: &EventId, room_id: &RoomId,) -> Result<Option<PageState>, ReminderError> {
+        let conn = self.conn.clone();
+        let event_id = event_id.to_string();
+        let room_id = room_id.to_string();
+        // let user_id = user_id.to_string();
+
+        let page = conn.call(move |conn| {
+            let value: String = conn.query_row(
+                "SELECT value FROM message_states WHERE key = ?1 AND event_id = ?2 AND room_id = ?3 LIMIT 1;",
+                params![StateKey::Page.as_str(), &event_id, &room_id],
+
+                |r| {
+                    r.get(0)
+                },
+            )?;
+
+            Ok(value)
+        }).await?;
+
+        let page_state = serde_json::from_str::<PageState>(&page).ok();
+
+        Ok(page_state)
+    }
+
+    // Set current page and scope for the list of reminders.
+    pub async fn set_list_page(&self, event_id: &EventId, room_id: &RoomId, user_id: &UserId, page: PageState) -> Result<(), ReminderError> {
+        let conn = self.conn.clone();
+        let event_id = event_id.to_string();
+        let room_id = room_id.to_string();
+        let user_id = user_id.to_string();
+        let value = serde_json::to_string(&page).unwrap_or(String::from(""));
+        
+        let _ = conn.call(move |c| {
+            c.execute(
+                "INSERT INTO message_states (event_id, room_id, user_id, key, value, created_at) 
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                ON CONFLICT(event_id, room_id, user_id, key) 
+                DO UPDATE SET value=excluded.value;",
+                [&event_id, &room_id, &user_id, StateKey::Page.as_str(), &value, &Timestamp::now().to_string()]
+            )?;
+
+            Ok(())
+        }).await?;
+
+        Ok(())
     }
 }
 

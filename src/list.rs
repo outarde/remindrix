@@ -11,13 +11,16 @@ use jiff::{
 };
 use anyhow::Result;
 use strum_macros::EnumString;
+use serde::{Deserialize, Serialize};
 use rust_i18n::t;
 
 use crate::db::{DbContext, ReminderRepository};
 use crate::config::BotConfig;
 use crate::reminder::{RawReminder, Reminder, ReminderData, ReminderStatus, ReminderError, DelegationType};
 
-#[derive(Clone, Debug, PartialEq, EnumString)]
+/// Reminders filters/scopes. Can be expanded by options "all" or "assigned".
+/// Grouping is not featured.
+#[derive(Clone, Debug, PartialEq, EnumString, Serialize, Deserialize)]
 #[strum(serialize_all = "snake_case")]
 pub enum ListScopes {
     #[strum(ascii_case_insensitive)]
@@ -26,6 +29,37 @@ pub enum ListScopes {
     Sent = 1,
     #[strum(ascii_case_insensitive)]
     Missed = 2,
+}
+
+/// Key for pages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum StateKey {
+    Page,
+    // Filter,
+    // SelectedItem,
+}
+
+impl StateKey {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            StateKey::Page => "page",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "page" => Some(StateKey::Page),
+            _ => None,
+        }
+    }
+}
+
+/// State of the current list of reminders. Bound to message with a list.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PageState { 
+    pub scope: ListScopes, 
+    pub page: i32, 
+    pub size: i32
 }
 
 /*

@@ -22,7 +22,7 @@ use clap::Parser;
 // app crates
 use crate::context::CommandContext;
 use crate::reminder::{ReminderData, DelegationType, ReminderError};
-use crate::list::ListScopes;
+use crate::list::{ListScopes, PageState};
 use crate::settings_service::{SettingsService};
 use crate::settings::{
     SettingError, 
@@ -326,9 +326,10 @@ pub async fn on_room_message(
 pub async fn on_reaction(
     event: OriginalSyncReactionEvent, 
     room: Room, 
-    _ctx: Arc<super::BotContext>
+    ctx: Arc<super::BotContext>
 ) {
     if room.state() != RoomState::Joined { return; }
+    if event.sender == ctx.bot_id { return; }
 
     let sender = &event.sender;
     let reaction_content = &event.content;
@@ -344,6 +345,12 @@ pub async fn on_reaction(
         target_event_id,
         room.room_id()
     );
+
+    // Command Context
+    let cmd_ctx = CommandContext::new(event.sender.clone(), room.clone(), ctx.clone()).await;
+
+    let page_state = cmd_ctx.ctx.db_ctx.reminders.get_list_page(&event.event_id, cmd_ctx.room.room_id()).await;
+    println!("{:?}", page_state);
 }
 
 // ===== Handlers =====
@@ -502,7 +509,7 @@ pub async fn handle_list(
     let size = args.size.unwrap_or(cmd_ctx.bot_config().list_size);
 
     // Get reminders.
-    let raw_reminders = cmd_ctx.ctx.db_ctx.reminders.get_by_page(cmd_ctx.room.room_id(), scope.clone(), page, size).await?;
+    let raw_reminders = cmd_ctx.ctx.db_ctx.reminders.get_by_page(cmd_ctx.room.room_id(), scope.clone(), page.clone(), size.clone()).await?;
     // If there is no reminders, send an error depending on whether there are no reminders or they have run out.
     if raw_reminders.is_empty() {
         if page > 1 {
@@ -529,7 +536,22 @@ pub async fn handle_list(
         list = list.join("\n")
     );
 
-    cmd_ctx.msng.text_md_long(&message).await;
+    // Get event id for the sent message or for user message as a callback.
+    let response = cmd_ctx.msng.text_md_long_with_event_id(&message).await;
+    let event_id = response.unwrap_or_else(|_| event.event_id.clone());
+    /*
+    let response = cmd_ctx.msng.text_md_long_with_response(&message).await;
+    let event_id = if let Ok(r) = response {
+        r.event_id
+    } else { event.event_id.clone() };
+    */
+    
+    // Save event to message_states.
+    let page_state = PageState { scope: scope, page: page, size: size};
+    let _ = cmd_ctx.ctx.db_ctx.reminders.set_list_page(&event_id, cmd_ctx.room.room_id(), &cmd_ctx.user_id, page_state).await?;
+
+    // Send button-reaction.
+    cmd_ctx.send_nextprev_buttons(&event_id).await;
 
     Ok(())
 }
