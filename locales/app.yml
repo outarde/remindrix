@@ -885,35 +885,50 @@ list.empty-affectionately:
 list.help:
   en: |
     To display the list of reminders, specify the selection type:
-    - `sent` sent,
-    - `missed` missed,
-    - `pending` scheduled,
+    ⏲️`pending` scheduled,
+    🟢 `sent` sent,
+    🔴 `missed` missed,
+    
     the page number and the number of reminders on the page (default is %{list_size}).
     For example: `/%{cmd} pending 1 30`. 
+    
     Without additional parameters, the command will always display the first page of scheduled reminders.
   ru: |
     Для отображения списка напоминаний укажите тип выборки:
     - `sent` отправленные,
     - `missed` пропущенные,
     - `pending` планируемые
+    
     число страницы и количество элементов на странице (по умолчанию %{list_size}).
     Например: `/%{cmd} pending 1 30`.
+    
     Без дополнительных параметров команда всегда отобразит первую страницу планируемых напоминаний.
+list.scope.0:
+  en: ⏲️ scheduled
+  ru: ⏲️ запланированные
+list.scope.1:
+  en: 🟢 sent
+  ru: 🟢 отправленные
+list.scope.2:
+  en: 🔴 missed
+  ru: 🔴 пропущенные
 list.unknown-scope:
   en: Invalid selection type. Specify whether to display sent (`sent`), missed (`missed`), or scheduled (`pending`) reminders.
   ru: Неверный тип выборки. Укажите, отобразить отправленные (`sent`), пропущенные (`missed`) или планируемые (`pending`) напоминания.
 list.by-date:
   en: |
-    👇 **List of reminders**, page %{page}:
+    ##### 👇 List of reminders
+    *%{scope}, %{count} on page %{page}*
 
     %{list}
   ru: |
-    👇 **Список напоминаний**, страница %{page}:
+    ##### 👇 Список напоминаний
+    *%{scope}, %{count}, страница %{page}*
 
     %{list}
 list.by-date.section:
   en: |
-    *%{date}*: 
+    **%{date}**: 
     %{items}
 list.by-date.item:
   en: >

@@ -1,10 +1,10 @@
 use matrix_sdk::{
-    Room, 
+    Room, room::edit::EditedContent,
     ruma::{
-        OwnedEventId,
+        EventId, OwnedEventId,
         events::{
             reaction::ReactionEventContent, relation::Annotation,
-            room::message::RoomMessageEventContent
+            room::message::{RoomMessageEventContent, RoomMessageEventContentWithoutRelation}
         },
         api::client::message::send_message_event::v3::Response
     }
@@ -76,6 +76,13 @@ impl MessageReaction {
     }
 }
 
+#[derive(PartialEq, EnumString, Display)]
+#[strum(serialize_all = "snake_case")]
+pub enum MessageButton {
+    #[strum(serialize = "⏩")] Next,
+    #[strum(serialize = "⏪")] Previous,
+}
+
 // ===== Messages =====
 /// Messages and reactions.
 #[derive(Clone, Debug)]
@@ -145,6 +152,24 @@ impl RoomMessenger {
         let _ = self.room.send(RoomMessageEventContent::text_plain(text)).await;
     }
 
+    /// Edit message.
+    pub async fn edit_message(
+        &self,
+        original_event_id: &EventId,
+        new_text: &str,
+    ) -> anyhow::Result<()> {
+        let new_content = RoomMessageEventContentWithoutRelation::text_markdown(new_text);
+        let edited_content = EditedContent::RoomMessage(new_content);
+
+        let edit_event_content = self.room
+            .make_edit_event(original_event_id, edited_content)
+            .await?;
+
+        let response = self.room.send(edit_event_content).await;
+
+        Ok(())
+    }
+
     // ===== Reactions =====
     /// Send reaction to the related event (message).
     pub async fn react(
@@ -156,6 +181,20 @@ impl RoomMessenger {
         let content = ReactionEventContent::new(annotation);
         
         let _ = self.room.send(content).await;
+    }
+    /// Send reaction to the related event (message).
+    pub async fn react_with_event_id(
+        &self,
+        target_event_id: OwnedEventId,
+        emoji: MessageButton
+    ) -> anyhow::Result<OwnedEventId> {
+        let annotation = Annotation::new(target_event_id, emoji.to_string());
+        let content = ReactionEventContent::new(annotation);
+        
+        let response = self.room.send(content).await?;
+        let event_id = response.response.event_id.to_owned();
+        
+        Ok(event_id)
     }
     /// Send multiple reactions.
     pub async fn react_bundle(

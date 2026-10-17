@@ -258,8 +258,50 @@ impl CommandContext {
         }
     }
 
-    // Reactions-as-buttons
-    pub async fn send_nextprev_buttons(&self, event_id: &EventId) {
-        self.msng.react_bundle(event_id.to_owned(), vec![MessageReaction::Next, MessageReaction::Previous]).await;
+    /// Reactions-as-buttons
+    pub async fn send_nextprev_buttons(&self, 
+        event_id: &EventId,  
+        page: &i32,
+        size: &i32,
+        count: i32,
+    ) {
+        if count == *size {
+            if *page > 1 {
+                self.msng.react_bundle(event_id.to_owned(), vec![MessageReaction::Previous, MessageReaction::Next]).await;
+            }
+            else {
+                // self.msng.react(event_id.to_owned(), MessageReaction::Next).await;
+                self.msng.react_bundle(event_id.to_owned(), vec![MessageReaction::Previous, MessageReaction::Next]).await;
+            }
+        }
+        else {
+            if *page > 1 {
+                // self.msng.react(event_id.to_owned(), MessageReaction::Previous).await;
+                self.msng.react_bundle(event_id.to_owned(), vec![MessageReaction::Previous, MessageReaction::Next]).await;
+            }
+        }
+    }
+
+    /// Manage reactions-as-buttons for the list message: 
+    /// set buttons, remove "next" button if it is the last page.
+    // It does not work because we do not save *our* reaction event_id to remove *our* reactions.
+    pub async fn _manage_nextprev_buttons(&self,
+        message_event_id: &EventId,
+        button_event_id: &EventId,
+        page: &i32,
+        size: &i32,
+        count: i32,
+    ) {
+        if *page > 1 {
+            self.msng.react_bundle(message_event_id.to_owned(), vec![MessageReaction::Previous, MessageReaction::Next]).await;
+        }
+        else {
+            self.msng.react_bundle(message_event_id.to_owned(), vec![MessageReaction::Next]).await;
+        }
+
+        // Remove next button if there are less than `size` items.
+        if count < *size {
+            let _ = self.room.redact(&button_event_id, None, None).await;
+        }
     }
 }

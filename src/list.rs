@@ -14,6 +14,7 @@ use strum_macros::EnumString;
 use serde::{Deserialize, Serialize};
 use rust_i18n::t;
 
+use crate::context::CommandContext;
 use crate::db::{DbContext, ReminderRepository};
 use crate::config::BotConfig;
 use crate::reminder::{RawReminder, Reminder, ReminderData, ReminderStatus, ReminderError, DelegationType};
@@ -62,20 +63,31 @@ pub struct PageState {
     pub size: i32
 }
 
-/*
-pub async fn get_list_for_page(
+/// Get raw reminders by the one scope filter.
+pub async fn get_raw_list(
     reminder_repo: &ReminderRepository,
     room_id: &RoomId,
-    scope: ListScopes,
-    page: i32,
-) -> Result<Vec<Reminder>> {
-    let raw_reminders = reminder_repo.get_by_page(room_id, scope, page).await;
-    let reminders = from_raw_reminders(raw_reminders)?;
+    page_state: PageState,
+    // scope: ListScopes,
+    // page: i32,
+    // size: i32,
+) -> Result<Vec<RawReminder>, ReminderError> {
+    let raw_reminders = reminder_repo.get_by_page(room_id, page_state.scope.clone(), page_state.page.clone(), page_state.size).await?;
+    // If there is no reminders, send an error depending on whether there are no reminders or they have run out.
+    if raw_reminders.is_empty() {
+        if page_state.page > 1 {
+            return Err(ReminderError::ListEnded.into())
+        }
+        match page_state.scope {
+            ListScopes::Pending => return Err(ReminderError::ListEmptyAffectionately.into()),
+            _ => return Err(ReminderError::ListEmpty.into())
+        }
+    }
 
-    Ok(reminders)
+    Ok(raw_reminders)
 }
-*/
 
+/// RawReminder to Reminder
 pub fn from_raw_reminders(ctx: Arc<super::BotContext>, raw_reminders: Vec<RawReminder>) -> Result<Vec<Reminder>> {
     // Make a Vec for reminders.
     let mut reminders = Vec::with_capacity(raw_reminders.len());
@@ -160,7 +172,8 @@ pub fn from_raw_reminders(ctx: Arc<super::BotContext>, raw_reminders: Vec<RawRem
     Ok(reminders)
 }
 
-pub fn sort_by_date(reminders: Vec<Reminder>) -> HashMap<Date, Vec<Reminder>> {
+/// Group Vec<Reminder> to HashMap with Date as a key.
+pub fn group_by_date(reminders: Vec<Reminder>) -> HashMap<Date, Vec<Reminder>> {
     let mut sorted_reminders: HashMap<Date, Vec<Reminder>> = HashMap::new();
 
     for reminder in reminders {
@@ -173,7 +186,8 @@ pub fn sort_by_date(reminders: Vec<Reminder>) -> HashMap<Date, Vec<Reminder>> {
     sorted_reminders
 }
 
-pub fn get_list_by_date(date_sorted_reminders: HashMap<Date, Vec<Reminder>>, locale: &str) -> Vec<String> {
+/// Get list as a Vec<String> summary of sorted by date reminders.
+pub fn get_summary_for_dates(date_sorted_reminders: HashMap<Date, Vec<Reminder>>, locale: &str) -> Vec<String> {
     let mut list_messages = Vec::new();
     // let mut list_messages = Vec::with_capacity(date_sorted_reminders.values().map(|v| v.len()).sum());
 
@@ -184,7 +198,6 @@ pub fn get_list_by_date(date_sorted_reminders: HashMap<Date, Vec<Reminder>>, loc
         let items = reminders
             .iter()
             .map(|r| {
-                let date = r.data.civil_dt.strftime("%d.%m.%Y").to_string();
                 let time = r.data.civil_dt.strftime("%H:%M").to_string();
                 let item = t!(
                     "list.by-date.item", 
@@ -208,4 +221,32 @@ pub fn get_list_by_date(date_sorted_reminders: HashMap<Date, Vec<Reminder>>, loc
     }
 
     list_messages
+}
+
+/// Handles the entire process of retrieving the necessary reminders, grouping them, and returning the message.
+pub async fn get_list_message_by_date(
+    raw_reminders: Vec<RawReminder>,
+    page_state: PageState,
+    cmd_ctx: &CommandContext
+) -> Result<String, ReminderError> {
+    // Get Reminder's and sort them by date (to a HashMap), then get localized summary list items.
+    // let raw_reminders = get_raw_list(&cmd_ctx.ctx.db_ctx.reminders, cmd_ctx.room.room_id(), page_state.clone()).await?;
+    let reminders = from_raw_reminders(cmd_ctx.ctx.clone(), raw_reminders).map_err(|_| ReminderError::ListError)?;
+    let reminders_count = reminders.len();
+
+    let sorted_reminders = group_by_date(reminders);
+    let list = get_summary_for_dates(sorted_reminders, &cmd_ctx.settings.room.room_lang);
+
+    // Form a message.
+    let scope_local = t!(format!("list.scope.{}", page_state.scope.clone() as i32), locale = &cmd_ctx.settings.room.room_lang);
+    let message = t!(
+        "list.by-date", 
+        locale = &cmd_ctx.settings.room.room_lang,
+        scope = scope_local,
+        count = reminders_count,
+        page = page_state.page,
+        list = list.join("\n")
+    );
+    
+    Ok(message.to_string())
 }
