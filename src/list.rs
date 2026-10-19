@@ -33,6 +33,16 @@ pub enum ListScopes {
     Missed = 2,
 }
 
+/// Order for list.
+#[derive(Clone, Debug, PartialEq, EnumString, Serialize, Deserialize, Display)]
+#[strum(serialize_all = "UPPERCASE")]
+pub enum ListOrder {
+    #[strum(ascii_case_insensitive)]
+    Asc,
+    #[strum(ascii_case_insensitive)]
+    Desc,
+}
+
 /// Key for pages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumString, Display)]
 #[strum(serialize_all = "snake_case")]
@@ -72,7 +82,8 @@ impl StateKey {
 pub struct PageState { 
     pub scope: ListScopes, 
     pub page: i32, 
-    pub size: i32
+    pub size: i32,
+    pub order: ListOrder,
 }
 
 /// Reaction-button event_id (not the message it realated to).
@@ -106,7 +117,7 @@ pub async fn get_raw_list(
     room_id: &RoomId,
     page_state: PageState,
 ) -> Result<Vec<RawReminder>, ReminderError> {
-    let raw_reminders = reminder_repo.get_by_page(room_id, page_state.scope.clone(), page_state.page.clone(), page_state.size).await?;
+    let raw_reminders = reminder_repo.get_by_page(room_id, page_state.clone()).await?;
     
     // If there is no reminders, send an error depending on whether there are no reminders or they have run out.
     if raw_reminders.is_empty() {
@@ -273,14 +284,17 @@ pub async fn get_list_message_by_date(
     let list = get_summary_for_dates(sorted_reminders, &cmd_ctx.settings.room.room_lang);
 
     // Form a message.
-    let scope_local = t!(format!("list.scope-short.{}", page_state.scope.clone() as i32), locale = &cmd_ctx.settings.room.room_lang);
+    let scope_localized = t!(format!("list.scope-short.{}", page_state.scope.clone() as i32), locale = &cmd_ctx.settings.room.room_lang);
+    let order_localized = t!(format!("list.order.{}", page_state.order.to_string()), locale = &cmd_ctx.settings.room.room_lang);
+
     let message = t!(
         "list.by-date", 
         locale = &cmd_ctx.settings.room.room_lang,
-        scope = scope_local,
+        scope_short = scope_localized,
         count = reminders_count,
         size = page_state.size,
         page = page_state.page,
+        order = order_localized,
         list = list.join("\n")
     );
     

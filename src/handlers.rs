@@ -23,7 +23,7 @@ use clap::Parser;
 // app crates
 use crate::context::CommandContext;
 use crate::reminder::{ReminderData, DelegationType, ReminderError};
-use crate::list::{ListScopes, StateKey, PageState, ButtonState};
+use crate::list::{ListScopes, ListOrder, StateKey, PageState, ButtonState};
 use crate::settings_service::{SettingsService};
 use crate::settings::{
     SettingError, 
@@ -214,6 +214,7 @@ pub struct ListArgs {
     pub scope: String,
     pub page: Option<i32>,
     pub size: Option<i32>,
+    pub order: Option<String>,
 }
 
 /// Bot settings.
@@ -527,10 +528,18 @@ pub async fn handle_list(
 
     // Check scope and page.
     let scope = ListScopes::from_str(&args.scope).map_err(|_| ReminderError::ListUnknownScope)?;
-
     let page = args.page.unwrap_or(1);
     let size = args.size.unwrap_or(cmd_ctx.bot_config().list_size);
-    let page_state = PageState { scope: scope, page: page, size: size};
+    let order = args.order.map_or_else(|| {
+        Ok(match scope {
+            ListScopes::Pending => ListOrder::Asc,
+            _ => ListOrder::Desc
+        })
+    }, |val| {
+        ListOrder::from_str(&val).map_err(|_| ReminderError::ListUnknownOrder)
+    })?;
+
+    let page_state = PageState { scope, page, size, order};
 
     // Get Reminder's and sort them by date (to a HashMap), then get localized summary list items.
     let raw_reminders = super::list::get_raw_list(&cmd_ctx.ctx.db_ctx.reminders, cmd_ctx.room.room_id(), page_state.clone()).await?;

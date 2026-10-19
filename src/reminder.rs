@@ -82,6 +82,7 @@ pub enum ReminderError {
     #[error("error.matrix")] MatrixError(#[from] matrix_sdk::Error),
     #[error("list.help")] ListHelp,
     #[error("list.unknown-scope")] ListUnknownScope,
+    #[error("list.unknown-order")] ListUnknownOrder,
     #[error("list.error")] ListError,
     #[error("list.empty")] ListEmpty,
     #[error("list.empty-affectionately")] ListEmptyAffectionately,

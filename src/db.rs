@@ -198,15 +198,17 @@ impl ReminderRepository {
     }
 
     /// Get page of reminders.
-    pub async fn get_by_page(&self, room_id: &RoomId, scope: ListScopes, page: i32, size: i32) -> Result<Vec<RawReminder>, ReminderError> {
+    pub async fn get_by_page(&self, room_id: &RoomId, page_state: PageState) -> Result<Vec<RawReminder>, ReminderError> {
         let conn = self.conn.clone();
         let room_id_s = room_id.to_string();
-        let status = scope as i64;
-
+        let status = page_state.scope as i64;
+        let order = page_state.order.to_string();
+        let page = page_state.page;
+        let size = page_state.size;
         let offset = (page - 1) * size;
         
         let reminders = conn.call(move |conn| {
-            let mut stmt = conn.prepare("
+            let query = format!("
                 SELECT id, 
                 room_id, 
                 text, 
@@ -217,9 +219,10 @@ impl ReminderRepository {
                 target_user_id, 
                 delegation_kind 
                 FROM reminders WHERE room_id = ?1 AND status = ?2
-                ORDER by utc_time
+                ORDER BY target_time {}
                 LIMIT ?3
-                OFFSET ?4")?;
+                OFFSET ?4", order);
+            let mut stmt = conn.prepare(&query)?;
             let mut rows = stmt.query(params![room_id_s, status as i64, size, offset])?;
 
             let mut result: Vec<RawReminder> = Vec::new();
@@ -266,10 +269,23 @@ impl ReminderRepository {
             Ok(value)
         }).await?;
 
-        let page_state = page.map(|s| serde_json::from_str::<PageState>(&s).ok()).unwrap_or_else(|| {
-            tracing::error!("Empty page state value for event_id: {:?}", event_id);
-            None
-        });
+        /*
+        let page_state = page
+            .map(|s| {
+                serde_json::from_str::<PageState>(&s).map_err(|e| {
+                    tracing::error!("Parse error for event_id {:?}: {}", event_id, e);
+                    e
+                })
+            })
+            .transpose();
+        */
+
+        let page_state = page
+            .and_then(|s| serde_json::from_str::<PageState>(&s).ok())
+            .or_else(|| {
+                tracing::error!("Empty or invalid page state value for event_id: {:?}", event_id);
+                None
+            });
 
         Ok(page_state)
     }
