@@ -11,7 +11,7 @@ use tokio_rusqlite::{params, Connection, OptionalExtension};
 use anyhow::{Result, Context};
 
 use crate::reminder::{RawReminder, Reminder, ReminderData, ReminderStatus, ReminderError};
-use crate::list::{ListScopes, StateKey, PageState};
+use crate::list::{ListScopes, StateKey, PageState, ButtonState, RawStatRow, ReminderStats, StatusCount};
 use crate::settings::{SettingError, RawSetting};
 use jiff::{Timestamp, Unit};
 
@@ -155,8 +155,49 @@ impl ReminderRepository {
     }
 
 
-    // ===== Pages =====
-    // Get page of reminders.
+    // ===== List =====
+    //
+    pub async fn get_list_statistics(&self, room_id: &RoomId) -> Result<ReminderStats, ReminderError> {
+        let conn = self.conn.clone();
+        let room_id = room_id.to_string();
+
+        let result = conn.call(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT status, COUNT(*), SUM(COUNT(*)) OVER() 
+                FROM reminders
+                WHERE room_id = ?1
+                GROUP BY status;"
+            )?;
+
+            let rows = stmt.query_map([&room_id], |row| {
+                Ok(RawStatRow {
+                    status_val: row.get(0)?,
+                    count: row.get(1)?,
+                    total: row.get(2)?,
+                })
+            })?;
+
+            let mut total = 0;
+            let mut by_status = Vec::new();
+
+            for row_result in rows {
+                let row = row_result?;
+                total = row.total;
+                
+                by_status.push(StatusCount {
+                    status: ReminderStatus::from(row.status_val),
+                    count: row.count,
+                });
+            }
+
+            Ok(ReminderStats { total, by_status })
+        })
+        .await?;
+
+        Ok(result)
+    }
+
+    /// Get page of reminders.
     pub async fn get_by_page(&self, room_id: &RoomId, scope: ListScopes, page: i32, size: i32) -> Result<Vec<RawReminder>, ReminderError> {
         let conn = self.conn.clone();
         let room_id_s = room_id.to_string();
@@ -205,16 +246,17 @@ impl ReminderRepository {
     }
 
     // Get current page and scope from the message event_id bound to list of reminders.
-    pub async fn get_list_page(&self, event_id: &EventId, room_id: &RoomId,) -> Result<Option<String>, ReminderError> {
+    pub async fn get_list_page(&self, event_id: &EventId, room_id: &RoomId) -> Result<Option<PageState>, ReminderError> {
         let conn = self.conn.clone();
-        let event_id = event_id.to_string();
+        let event_id_s = event_id.to_string();
         let room_id = room_id.to_string();
-        // let user_id = user_id.to_string();
 
         let page = conn.call(move |conn| {
             let value: Option<String> = conn.query_row(
-                "SELECT value FROM message_states WHERE key = ?1 AND event_id = ?2 AND room_id = ?3 LIMIT 1;",
-                params![StateKey::Page.as_str(), &event_id, &room_id],
+                "SELECT value FROM message_states 
+                WHERE key = ?1 AND event_id = ?2 AND room_id = ?3 
+                LIMIT 1;",
+                params![StateKey::Page.to_string(), &event_id_s, &room_id],
 
                 |r| {
                     r.get(0)
@@ -224,26 +266,29 @@ impl ReminderRepository {
             Ok(value)
         }).await?;
 
-        // let page_state = serde_json::from_str::<PageState>(&page).ok();
+        let page_state = page.map(|s| serde_json::from_str::<PageState>(&s).ok()).unwrap_or_else(|| {
+            tracing::error!("Empty page state value for event_id: {:?}", event_id);
+            None
+        });
 
-        Ok(page)
+        Ok(page_state)
     }
 
     // Set current page and scope for the list of reminders.
-    pub async fn set_list_page(&self, event_id: &EventId, room_id: &RoomId, user_id: &UserId, page: PageState) -> Result<(), ReminderError> {
+    pub async fn set_list_page(&self, event_id: &EventId, room_id: &RoomId, page: PageState) -> Result<(), ReminderError> {
         let conn = self.conn.clone();
         let event_id = event_id.to_string();
         let room_id = room_id.to_string();
-        let user_id = user_id.to_string();
+        // let user_id: Option<String> = user_id.map(|id| id.to_string());
         let value = serde_json::to_string(&page).unwrap_or(String::from(""));
         
         let _ = conn.call(move |c| {
             c.execute(
-                "INSERT INTO message_states (event_id, room_id, user_id, key, value, created_at) 
-                VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-                ON CONFLICT(event_id, room_id, user_id, key) 
+                "INSERT INTO message_states (event_id, room_id, key, value, created_at) 
+                VALUES (?1, ?2, ?3, ?4, ?5)
+                ON CONFLICT(event_id, room_id, key) 
                 DO UPDATE SET value=excluded.value;",
-                [&event_id, &room_id, &user_id, StateKey::Page.as_str(), &value, &Timestamp::now().to_string()]
+                params![&event_id, &room_id, StateKey::Page.to_string(), &value, &Timestamp::now().to_string()]
             )?;
 
             Ok(())
@@ -253,26 +298,48 @@ impl ReminderRepository {
     }
 
     // 
-    pub async fn set_button_event_id(&self, /*event_id: &EventId, room_id: &RoomId, user_id: &UserId, page: PageState*/) -> Result<(), ReminderError> {
-        /*
+    pub async fn get_page_button(&self, target_event_id: &EventId, room_id: &RoomId, state_key: StateKey) -> Result<Option<String>, ReminderError> {
+        let conn = self.conn.clone();
+        let target_event_id = target_event_id.to_string();
+        let room_id = room_id.to_string();
+
+        let button = conn.call(move |conn| {
+            let value: Option<String> = conn.query_row(
+                "SELECT value FROM message_states 
+                WHERE key = ?1 AND event_id = ?2 AND room_id = ?3 
+                ORDER BY created_at DESC LIMIT 1;",
+                params![&state_key.to_string(), &target_event_id, &room_id],
+
+                |r| {
+                    r.get(0)
+                },
+            ).optional()?;
+
+            Ok(value)
+        }).await?;
+
+        Ok(button)
+    }
+
+    // 
+    pub async fn set_page_button(&self, event_id: &EventId, room_id: &RoomId, key: StateKey, button: ButtonState) -> Result<(), ReminderError> {
         let conn = self.conn.clone();
         let event_id = event_id.to_string();
         let room_id = room_id.to_string();
-        let user_id = user_id.to_string();
-        let value = serde_json::to_string(&page).unwrap_or(String::from(""));
+        // let user_id: Option<String> = user_id.map(|id| id.to_string());
+        let value = serde_json::to_string(&button).unwrap_or(String::from(""));
         
         let _ = conn.call(move |c| {
             c.execute(
-                "INSERT INTO message_states (event_id, room_id, user_id, key, value, created_at) 
-                VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-                ON CONFLICT(event_id, room_id, user_id, key) 
+                "INSERT INTO message_states (event_id, room_id, key, value, created_at) 
+                VALUES (?1, ?2, ?3, ?4, ?5)
+                ON CONFLICT(event_id, room_id, key) 
                 DO UPDATE SET value=excluded.value;",
-                [&event_id, &room_id, &user_id, StateKey::Page.as_str(), &value, &Timestamp::now().to_string()]
+                [&event_id, &room_id, &key.to_string(), &value, &Timestamp::now().to_string()]
             )?;
 
             Ok(())
         }).await?;
-        */
 
         Ok(())
     }

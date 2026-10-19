@@ -14,13 +14,14 @@ use itertools::Itertools;
 
 // app crates
 use crate::db::{ReminderRepository, SettingRepository};
-use crate::reminder::ReminderData;
+use crate::reminder::{ReminderData, ReminderError, ReminderStatus};
 use crate::settings::{
     ActiveSettings,
 };
 use crate::messaging::{
     RoomMessenger, MessageReaction,
 };
+use crate::list::{StateKey, ButtonState, ReminderStats};
 
 /// Parse i18n, like months names
 #[derive(Debug)]
@@ -141,7 +142,7 @@ impl CommandContext {
         self.room.active_members_count() > 2 as u64
     }
 
-    // ===== Messages =====
+    // ===== Reminder Messages =====
     /// Send welcome message with help to the room.
     pub async fn send_welcome_message(&self) {
         let tomorrow = Zoned::now()
@@ -258,13 +259,43 @@ impl CommandContext {
         }
     }
 
-    /// Reactions-as-buttons
+    // ===== Messages for the list =====
+    /// Send help message for the `/list` command with some statistics.
+    pub async fn send_list_help_message(&self, stats: ReminderStats) {
+        // let stats = self.ctx.db_ctx.reminders.get_list_statictics(&event_id, cmd_ctx.room.room_id()).await?;
+        let pending_count = stats.by_status.iter()
+            .find(|s| s.status == ReminderStatus::Pending)
+            .map(|s| s.count)
+            //.copied()
+            .unwrap_or(0);
+        let sent_count = stats.by_status.iter()
+            .find(|s| s.status == ReminderStatus::Sent)
+            .map(|s| s.count)
+            //.copied()
+            .unwrap_or(0);
+
+        let msg = t!(
+            "list.help",
+            locale = &self.settings.room.room_lang,
+            all_count = stats.total,
+            pending_count = pending_count,
+            sent_count = sent_count,
+            cmd = self.bot_config().list_commands.join(" | "),
+            list_size = self.bot_config().list_size,
+        );
+        self.msng.text_md_long(&msg).await;
+    }
+
+    // ===== Reactions-as-buttons =====
+    /// Sent buttons on the basis of the current page and remaining reminders that haven't been displayed yet.
     pub async fn send_nextprev_buttons(&self, 
         event_id: &EventId,  
         page: &i32,
         size: &i32,
         count: i32,
     ) {
+        // The commented-out lines are options for cases where the removal 
+        // of buttons upon reaching the end of the list is enabled.
         if count == *size {
             if *page > 1 {
                 self.msng.react_bundle(event_id.to_owned(), vec![MessageReaction::Previous, MessageReaction::Next]).await;
@@ -284,24 +315,65 @@ impl CommandContext {
 
     /// Manage reactions-as-buttons for the list message: 
     /// set buttons, remove "next" button if it is the last page.
-    // It does not work because we do not save *our* reaction event_id to remove *our* reactions.
+    // This method is disabled because, although the functionality to remove buttons is implemented, 
+    // it requires calls to the database and so on. Furthermore - and most importantly - the visual effect 
+    // of removing a button is barely noticeable; when the bot deletes its button, it remains in a "pressed" 
+    // state from the user's perspective. The user must clear their interaction (reaction) before they can see 
+    // that the button is gone.
     pub async fn _manage_nextprev_buttons(&self,
-        message_event_id: &EventId,
-        button_event_id: &EventId,
+        target_event_id: &EventId,
         page: &i32,
         size: &i32,
         count: i32,
     ) {
         if *page > 1 {
-            self.msng.react_bundle(message_event_id.to_owned(), vec![MessageReaction::Previous, MessageReaction::Next]).await;
+            self.msng.react_bundle(target_event_id.to_owned(), vec![MessageReaction::Previous, MessageReaction::Next]).await;
         }
         else {
-            self.msng.react_bundle(message_event_id.to_owned(), vec![MessageReaction::Next]).await;
+            self.msng.react(target_event_id.to_owned(), MessageReaction::Next).await;
         }
 
-        // Remove next button if there are less than `size` items.
+        /*
+        // remove next button if there are less than `size` items
         if count < *size {
-            let _ = self.room.redact(&button_event_id, None, None).await;
+            self.redact_button(&target_event_id, StateKey::ListButtonNext).await;
+        }
+        // remove prev button if it is the first page
+        if *page == 1 {
+            self.redact_button(&target_event_id, StateKey::ListButtonPrev).await;
+        }
+        */
+    }
+
+    /// Remove reaction-button by its event_id and key in message_states.
+    pub async fn _redact_button(&self,
+        target_event_id: &EventId,
+        button_type: StateKey,
+    ) {
+        let button_id = self.ctx.db_ctx.reminders.get_page_button(
+            &target_event_id,
+            self.room.room_id(),
+            button_type
+        ).await;
+
+        // Mute DB error...
+        let button_id = match button_id {
+            Ok(id) => id,
+            Err(e) => {
+                tracing::error!("Error of the reaction-button selecting: {:?}", e);
+                return;
+            }
+        };
+
+        if let Some(id) = button_id {
+            match serde_json::from_str::<ButtonState>(&id) {
+                Ok(state) => {
+                    let result = self.room.redact(&state.event_id, None, None).await;
+                },
+                Err(err) => {
+                    tracing::error!("Error in the reaction-button event_id value: {:?}", err);
+                }
+            }
         }
     }
 }

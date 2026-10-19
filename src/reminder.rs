@@ -49,9 +49,15 @@ pub enum ReminderStatus {
     // Recurring = 3,
     // Cancelled = 4,
 }
+
 impl From<i64> for ReminderStatus {
     fn from(value: i64) -> Self {
-        ReminderStatus::try_from(value).unwrap_or(ReminderStatus::Pending)
+        match value {
+            0 => ReminderStatus::Pending,
+            1 => ReminderStatus::Sent,
+            2 => ReminderStatus::Missed,
+            _ => ReminderStatus::Pending,
+        }
     }
 }
 
@@ -91,6 +97,13 @@ impl ReminderError {
                 let date = val.strftime("%d.%m.%Y").to_string();
                 let time = val.strftime("%H:%M").to_string();
                 let msg = t!(self.to_string(), locale = locale, date = date, time = time);
+                msg.to_string()
+            },
+            ReminderError::Db(error) => {
+                tracing::error!("{:?}", error);
+
+                let key = self.to_string(); 
+                let msg = t!(key, locale = locale);
                 msg.to_string()
             },
             _ => {

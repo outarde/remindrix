@@ -884,25 +884,25 @@ list.empty-affectionately:
   en: There are no reminders yet. Remind me it's time to create one!
 list.help:
   en: |
+    ##### 📜 List of reminders
+    *Total reminders: %{all_count}. ⏲️ Scheduled: %{pending_count}, 🟢 sent: %{sent_count}*
+    
     To display the list of reminders, specify the selection type:
     ⏲️`pending` scheduled,
     🟢 `sent` sent,
     🔴 `missed` missed,
     
-    the page number and the number of reminders on the page (default is %{list_size}).
-    For example: `/%{cmd} pending 1 30`. 
-    
-    Without additional parameters, the command will always display the first page of scheduled reminders.
+    You can also specify the page number (default is 1) and the number of items per page (default is %{list_size}). For example: `/%{cmd} pending 1 30`.
   ru: |
-    Для отображения списка напоминаний укажите тип выборки:
+    ##### 📜 Список напоминаний
+    *Всего напоминаний: %{all_count}. ⏲️ Запланированных: %{pending_count}, 🟢 отправленных: %{sent_count}*
+    
+    Для отображения списка напоминаний укажите тип напоминаний:
+    - `pending` планируемые,
     - `sent` отправленные,
     - `missed` пропущенные,
-    - `pending` планируемые
     
-    число страницы и количество элементов на странице (по умолчанию %{list_size}).
-    Например: `/%{cmd} pending 1 30`.
-    
-    Без дополнительных параметров команда всегда отобразит первую страницу планируемых напоминаний.
+    Также вы можете указать номер страницы (по умолчанию 1) и количество элементов на странице (по умолчанию %{list_size}). Например: `/%{cmd} pending 1 30`.
 list.scope.0:
   en: ⏲️ scheduled
   ru: ⏲️ запланированные
@@ -912,18 +912,24 @@ list.scope.1:
 list.scope.2:
   en: 🔴 missed
   ru: 🔴 пропущенные
+list.scope-short.0:
+  en: ⏲️
+list.scope-short.1:
+  en: 🟢
+list.scope-short.2:
+  en: 🔴
 list.unknown-scope:
   en: Invalid selection type. Specify whether to display sent (`sent`), missed (`missed`), or scheduled (`pending`) reminders.
   ru: Неверный тип выборки. Укажите, отобразить отправленные (`sent`), пропущенные (`missed`) или планируемые (`pending`) напоминания.
 list.by-date:
   en: |
-    ##### 👇 List of reminders
-    *%{scope}, %{count} on page %{page}*
+    ##### 📜 List of reminders
+    *%{scope}, %{count} out of %{size} requested, page %{page}*
 
     %{list}
   ru: |
-    ##### 👇 Список напоминаний
-    *%{scope}, %{count}, страница %{page}*
+    ##### 📜 Список напоминаний
+    *%{scope}, %{count} из запрошенных %{size}, страница %{page}*
 
     %{list}
 list.by-date.section:

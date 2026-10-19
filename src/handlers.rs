@@ -1,7 +1,7 @@
 use matrix_sdk::{
     Room, RoomState,
     ruma::{
-        UserId, EventId,
+        UserId, OwnedEventId, EventId,
         events::{
             OriginalSyncMessageLikeEvent,
             reaction::{OriginalSyncReactionEvent, ReactionEventContent},
@@ -23,7 +23,7 @@ use clap::Parser;
 // app crates
 use crate::context::CommandContext;
 use crate::reminder::{ReminderData, DelegationType, ReminderError};
-use crate::list::{ListScopes, PageState};
+use crate::list::{ListScopes, StateKey, PageState, ButtonState};
 use crate::settings_service::{SettingsService};
 use crate::settings::{
     SettingError, 
@@ -337,7 +337,6 @@ pub async fn on_reaction(
     ctx: Arc<super::BotContext>
 ) {
     if room.state() != RoomState::Joined { return; }
-    if event.sender == ctx.bot_id { return; }
 
     // Get sender, related_to event_id and reaction's emoji.
     let sender = &event.sender;
@@ -356,6 +355,15 @@ pub async fn on_reaction(
 
     // Command Context
     let cmd_ctx = CommandContext::new(event.sender.clone(), room.clone(), ctx.clone()).await;
+
+    // If it is bot's reaction, update a reaction-button state and exit.
+    // It's disabled until we'll need reaction-buttons' ids to redact (remove) them.
+    /*
+    if event.sender == ctx.bot_id {
+        let _ = handle_reaction_update(event.event_id, &target_event_id, key, cmd_ctx.clone()).await;
+        return;
+    }
+    */
 
     // Call the command of a emoji's key.
     let result = match key {
@@ -506,17 +514,13 @@ pub async fn handle_list(
     let args_vec: Vec<&str> = args_str.split_whitespace().collect();
     let mut clap_input = vec!["list"];
     clap_input.extend(&args_vec);
+    
     let args = match ListArgs::try_parse_from(clap_input) {
         Ok(a) => a,
         Err(_) => {
-            // TODO: Send help message *with* statistics. Move to context.rs.
-            let msg = t!(
-                "list.help",
-                locale = &cmd_ctx.settings.room.room_lang,
-                cmd = cmd_ctx.bot_config().list_commands.join(" | "),
-                list_size = cmd_ctx.bot_config().list_size,
-            );
-            cmd_ctx.msng.text_md_long(&msg).await;
+            let stats = cmd_ctx.ctx.db_ctx.reminders.get_list_statistics(cmd_ctx.room.room_id()).await?;
+            cmd_ctx.send_list_help_message(stats).await;
+            
             return Ok(());
         }
     };
@@ -539,25 +543,33 @@ pub async fn handle_list(
     let event_id = response.unwrap_or_else(|_| event.event_id.clone());
     
     // Save event to message_states.
-    let _ = cmd_ctx.ctx.db_ctx.reminders.set_list_page(&event_id, cmd_ctx.room.room_id(), &cmd_ctx.user_id, page_state.clone()).await?;
+    let _ = cmd_ctx.ctx.db_ctx.reminders.set_list_page(&event_id, cmd_ctx.room.room_id(), page_state.clone()).await?;
 
-    // Send button-reaction.
-
-    // Next button
-    if count == page_state.size as usize {
-        let reaction_event_id = cmd_ctx.msng.react_with_event_id(event_id.to_owned(), MessageButton::Next).await;
-        match reaction_event_id {
-            Ok(id) => {
-                cmd_ctx.ctx.db_ctx.reminders.set_button_event_id();
-            }
-            Err(e) => tracing::error!("{:?}", e)
-        }
-    }
-    // Prev button
-    // TODO
-
-
+    // Send button-reactions.
     cmd_ctx.send_nextprev_buttons(&event_id, &page_state.page, &page_state.size, count as i32).await;
+
+    Ok(())
+}
+
+/// Set connection between message and reaction in the mesage_states table.
+pub async fn _handle_reaction_update(
+    event_id: OwnedEventId,
+    target_event_id: &EventId,
+    key: BotReactionsCommand,
+    cmd_ctx: CommandContext,
+) -> Result<(), OutputError> {
+    let state_key = match key {
+        BotReactionsCommand::NextListPage => StateKey::ListButtonNext,
+        BotReactionsCommand::PrevListPage => StateKey::ListButtonPrev,
+        // _ => return Ok(())
+    };
+
+    cmd_ctx.ctx.db_ctx.reminders.set_page_button(
+        target_event_id,
+        cmd_ctx.room.room_id(),
+        state_key,
+        ButtonState { event_id }
+    ).await?;
 
     Ok(())
 }
@@ -573,15 +585,10 @@ pub async fn handle_list_flipping(
 
     // Deserialize PageState.
     let mut page_state = if let Some(p) = page {
-        match serde_json::from_str::<PageState>(&p) {
-            Ok(ps) => ps,
-            Err(err) => {
-                tracing::error!("{:?}", err);
-                return Ok(())
-            }
-        }
+        p
     } else {
-        // cmd_ctx.msng.react(target_event_id.clone(), super::messaging::MessageReaction::Cross).await;
+        tracing::error!("Incorrect page state value for event_id: {:?}", &target_event_id);
+        cmd_ctx.msng.react(target_event_id.to_owned(), super::messaging::MessageReaction::Cross).await;
         return Ok(())
     };
 
@@ -589,25 +596,13 @@ pub async fn handle_list_flipping(
     page_state.page = match key {
         BotReactionsCommand::NextListPage => page_state.page + 1,
         _ => {
-            if page_state.page > 1 { 
-                page_state.page - 1 
-            }
-            else { 
-                1 as i32
-            }
+            if page_state.page > 1 { page_state.page - 1 }
+            else { 1 as i32 }
         }
     };
 
     // Get Reminder's and sort them by date (to a HashMap), then get localized summary list items.
-    let raw_reminders = match super::list::get_raw_list(&cmd_ctx.ctx.db_ctx.reminders, cmd_ctx.room.room_id(), page_state.clone()).await {
-        Ok(raw) => raw,
-        // Remove reaction-buttons if there is an error.
-        Err(err) => {
-            let result = cmd_ctx.room.redact(&event.event_id, None, None).await;
-            println!("ERRRROR {:?}", result);
-            return Err(err.into());
-        }
-    };
+    let raw_reminders = super::list::get_raw_list(&cmd_ctx.ctx.db_ctx.reminders, cmd_ctx.room.room_id(), page_state.clone()).await?;
     let count = raw_reminders.len();
 
     // Get and send a message.
@@ -615,10 +610,10 @@ pub async fn handle_list_flipping(
     let _ = cmd_ctx.msng.edit_message(&target_event_id, &message).await;
     
     // Save event to message_states.
-    let _ = cmd_ctx.ctx.db_ctx.reminders.set_list_page(&target_event_id, cmd_ctx.room.room_id(), &cmd_ctx.user_id, page_state.clone()).await?;
+    let _ = cmd_ctx.ctx.db_ctx.reminders.set_list_page(&target_event_id, cmd_ctx.room.room_id(), page_state.clone()).await?;
 
-    // It does not work because we do not save *our* reaction event_id to remove *our* reactions.
-    // cmd_ctx.manage_nextprev_buttons(&target_event_id, &event.event_id, &page_state.page, &page_state.size, count as i32).await;
+    // Manage reaction-buttons. See the comments for an explanation of why it’s disabled.
+    // cmd_ctx.manage_nextprev_buttons(&target_event_id, &page_state.page, &page_state.size, count as i32).await;
 
     Ok(())
 }

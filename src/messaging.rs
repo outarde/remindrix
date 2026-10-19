@@ -165,7 +165,7 @@ impl RoomMessenger {
             .make_edit_event(original_event_id, edited_content)
             .await?;
 
-        let response = self.room.send(edit_event_content).await;
+        let _ = self.room.send(edit_event_content).await;
 
         Ok(())
     }

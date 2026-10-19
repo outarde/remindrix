@@ -2,6 +2,7 @@ use std::{sync::Arc, str::FromStr, collections::HashMap};
 use matrix_sdk::{
     deserialized_responses::SyncOrStrippedState,
     Room, ruma::{
+        OwnedEventId,
         RoomId, OwnedRoomId, UserId, OwnedUserId
     }
 };
@@ -10,7 +11,7 @@ use jiff::{
     civil::{DateTime as CivilDateTime, Date}
 };
 use anyhow::Result;
-use strum_macros::EnumString;
+use strum_macros::{EnumString, Display};
 use serde::{Deserialize, Serialize};
 use rust_i18n::t;
 
@@ -33,27 +34,38 @@ pub enum ListScopes {
 }
 
 /// Key for pages.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumString, Display)]
+#[strum(serialize_all = "snake_case")]
 pub enum StateKey {
+    #[strum(ascii_case_insensitive)]
     Page,
+    #[strum(ascii_case_insensitive)]
+    ListButtonNext,
+    #[strum(ascii_case_insensitive)]
+    ListButtonPrev,
     // Filter,
     // SelectedItem,
 }
 
+/*
 impl StateKey {
     pub fn as_str(&self) -> &'static str {
         match self {
             StateKey::Page => "page",
+            StateKey::ListButtonNext => "list_button_next",
+            StateKey::ListButtonPrev => "list_button_prev",
         }
     }
-
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "page" => Some(StateKey::Page),
+            "list_button_next" => Some(StateKey::ListButtonNext),
+            "list_button_prev" => Some(StateKey::ListButtonPrev),
             _ => None,
         }
     }
 }
+*/
 
 /// State of the current list of reminders. Bound to message with a list.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,16 +75,39 @@ pub struct PageState {
     pub size: i32
 }
 
+/// Reaction-button event_id (not the message it realated to).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ButtonState {
+    pub event_id: OwnedEventId,
+}
+
+/// List statistics.
+#[derive(Debug)]
+pub struct ReminderStats {
+    pub total: i64,
+    pub by_status: Vec<StatusCount>,
+}
+
+#[derive(Debug)]
+pub struct StatusCount {
+    pub status: ReminderStatus,
+    pub count: i64,
+}
+
+pub struct RawStatRow {
+    pub status_val: i64,
+    pub count: i64,
+    pub total: i64,
+}
+
 /// Get raw reminders by the one scope filter.
 pub async fn get_raw_list(
     reminder_repo: &ReminderRepository,
     room_id: &RoomId,
     page_state: PageState,
-    // scope: ListScopes,
-    // page: i32,
-    // size: i32,
 ) -> Result<Vec<RawReminder>, ReminderError> {
     let raw_reminders = reminder_repo.get_by_page(room_id, page_state.scope.clone(), page_state.page.clone(), page_state.size).await?;
+    
     // If there is no reminders, send an error depending on whether there are no reminders or they have run out.
     if raw_reminders.is_empty() {
         if page_state.page > 1 {
@@ -238,12 +273,13 @@ pub async fn get_list_message_by_date(
     let list = get_summary_for_dates(sorted_reminders, &cmd_ctx.settings.room.room_lang);
 
     // Form a message.
-    let scope_local = t!(format!("list.scope.{}", page_state.scope.clone() as i32), locale = &cmd_ctx.settings.room.room_lang);
+    let scope_local = t!(format!("list.scope-short.{}", page_state.scope.clone() as i32), locale = &cmd_ctx.settings.room.room_lang);
     let message = t!(
         "list.by-date", 
         locale = &cmd_ctx.settings.room.room_lang,
         scope = scope_local,
         count = reminders_count,
+        size = page_state.size,
         page = page_state.page,
         list = list.join("\n")
     );

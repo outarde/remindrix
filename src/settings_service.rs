@@ -224,10 +224,12 @@ impl SettingsService {
             return time;
         }
 
+        /*
         tracing::warn!(
             "Failed to parse time for key {:?}: '{:?}'. Using fallback.", 
             key, time_str
         );
+        */
 
         self.get_fallback_time(key)
     }
