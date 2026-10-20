@@ -38,7 +38,7 @@ mod remote_i18n;
 use crate::remote_i18n::RemoteI18n;
 use crate::context::I18nManager;
 use crate::settings_service::SettingsService;
-use crate::db::{ ReminderRepository, SettingRepository, DbContext };
+use crate::db::{ ReminderRepository, ListRepository, SettingRepository, DbContext };
 
 rust_i18n::i18n!("locales", fallback = "en", backend = RemoteI18n::new());
 
@@ -208,8 +208,9 @@ impl BotManager {
         let bot_config = Arc::new(config.bot.clone());
         let db = Arc::new(db::init_db(&config.data_dir).await?);
         let reminders = ReminderRepository::new(db.clone());
+        let list = ListRepository::new(db.clone());
         let settings = SettingRepository::new(db.clone());
-        let db_ctx = Arc::new(DbContext { reminders, settings });
+        let db_ctx = Arc::new(DbContext { reminders, list, settings });
         let settings_service = SettingsService::new(
             db_ctx.clone(), 
             bot_config.clone(), 

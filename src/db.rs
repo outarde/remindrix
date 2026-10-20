@@ -92,6 +92,7 @@ async fn run_migrations(conn: &Connection) -> Result<()> {
 pub struct DbContext {
     pub reminders: ReminderRepository,
     pub settings: SettingRepository,
+    pub list: ListRepository,
 }
 
 /// Reminder Repository.
@@ -154,9 +155,19 @@ impl ReminderRepository {
         todo!()
     }
 
+}
+/// List of reminders Repository.
+#[derive(Clone, Debug)]
+pub struct ListRepository {
+    conn: Arc<Connection>,
+}
 
-    // ===== List =====
-    //
+impl ListRepository {
+    pub fn new(conn: Arc<Connection>) -> Self {
+        Self { conn }
+    }
+
+    /// Get statistics for the help page.
     pub async fn get_list_statistics(&self, room_id: &RoomId) -> Result<ReminderStats, ReminderError> {
         let conn = self.conn.clone();
         let room_id = room_id.to_string();
@@ -291,7 +302,7 @@ impl ReminderRepository {
     }
 
     // Set current page and scope for the list of reminders.
-    pub async fn set_list_page(&self, event_id: &EventId, room_id: &RoomId, page: PageState) -> Result<(), ReminderError> {
+    pub async fn set_list_page(&self, event_id: &EventId, room_id: &RoomId, page: &PageState) -> Result<(), ReminderError> {
         let conn = self.conn.clone();
         let event_id = event_id.to_string();
         let room_id = room_id.to_string();
