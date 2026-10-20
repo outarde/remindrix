@@ -350,13 +350,14 @@ impl CommandContext {
         target_event_id: &EventId,
         button_type: StateKey,
     ) {
-        let button_id = self.ctx.db_ctx.reminders.get_page_button(
+        let button = self.ctx.db_ctx.list.get_page_button(
             &target_event_id,
             self.room.room_id(),
             button_type
         ).await;
 
         // Mute DB error...
+        /*
         let button_id = match button_id {
             Ok(id) => id,
             Err(e) => {
@@ -364,6 +365,14 @@ impl CommandContext {
                 return;
             }
         };
+        */
+        let button_id = button
+            .map_or_else(|e| {
+                tracing::error!("Error of the reaction-button selecting: {:?}", e);
+                None
+            }, 
+            |val| val
+        );
 
         if let Some(id) = button_id {
             match serde_json::from_str::<ButtonState>(&id) {

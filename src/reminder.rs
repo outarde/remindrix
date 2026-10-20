@@ -85,6 +85,7 @@ pub enum ReminderError {
     #[error("list.unknown-order")] ListUnknownOrder,
     #[error("list.error")] ListError,
     #[error("list.empty")] ListEmpty,
+    #[error("list.empty-page")] ListEmptyPage,
     #[error("list.empty-affectionately")] ListEmptyAffectionately,
     #[error("list.ended")] ListEnded,
 }
@@ -282,6 +283,9 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
     }).await?;
 
     // Make a Vec for reminders.
+    let reminders = super::list::from_raw_reminders(ctx.clone(), raw_reminders)?;
+
+    /*
     let mut reminders = Vec::with_capacity(raw_reminders.len());
 
     for raw in raw_reminders {
@@ -360,6 +364,7 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
             status: ReminderStatus::Pending,
         });
     }
+    */
 
     // HashMap for missed reminders
     let mut missed_by_room: HashMap<OwnedRoomId, Vec<Reminder>> = HashMap::new();

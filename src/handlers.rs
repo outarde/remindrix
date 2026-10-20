@@ -519,7 +519,7 @@ pub async fn handle_list(
     let args = match ListArgs::try_parse_from(clap_input) {
         Ok(a) => a,
         Err(_) => {
-            let stats = cmd_ctx.ctx.db_ctx.reminders.get_list_statistics(cmd_ctx.room.room_id()).await?;
+            let stats = cmd_ctx.ctx.db_ctx.list.get_list_statistics(cmd_ctx.room.room_id()).await?;
             cmd_ctx.send_list_help_message(stats).await;
             
             return Ok(());
@@ -542,17 +542,17 @@ pub async fn handle_list(
     let page_state = PageState { scope, page, size, order};
 
     // Get Reminder's and sort them by date (to a HashMap), then get localized summary list items.
-    let raw_reminders = super::list::get_raw_list(&cmd_ctx.ctx.db_ctx.reminders, cmd_ctx.room.room_id(), page_state.clone()).await?;
+    let raw_reminders = super::list::get_raw_list(&cmd_ctx.ctx.db_ctx.list, cmd_ctx.room.room_id(), &page_state, false).await?;
     let count = raw_reminders.len();
     // Get a message.
-    let message = super::list::get_list_message_by_date(raw_reminders, page_state.clone(), &cmd_ctx).await?;
+    let message = super::list::get_list_message_by_date(raw_reminders, &page_state, &cmd_ctx).await?;
 
     // Get event id for the sent message or for user message as a callback.
     let response = cmd_ctx.msng.text_md_long_with_event_id(&message).await;
     let event_id = response.unwrap_or_else(|_| event.event_id.clone());
     
     // Save event to message_states.
-    let _ = cmd_ctx.ctx.db_ctx.reminders.set_list_page(&event_id, cmd_ctx.room.room_id(), page_state.clone()).await?;
+    let _ = cmd_ctx.ctx.db_ctx.list.set_list_page(&event_id, cmd_ctx.room.room_id(), &page_state).await?;
 
     // Send button-reactions.
     cmd_ctx.send_nextprev_buttons(&event_id, &page_state.page, &page_state.size, count as i32).await;
@@ -573,7 +573,7 @@ pub async fn _handle_reaction_update(
         // _ => return Ok(())
     };
 
-    cmd_ctx.ctx.db_ctx.reminders.set_page_button(
+    cmd_ctx.ctx.db_ctx.list.set_page_button(
         target_event_id,
         cmd_ctx.room.room_id(),
         state_key,
@@ -590,7 +590,7 @@ pub async fn handle_list_flipping(
     key: BotReactionsCommand,
     cmd_ctx: CommandContext,
 ) -> Result<(), OutputError> {
-    let page = cmd_ctx.ctx.db_ctx.reminders.get_list_page(&target_event_id, cmd_ctx.room.room_id()).await?;
+    let page = cmd_ctx.ctx.db_ctx.list.get_list_page(&target_event_id, cmd_ctx.room.room_id()).await?;
 
     // Deserialize PageState.
     let mut page_state = if let Some(p) = page {
@@ -611,15 +611,15 @@ pub async fn handle_list_flipping(
     };
 
     // Get Reminder's and sort them by date (to a HashMap), then get localized summary list items.
-    let raw_reminders = super::list::get_raw_list(&cmd_ctx.ctx.db_ctx.reminders, cmd_ctx.room.room_id(), page_state.clone()).await?;
+    let raw_reminders = super::list::get_raw_list(&cmd_ctx.ctx.db_ctx.list, cmd_ctx.room.room_id(), &page_state, true).await?;
     let count = raw_reminders.len();
 
     // Get and send a message.
-    let message = super::list::get_list_message_by_date(raw_reminders, page_state.clone(), &cmd_ctx).await?;
+    let message = super::list::get_list_message_by_date(raw_reminders, &page_state, &cmd_ctx).await?;
     let _ = cmd_ctx.msng.edit_message(&target_event_id, &message).await;
     
     // Save event to message_states.
-    let _ = cmd_ctx.ctx.db_ctx.reminders.set_list_page(&target_event_id, cmd_ctx.room.room_id(), page_state.clone()).await?;
+    let _ = cmd_ctx.ctx.db_ctx.list.set_list_page(&target_event_id, cmd_ctx.room.room_id(), &page_state).await?;
 
     // Manage reaction-buttons. See the comments for an explanation of why it’s disabled.
     // cmd_ctx.manage_nextprev_buttons(&target_event_id, &page_state.page, &page_state.size, count as i32).await;
