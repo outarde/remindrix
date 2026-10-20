@@ -857,7 +857,7 @@ error.delegation-denied:
   uk: Кімнатам заборонено делегувати нагадування.
 
 error.db:
-  en: Saving to database failed.
+  en: Database error, sorry. Contact the administrator to view a more detailed error in the bot's log.
   de: Speichern in der Datenbank fehlgeschlagen.
   fr: Échec de l'enregistrement dans la base de données.
   it: Salvataggio nel database fallito.
@@ -876,60 +876,388 @@ error.matrix:
 
 list.error:
   en: Error creating the reminder list.
+  de: Fehler beim Erstellen der Erinnerungsliste.
+  fr: Erreur lors de la création de la liste de rappels.
+  it: Errore durante la creazione dell'elenco dei promemoria.
+  es: Error al crear la lista de recordatorios.
+  sv: Fel vid skapandet av påminnelselistan.
+  pl: Błąd podczas tworzenia listy przypomnień.
+  cs: Chyba při vytváření seznamu připomínek.
+  fi: Muistutusluettelon luomisessa tapahtui virhe.
+  ja: リマインダーリストの作成中にエラーが発生しました。
+  zh: 创建提醒列表时出错。
+  ru: Ошибка при создании списка напоминаний.
+  uk: Помилка під час створення списку нагадувань.
+list.unknown-scope:
+  en: Invalid selection type. Specify whether to display sent (`sent`), missed (`missed`), or scheduled (`pending`) reminders.
+  de: Ungültiger Auswahltyp. Geben Sie an, ob gesendete (`sent`), verpasste (`missed`) oder geplante (`pending`) Erinnerungen angezeigt werden sollen.
+  fr: Type de sélection non valide. Précisez si vous souhaitez afficher les rappels envoyés (`sent`), manqués (`missed`) ou programmés (`pending`).
+  it: Tipo di selezione non valido. Specifica se visualizzare i promemoria inviati (`sent`), mancati (`missed`) o programmati (`pending`).
+  es: Tipo de selección no válido. Especifique si desea mostrar los recordatorios enviados (`sent`), perdidos (`missed`) o programados (`pending`).
+  sv: Ogiltig valtyp. Ange om påminnelser som har skickats (`sent`), missats (`missed`) eller schemalagts (`pending`) ska visas.
+  pl: Nieprawidłowy typ wyboru. Określ, czy mają zostać wyświetlone przypomnienia wysłane (`sent`), nieodebrane (`missed`) czy zaplanowane (`pending`).
+  cs: Neplatný typ výběru. Určete, zda se mají zobrazit odeslané (`sent`), zmeškané (`missed`) nebo naplánované (`pending`) připomínky.
+  fi: Virheellinen valintatyyppi. Määritä, näytetäänkö lähetetyt (`sent`), väliin jääneet (`missed`) vai ajoitetut (`pending`) muistutukset.
+  ja: 選択タイプが無効です。送信済み (`sent`）、未対応 (`missed`）、または予定されている (`pending`）リマインダーのうち、どれを表示するかを指定してください。
+  zh: 选择类型无效。请指定要显示的是已发送 (`sent`)、未接听 (`missed`) 还是已计划 (`pending`) 的提醒。
+  ru: Неверный тип выборки. Укажите, отобразить отправленные (`sent`), пропущенные (`missed`) или планируемые (`pending`) напоминания.
+  uk: >
+    Неприпустимий тип вибору. Вкажіть, які нагадування відображати: надіслані (`sent`), пропущені (`missed`) або заплановані (`pending`).
+list.unknown-order:
+  en: Invalid sort order. Specify either ascending (`asc`) or descending (`desc`).
+  de: Ungültige Sortierreihenfolge. Geben Sie entweder aufsteigend (`asc`) oder absteigend (`desc`) an.
+  fr: Ordre de tri non valide. Indiquez soit un ordre croissant (`asc`), soit un ordre décroissant (`desc`).
+  it: Ordine di ordinamento non valido. Specificare `asc` (crescente) oppure `desc` (decrescente).
+  es: Orden de clasificación no válido. Especifique «ascendente» (`asc`) o «descendente» (`desc`).
+  sv: Ogiltig sorteringsordning. Ange antingen stigande (`asc`) eller fallande (`desc`).
+  pl: Nieprawidłowy porządek sortowania. Należy określić porządek rosnący (`asc`) lub malejący (`desc`).
+  cs: Neplatné pořadí řazení. Zadejte buď vzestupné (`asc`), nebo sestupné (`desc`).
+  fi: Virheellinen lajittelujärjestys. Määritä joko nouseva (`asc`) tai laskeva (`desc`) järjestys.
+  ja: 無効な並び順です。昇順 (`asc`）または降順 (`desc`）を指定してください。
+  zh: 排序方式无效。请指定升序 (`asc`）或降序 (`desc`）。
+  ru: Неверный тип сортировки. Укажите по возрастанию (`asc`) или по убыванию (`desc`).
+  uk: Неприпустимий порядок сортування. Вкажіть або за зростанням (`asc`), або за спаданням (`desc`).
 list.ended:
+  en: There are no more reminders.
+  de: Es gibt keine Erinnerungen mehr.
+  fr: Il n’y a plus de rappels.
+  it: Non ci sono più promemoria.
+  es: Ya no hay más recordatorios.
+  sv: Det finns inga fler påminnelser.
+  pl: Nie ma już żadnych przypomnień.
+  cs: Už nejsou žádná připomenutí.
+  fi: Muistutuksia ei enää ole.
+  ja: もうリマインダーはありません。
+  zh: 没有更多提醒了。
+  ru: Напоминаний больше нет.
+  uk: Більше немає нагадувань.
+list.empty-page:
   en: There are no reminders on this page.
+  de: Auf dieser Seite gibt es keine Erinnerungen.
+  fr: Il n’y a aucun rappel sur cette page.
+  it: Non ci sono promemoria in questa pagina.
+  es: No hay recordatorios en esta página.
+  sv: Det finns inga påminnelser på den här sidan.
+  pl: Na tej stronie nie ma żadnych przypomnień.
+  cs: Na této stránce nejsou žádné připomínky.
+  fi: Tällä sivulla ei ole muistutuksia.
+  ja: このページにはリマインダーはありません。
+  zh: 此页面上没有提醒。
+  ru: На этой странице нет напоминаний.
+  uk: На цій сторінці немає нагадувань.
 list.empty:
   en: There are no reminders.
+  de: Es gibt keine Erinnerungen.
+  fr: Il n’y a pas de rappels.
+  it: Non ci sono promemoria.
+  es: No hay recordatorios.
+  sv: Det finns inga påminnelser.
+  pl: Nie ma żadnych przypomnień.
+  cs: Nejsou zde žádná připomenutí.
+  fi: Muistutuksia ei ole.
+  ja: リマインダーはありません。
+  zh: 没有提醒。
+  ru: Напоминаний нет.
+  uk: Нагадувань немає.
 list.empty-affectionately:
   en: There are no reminders yet. Remind me it's time to create one!
+  de: Es gibt noch keine Erinnerungen. Erinnere mich daran, dass es an der Zeit ist, eine zu erstellen!
+  fr: Il n’y a pas encore de rappels. Rappelez-moi qu’il est temps d’en créer un !
+  it: Non ci sono ancora promemoria. Ricordami che è arrivato il momento di crearne uno!
+  es: Aún no hay recordatorios. ¡Recuérdame que es hora de crear uno!
+  sv: Det finns inga påminnelser än. Påminn mig om att det är dags att skapa en!
+  pl: Nie ma jeszcze żadnych przypomnień. Przypomnij mi, że pora jakieś utworzyć!
+  cs: Zatím zde nejsou žádná připomenutí. Připomeň mi, že je čas nějaké vytvořit!
+  fi: Muistutuksia ei vielä ole. Muistuta minua, että on aika luoda sellainen!
+  ja: まだリマインダーはありません。作成するタイミングになったら教えてください！
+  zh: 目前还没有提醒。提醒我该创建一个了！
+  ru: Напоминаний еще нет. Добавьте первое — создать одно!
+  uk: Нагадувань поки що немає. Нагадайте мені, що час створити одне!
+
 list.help:
   en: |
-    ##### 📜 List of reminders
-    *Total reminders: %{all_count}. ⏲️ Scheduled: %{pending_count}, 🟢 sent: %{sent_count}*
+    **📜 List of reminders**
+    *Total %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}*
     
     To display the list of reminders, specify the selection type:
-    ⏲️`pending` scheduled,
+    ⏲️ `pending` scheduled,
     🟢 `sent` sent,
     🔴 `missed` missed,
     
-    You can also specify the page number (default is 1) and the number of items per page (default is %{list_size}). For example: `/%{cmd} pending 1 30`.
+    You can also specify the page number (default is 1), the number of items per page (default is %{list_size}), and the order (default ascending `asc` order is for scheduled and descending `desc` is for the remaining).
+    For example: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
+  de: |
+    **📜 Liste der Erinnerungen**
+    *Gesamt: %{all_count}, ⏲️ Ausstehend: %{pending_count}, 🟢 Gesendet: %{sent_count}*
+
+    Um die Liste der Erinnerungen anzuzeigen, geben Sie den Auswahltyp an:
+    ⏲️ `pending` (geplant),
+    🟢 `sent` (gesendet),
+    🔴 `missed` (verpasst),
+
+    Sie können zudem die Seitenzahl (Standard: 1), die Anzahl der Einträge pro Seite (Standard: %{list_size}) sowie die Sortierreihenfolge festlegen (die standardmäßige aufsteigende Sortierung (`asc`) gilt für geplante Einträge, die absteigende Sortierung (`desc`) für die übrigen). 
+    Beispiele: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
+  fr: |
+    **📜 Liste des rappels**
+    *Total : %{all_count}, ⏲️ En attente : %{pending_count}, 🟢 Envoyés : %{sent_count}*
+
+    Pour afficher la liste des rappels, précisez le type de sélection :
+    ⏲️ `pending` (en attente),
+    🟢 `sent` (envoyés),
+    🔴 `missed` (manqués),
+
+    Vous pouvez également indiquer le numéro de page (par défaut : 1), le nombre d'éléments par page (par défaut : %{list_size}) et l'ordre de tri (l'ordre croissant par défaut (`asc`) s'applique aux éléments planifiés, tandis que l'ordre décroissant (`desc`) s'applique au reste). 
+    Exemples : `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
+  it: |
+    **📜 Elenco dei promemoria**
+    *Totale %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}*
+
+    Per visualizzare l'elenco dei promemoria, specifica il tipo di selezione:
+    ⏲️ `pending` (pianificati),
+    🟢 `sent` (inviati),
+    🔴 `missed` (mancati),
+
+    Puoi inoltre specificare il numero di pagina (predefinito: 1), il numero di elementi per pagina (predefinito: %{list_size}) e l'ordine (predefinito è crescente (`asc`) per gli elementi pianificati, mentre è decrescente (`desc`) per i restanti). 
+    Esempi: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
+  es: |
+    **📜 Lista de recordatorios**
+    *Total: %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}*
+
+    Para mostrar la lista de recordatorios, especifica el tipo de selección:
+    ⏲️ `pending` (programados),
+    🟢 `sent` (enviados),
+    🔴 `missed` (omitidos),
+
+    También puedes indicar el número de página (por defecto es 1), la cantidad de elementos por página (por defecto es %{list_size}) y el orden (ascendente predeterminado (`asc`) se aplica a los elementos programados, mientras que el descendente (`desc`) se aplica al resto). 
+    Por ejemplo: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
+  sv: |
+    **📜 Lista över påminnelser**
+    *Totalt %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}*
+
+    För att visa listan över påminnelser, ange urvalstyp:
+    ⏲️ `pending` – schemalagda,
+    🟢 `sent` – skickade,
+    🔴 `missed` – missade,
+
+    Du kan även ange sidnummer (standard är 1), antal objekt per sida (standard är %{list_size}) samt sorteringsordning (standardordningen är stigande (`asc`) för schemalagda poster, och fallande (`desc`) för övriga). 
+    Exempel: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
+  pl: |
+    **📜 Lista przypomnień**
+    *Łącznie: %{all_count}, ⏲️ oczekujące: %{pending_count}, 🟢 wysłane: %{sent_count}*
+
+    Aby wyświetlić listę przypomnień, określ typ zestawienia:
+    ⏲️ `pending` – zaplanowane,
+    🟢 `sent` – wysłane,
+    🔴 `missed` – pominięte.
+
+    Możesz również podać numer strony (domyślnie 1), liczbę elementów na stronie (domyślnie %{list_size}) oraz kolejność sortowania (domyślny porządek rosnący (`asc`) dotyczy elementów zaplanowanych, a porządek malejący (`desc`) – pozostałych). 
+    Przykłady: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
+  cs: |
+    **📜 Seznam připomínek**
+    *Celkem %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}*
+
+    Pro zobrazení seznamu připomínek uveďte typ výběru:
+    ⏲️ `pending` – naplánované,
+    🟢 `sent` – odeslané,
+    🔴 `missed` – zmeškané,
+
+    Můžete také zadat číslo stránky (výchozí je 1), počet položek na stránku (výchozí je %{list_size}) a pořadí (výchozí vzestupné pořadí (`asc`) platí pro naplánované položky, zatímco sestupné pořadí (`desc`) platí pro ostatn). 
+    Například: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
+  fi: |
+    **📜 Muistutusluettelo**
+    *Yhteensä %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}*
+
+    Näytä muistutusluettelo määrittämällä valintatyyppi:
+    ⏲️ `pending` – ajoitetut,
+    🟢 `sent` – lähetetyt,
+    🔴 `missed` – väliin jääneet,
+
+    Voit myös määrittää sivun numeron (oletus on 1), kohteiden määrän sivulla (oletus on %{list_size}) sekä järjestyksen (oletusarvoinen nouseva järjestys (`asc`) koskee ajoitettuja kohteita, ja laskeva järjestys (`desc`) koskee loput). 
+    Esimerkiksi: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
+  ja: |
+    **📜 リマインダー一覧**
+    *合計 %{all_count} 件、⏲️ 未送信 %{pending_count} 件、🟢 送信済み %{sent_count} 件*
+
+    リマインダー一覧を表示するには、対象の種類を指定してください：
+    ⏲️ `pending`（予定されているもの）、
+    🟢 `sent`（送信済み）、
+    🔴 `missed`（送信できなかったもの）
+
+    ページ番号（デフォルトは1）、1ページあたりの項目数（デフォルトは %{list_size}）、および並び順（デフォルトは、予定されている項目については昇順 `asc`、それ以外については降順 `desc`）を指定することも可能です。
+    例：`/%{cmd} pending`、`/%{cmd} sent 1 50 asc`
+  zh: |
+    **📜 提醒列表**
+    *总计 %{all_count}，⏲️ 待发送 %{pending_count}，🟢 已发送 %{sent_count}*
+
+    若要查看提醒列表，请指定筛选类型：
+    ⏲️ `pending`（待发送），
+    🟢 `sent`（已发送），
+    🔴 `missed`（已错过），
+
+    您还可以指定页码（默认为 1）、每页显示的条目数（默认为 %{list_size}）以及排序方式（默认采用升序 `asc`，适用于“已计划”项；其余项则默认采用降序 `desc`）。
+    例如：`/%{cmd} pending`，`/%{cmd} sent 1 50 asc`。
   ru: |
-    ##### 📜 Список напоминаний
-    *Всего напоминаний: %{all_count}. ⏲️ Запланированных: %{pending_count}, 🟢 отправленных: %{sent_count}*
+    **📜 Список напоминаний**
+    *Всего %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}*
     
     Для отображения списка напоминаний укажите тип напоминаний:
     - `pending` планируемые,
     - `sent` отправленные,
     - `missed` пропущенные,
     
-    Также вы можете указать номер страницы (по умолчанию 1) и количество элементов на странице (по умолчанию %{list_size}). Например: `/%{cmd} pending 1 30`.
+    Также вы можете указать номер страницы (по умолчанию 1), количество элементов на странице (по умолчанию %{list_size}) и порядок сортировки (по умолчанию по возрастанию для запланированных — `asc`, по убыванию для остальных — `desc`).
+    Например: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
+  uk: |
+    **📜 Список нагадувань**
+    *Усього: %{all_count}, ⏲️ очікують: %{pending_count}, 🟢 надіслані: %{sent_count}*
+
+    Щоб переглянути список нагадувань, вкажіть тип вибірки:
+    ⏲️ `pending` — заплановані,
+    🟢 `sent` — надіслані,
+    🔴 `missed` — пропущені.
+
+    Також можна вказати номер сторінки (за замовчуванням — 1), кількість записів на сторінці (за замовчуванням — %{list_size}) та порядок сортування (для запланованих використовується порядок за зростанням `asc`, а для решти — порядок за спаданням `desc`). 
+    Наприклад: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
 list.scope.0:
   en: ⏲️ scheduled
+  de: ⏲️ geplant
+  fr: ⏲️ programmé
+  it: ⏲️ programmato
+  es: ⏲️ programado
+  sv: ⏲️ schemalagd
+  pl: ⏲️ zaplanowano
+  cs: ⏲️ naplánováno
+  fi: ⏲️ ajoitettu
+  ja: ⏲️ 予定済み
+  zh: ⏲️ 已安排
   ru: ⏲️ запланированные
+  uk: ⏲️ заплановано
 list.scope.1:
   en: 🟢 sent
+  de: 🟢 gesendet
+  fr: 🟢 envoyé
+  it: 🟢 inviato
+  es: 🟢 enviado
+  sv: 🟢 skickat
+  pl: 🟢 wysłano
+  cs: 🟢 odesláno
+  fi: 🟢 lähetetty
+  ja: 🟢 送信済み
+  zh: 🟢 已发送
   ru: 🟢 отправленные
+  uk: 🟢 надіслано
 list.scope.2:
   en: 🔴 missed
+  de: 🔴 verpasst
+  fr: 🔴 manqué
+  it: 🔴 mancato
+  es: 🔴 omitido
+  sv: 🔴 missade
+  pl: 🔴 pominięto
+  cs: 🔴 zmeškal
+  fi: 🔴 ohi
+  ja: 🔴 逃した
+  zh: 🔴 错过了
   ru: 🔴 пропущенные
+  uk: 🔴 пропущено
 list.scope-short.0:
   en: ⏲️
 list.scope-short.1:
   en: 🟢
 list.scope-short.2:
   en: 🔴
-list.unknown-scope:
-  en: Invalid selection type. Specify whether to display sent (`sent`), missed (`missed`), or scheduled (`pending`) reminders.
-  ru: Неверный тип выборки. Укажите, отобразить отправленные (`sent`), пропущенные (`missed`) или планируемые (`pending`) напоминания.
+list.order.ASC:
+  en: in ascending order
+  de: in aufsteigender Reihenfolge
+  fr: par ordre croissant
+  it: in ordine crescente
+  es: en orden ascendente
+  sv: i stigande ordning
+  pl: w porządku rosnącym
+  cs: ve vzestupném pořadí
+  fi: nousevassa järjestyksessä
+  ja: 昇順で
+  zh: 按升序排列
+  ru: по возрастанию
+  uk: у порядку зростання
+list.order.DESC:
+  en: in descending order
+  de: in absteigender Reihenfolge
+  fr: par ordre décroissant
+  it: in ordine decrescente
+  es: en orden descendente
+  sv: i fallande ordning
+  pl: w porządku malejącym
+  cs: v sestupném pořadí
+  fi: laskevassa järjestyksessä
+  ja: 降順で
+  zh: 按降序排列
+  ru: по убыванию
+  uk: у порядку спадання
 list.by-date:
   en: |
-    ##### 📜 List of reminders
-    *%{scope}, %{count} out of %{size} requested, page %{page}*
+    **%{scope_short} Reminders**
+    *%{count} out of %{size} requested, page %{page}, %{order}*
+
+    %{list}
+  de: |
+    **%{scope_short}-Erinnerungen**
+    *%{count} von %{size} angefordert, Seite %{page}, %{order}*
+
+    %{list}
+  fr: |
+    **Rappels %{scope_short}**
+    *%{count} sur %{size} demandés, page %{page}, %{order}*
+    
+    %{list}
+  it: |
+    **Promemoria %{scope_short}**
+    *%{count} su %{size} richiesti, pagina %{page}, %{order}*
+
+    %{list}
+  es: |
+    **Recordatorios de %{scope_short}**
+    *%{count} de %{size} solicitados, página %{page}, %{order}*
+
+    %{list}
+  sv: |
+    **%{scope_short} Påminnelser**
+    *%{count} av %{size} efterfrågade, sida %{page}, %{order}*
+
+    %{list}
+  pl: |
+    **Przypomnienia – %{scope_short}**
+    *%{count} z %{size} – wyświetlono %{page}, sortowanie: %{order}*
+
+    %{list}
+  cs: |
+    **Připomínky: %{scope_short}**
+    *%{count} z %{size} vyžádaných, strana %{page}, %{order}*
+
+    %{list}
+  fi: |
+    **%{scope_short}-muistutukset**
+    *%{count} / %{size} pyydetty, sivu %{page}, %{order}*
+
+    %{list}
+  ja: |
+    **%{scope_short} リマインダー**
+    *%{size} 件中 %{count} 件取得済み、ページ %{page}、%{order}*
+
+    %{list}
+  zh: |
+    **%{scope_short} 提醒**
+    *已请求 %{count} 项（共 %{size} 项），第 %{page} 页，排序方式：%{order}*
 
     %{list}
   ru: |
-    ##### 📜 Список напоминаний
-    *%{scope}, %{count} из запрошенных %{size}, страница %{page}*
+    **%{scope_short} Напоминания**
+    *%{count} из запрошенных %{size}, страница %{page}, %{order}*
+
+    %{list}
+  uk: |
+    **Нагадування: %{scope_short}**
+    *%{count} із %{size} запитаних, сторінка %{page}, %{order}*
 
     %{list}
 list.by-date.section:
