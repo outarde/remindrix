@@ -65,8 +65,9 @@ welcome.on_command:
     ###### 🪄 Commands
     - Put `/` or `!` at the beginning
     - `%{cmd_list}` - create a reminder
-    - `%{cmd_set_list}` - bot settings, including time zone, for users and rooms
     - `%{cmd_list} --help` - print help for Pro mode
+    - `%{cmd_set_list}` - bot settings, including time zone, for users and rooms
+    - `%{cmd_list_list}` - list of reminders
   de: |
     Ich bin ein Erinnerungs-Bot. Sende: `/%{cmd_local}` und Datum, Uhrzeit und Erinnerungstext in derselben Zeile. Zum Beispiel: `/%{cmd_local} %{date} 20:03 deine Erinnerung`.
 
@@ -82,6 +83,7 @@ welcome.on_command:
     – Setzen Sie `/` oder `!` vor einen Befehl
     - `%{cmd_list}`- eine Erinnerung erstellen
     - `%{cmd_list} --help` - Hilfe für den Pro-Modus ausgeben (nur auf Englisch)
+    - `%{cmd_list_list}` - Liste der Erinnerungen
     - `%{cmd_set_list}` - Einstellungen, einschließlich Zeitzone
   fr: |
     Je suis un bot de rappel. Envoyez: `/%{cmd_local}` suivi de la date, de l'heure et du texte du rappel sur la même ligne. Par exemple: `/%{cmd_local} %{date} 20:03 votre rappel`.
@@ -98,6 +100,7 @@ welcome.on_command:
     - Mettez `/` ou `!` avant une commande 
     - `%{cmd_list}` - crée un rappel
     - `%{cmd_list} --help` - afficher l'aide pour le mode Pro (en anglais uniquement)
+    - `%{cmd_list_list}` - liste des rappels
     - `%{cmd_set_list}` - paramètres, y compris le fuseau horaire
   it: |
     Sono un bot per i promemoria. Invia: `/%{cmd_local}` seguito da data, ora e testo del promemoria sulla stessa riga. Ad esempio: `/%{cmd_local} %{date} 20:03 il tuo promemoria`.
@@ -114,6 +117,7 @@ welcome.on_command:
     - `%{cmd_list}` - crea un promemoria
     - `%{cmd_list} --help` - stampa la guida per la modalità Pro (solo in inglese)
     - `%{cmd_set_list}` - impostazioni, incluso il fuso orario
+    - `%{cmd_list_list}` - elenco dei promemoria
   es: |
     Soy un bot de recordatorios. Envía: `/%{cmd_local}` y la fecha, la hora y el texto del recordatorio en la misma línea. Por ejemplo: `/%{cmd_local} %{date} 20:03 tu recordatorio`.
 
@@ -130,6 +134,7 @@ welcome.on_command:
     - `%{cmd_list}` - crea un recordatorio
     - `%{cmd_list} --help` - imprimir ayuda para el modo Pro (solo en inglés)
     - `%{cmd_set_list}` - configuración, incluida la zona horaria
+    - `%{cmd_list_list}` - lista de recordatorios
   sv: |
     Jag är en påminnelsebot. Skicka: `/%{cmd_local}` och datum, tid och påminnelsetext på samma rad. Till exempel: `/%{cmd_local} %{date} 20:03 din påminnelse`.
 
@@ -146,6 +151,7 @@ welcome.on_command:
     - `%{cmd_list}` - skapa en påminnelse
     - `%{cmd_list} --help` - skriv ut hjälp för Pro-läget (endast på engelska)
     - `%{cmd_set_list}` - inställningar, inklusive tidszon
+    - `%{cmd_list_list}` - lista över påminnelser
   pl: |
     Jestem botem przypominającym. Wyślij: `/%{cmd_local}` oraz datę, godzinę i tekst przypomnienia w jednym wierszu. Na przykład: `/%{cmd_local} %{date} 20:03 Twoje przypomnienie`.
 
@@ -162,6 +168,7 @@ welcome.on_command:
     - `%{cmd_list}` - utwórz przypomnienie
     - `%{cmd_list} --help` - wyświetl pomoc dla trybu Pro (tylko w języku angielskim)
     - `%{cmd_set_list}` - ustawienia, w tym strefa czasowa
+    - `%{cmd_list_list}` - lista przypomnień
   cs: |
     Jsem bot pro připomenutí. Pošlete: `/%{cmd_local}` a datum, čas a text připomenutí na stejný řádek. Například: `/%{cmd_local} %{date} 20:03 vaše připomenutí`.
 
@@ -178,6 +185,7 @@ welcome.on_command:
     - `%{cmd_list}` - vytvoří připomenutí
     - `%{cmd_list} --help` - zobrazit nápovědu pro režim Pro (pouze v angličtině)
     - `%{cmd_set_list}` - nastavení včetně časového pásma
+    - `%{cmd_list_list}` - seznam připomínek
   fi: |
     Olen muistutusbotti. Lähetä: `/%{cmd_local}` ja päivämäärä, kellonaika ja muistutuksen teksti samalla rivillä. Esimerkiksi: `/%{cmd_local} %{date} 20:03 muistutuksesi`.
 
@@ -194,6 +202,7 @@ welcome.on_command:
     - `%{cmd_list}` - luo muistutus
     - `%{cmd_list} --help` - tulosta Pro-tilan ohje (vain englanniksi)
     - `%{cmd_set_list}` - asetukset, mukaan lukien aikavyöhyke
+    - `%{cmd_list_list}` - muistutusluettelo
   ja: |
     私はリマインダーボットです。`/%{cmd_local}` と日付、時刻、リマインダーのテキストを同じ行に送信してください。例：`/%{cmd_local} %{date} 20:03 ゴジラの耳の後ろを掻いて`。
 
@@ -210,6 +219,7 @@ welcome.on_command:
     - `%{cmd_list}` - リマインダーを作成します
     - `%{cmd_list} --help` - Proモードのヘルプを表示する（英語のみ）
     - `%{cmd_set_list}` - タイムゾーンを含むボット設定
+    - `%{cmd_list_list}` - リマインダー一覧
   zh: |
     我是一个提醒机器人。发送：`/%{cmd_local}`，日期、时间和提醒文本写在同一行。例如：`/%{cmd_local} %{date} 20:03 您的提醒`。
 
@@ -226,6 +236,7 @@ welcome.on_command:
     - `%{cmd_list}` - 创建提醒
     - `%{cmd_list} --help` - 打印专业模式的帮助信息（仅限英文）
     - `%{cmd_set_list}` - 机器人设置，包括时区
+    - `%{cmd_list_list}` - 提醒列表
   ru: |
     Я бот-напоминалка. Напишите: `/%{cmd_local}` и дату, время и текст напоминания в той же строке. Например: `/%{cmd_local} %{date} 14:00 ваше напоминание`.
     
@@ -242,6 +253,7 @@ welcome.on_command:
       - `%{cmd_list}` - создать напоминание
       - `%{cmd_list} --help` - показать справку по Pro-режиму (только на английском языке)
       - `%{cmd_set_list}` - настройки, включая часовой пояс
+      - `%{cmd_list_list}` - список напоминаний
   uk: |
     Я бот-нагадування. Надішліть: `/%{cmd_local}` та дату, час і текст нагадування в одному рядку. Наприклад: `/%{cmd_local} %{date} 20:03 ваше нагадування`.
 
@@ -258,6 +270,7 @@ welcome.on_command:
     - `%{cmd_list}` - створити нагадування
     - `%{cmd_list} --help` - вивести довідку для режиму Pro (лише англійською мовою)
     - `%{cmd_set_list}` - налаштування бота, зокрема часовий пояс
+    - `%{cmd_list_list}` - список нагадувань
 welcome.on_command_off:
   en: |
     I am a reminder bot. Send the date, time and reminder text on the same line. For example: `%{date} 20:03 your reminder`.
@@ -275,6 +288,7 @@ welcome.on_command_off:
     - `%{cmd_list}` - create a reminder, too
     - `%{cmd_list} --help` - print help for Pro mode
     - `%{cmd_set_list}` - bot settings, including time zone
+    - `%{cmd_list_list}` - list of reminders
   de: |
     Ich bin ein Erinnerungs-Bot. Sende mir Datum, Uhrzeit und Erinnerungstext in einer Zeile. Zum Beispiel: `%{date} 20:03 deine Erinnerung`.
 
@@ -291,6 +305,7 @@ welcome.on_command_off:
     - `%{cmd_list}`- eine Erinnerung erstellen
     - `%{cmd_list} --help` - Hilfe für den Pro-Modus ausgeben (nur auf Englisch)
     - `%{cmd_set_list}` - Einstellungen, einschließlich Zeitzone
+    - `%{cmd_list_list}` - Liste der Erinnerungen
   fr: |
     Je suis un bot de rappel. Envoyez-moi la date, l'heure et le texte du rappel sur la même ligne. Par exemple : `%{date} 20:03 votre rappel`.
 
@@ -307,6 +322,7 @@ welcome.on_command_off:
     - `%{cmd_list}` - crée un rappel
     - `%{cmd_list} --help` - afficher l'aide pour le mode Pro (en anglais uniquement)
     - `%{cmd_set_list}` - paramètres, y compris le fuseau horaire
+    - `%{cmd_list_list}` - liste des rappels
   it: |
     Sono un bot per i promemoria. Inviami la data, l'ora e il testo del promemoria sulla stessa riga. Ad esempio: `%{date} 20:03 il tuo promemoria`.
 
@@ -322,6 +338,7 @@ welcome.on_command_off:
     - `%{cmd_list}` - crea un promemoria
     - `%{cmd_list} --help` - stampa la guida per la modalità Pro (solo in inglese)
     - `%{cmd_set_list}` - impostazioni, incluso il fuso orario
+    - `%{cmd_list_list}` - elenco dei promemoria
   es: |
     Soy un bot de recordatorios. Envíame la fecha, la hora y el texto del recordatorio en la misma línea. Por ejemplo: `%{fecha} 20:03 tu recordatorio`.
 
@@ -338,6 +355,7 @@ welcome.on_command_off:
     - `%{cmd_list}` - crea un recordatorio
     - `%{cmd_list} --help` - imprimir ayuda para el modo Pro (solo en inglés)
     - `%{cmd_set_list}` - configuración, incluida la zona horaria
+    - `%{cmd_list_list}` - lista de recordatorios
   sv: |
     Jag är en påminnelsebot. Skicka mig datum, tid och påminnelsetext på samma rad. Till exempel: `%{date} 20:03 din påminnelse`.
 
@@ -354,6 +372,7 @@ welcome.on_command_off:
     - `%{cmd_list}` - skapa en påminnelse
     - `%{cmd_list} --help` - skriv ut hjälp för Pro-läget (endast på engelska)
     - `%{cmd_set_list}` - inställningar, inklusive tidszon
+    - `%{cmd_list_list}` - lista över påminnelser
   pl: |
     Jestem botem przypominającym. Wyślij mi datę, godzinę i tekst przypomnienia w jednym wierszu. Na przykład: `%{date} 20:03 twoje przypomnienie`.
 
@@ -370,6 +389,7 @@ welcome.on_command_off:
     - `%{cmd_list}` - utwórz przypomnienie
     - `%{cmd_list} --help` - wyświetl pomoc dla trybu Pro (tylko w języku angielskim)
     - `%{cmd_set_list}` - ustawienia, w tym strefa czasowa
+    - `%{cmd_list_list}` - lista przypomnień
   cs: |
     Jsem bot pro připomenutí. Pošlete mi datum, čas a text připomenutí na stejném řádku. Například: `%{date} 20:03 vaše připomenutí`.
 
@@ -386,6 +406,7 @@ welcome.on_command_off:
     - `%{cmd_list}` - vytvoří připomenutí
     - `%{cmd_list} --help` - zobrazit nápovědu pro režim Pro (pouze v angličtině)
     - `%{cmd_set_list}` - nastavení včetně časového pásma
+    - `%{cmd_list_list}` - seznam připomínek
   fi: |
     Olen muistutusbotti. Lähetä minulle päivämäärä, aika ja muistutusteksti samalla rivillä. Esimerkiksi: `%{date} 20:03 muistutuksesi`.
 
@@ -402,6 +423,7 @@ welcome.on_command_off:
     - `%{cmd_list}` - luo muistutus
     - `%{cmd_list} --help` - tulosta Pro-tilan ohje (vain englanniksi)
     - `%{cmd_set_list}` - asetukset, mukaan lukien aikavyöhyke
+    - `%{cmd_list_list}` - muistutusluettelo
   ja: |
     私はリマインダーボットです。日付、時刻、リマインダーのテキストを同じ行で送信してください。例：`%{date} 20:03 あなたのリマインダー`。
 
@@ -418,6 +440,7 @@ welcome.on_command_off:
     - `%{cmd_list}` - リマインダーを作成します
     - `%{cmd_list} --help` - Proモードのヘルプを表示する（英語のみ）
     - `%{cmd_set_list}` - タイムゾーンを含むボット設定
+    - `%{cmd_list_list}` - リマインダー一覧
   zh: |
     我是提醒机器人。请将日期、时间和提醒文本写在同一行。例如：`%{date} 20:03 您的提醒`。
 
@@ -435,6 +458,7 @@ welcome.on_command_off:
     - `%{cmd_list}` - 创建提醒
     - `%{cmd_list} --help` - 打印专业模式的帮助信息（仅限英文）
     - `%{cmd_set_list}` - 机器人设置，包括时区
+    - `%{cmd_list_list}` - 提醒列表
   ru: |
     Я бот-напоминалка. Отправьте мне дату, время и текст напоминания в той же строке. Например: `%{date} 14:00 ваше напоминание`.
     
@@ -451,6 +475,7 @@ welcome.on_command_off:
       - `%{cmd_list}` - тоже создать напоминание
       - `%{cmd_list} --help` - показать справку по Pro-режиму (только на английском языке)
       - `%{cmd_set_list}` - настройки, включая часовой пояс
+      - `%{cmd_list_list}` - список напоминаний
   uk: |
     Я бот-нагадування. Надішліть: дату, час і текст нагадування в одному рядку. Наприклад: `%{date} 20:03 ваше нагадування`.
 
@@ -467,6 +492,7 @@ welcome.on_command_off:
     - `%{cmd_list}` - теж створити нагадування
     - `%{cmd_list} --help` - вивести довідку для режиму Pro (лише англійською мовою)
     - `%{cmd_set_list}` - налаштування бота, зокрема часовий пояс
+    - `%{cmd_list_list}` - список нагадувань
 reminder.command:
   en: remind
   de: erinnern
