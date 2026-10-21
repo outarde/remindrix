@@ -636,7 +636,7 @@ pub async fn _handle_reaction_update(
 */
 
 /// Handle flipping through pages of reminders list via reaction-buttons.
-pub async fn handle_list_flipping(
+async fn handle_list_flipping(
     _event: OriginalSyncMessageLikeEvent<ReactionEventContent>,
     target_event_id: &EventId,
     key: BotReactionsCommand,

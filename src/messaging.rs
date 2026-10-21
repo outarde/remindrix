@@ -183,7 +183,7 @@ impl RoomMessenger {
         let _ = self.room.send(content).await;
     }
     /// Send reaction to the related event (message).
-    pub async fn react_with_event_id(
+    pub async fn _react_with_event_id(
         &self,
         event_id: OwnedEventId,
         emoji: MessageReaction

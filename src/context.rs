@@ -14,7 +14,7 @@ use itertools::Itertools;
 
 // app crates
 use crate::db::{ReminderRepository, SettingRepository};
-use crate::reminder::{ReminderData, ReminderError, ReminderStatus};
+use crate::reminder::{ReminderData, ReminderStatus};
 use crate::settings::{
     ActiveSettings,
 };

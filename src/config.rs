@@ -175,7 +175,7 @@ impl BotConfig {
         DEFAULT_EVENING_TIME.into()
     }
     fn default_list_size() -> i32 {
-        30
+        DEFAULT_LIST_SIZE
     }
     fn new_messages_for_pages() -> bool {
         false

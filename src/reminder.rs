@@ -80,7 +80,6 @@ pub enum ReminderError {
     #[error("tz.not-set")] TzNotSet,
     #[error("error.unsafe-datetime")] JiffError(#[from] jiff::Error), 
     #[error("error.matrix")] MatrixError(#[from] matrix_sdk::Error),
-    #[error("list.help")] ListHelp,
     #[error("list.unknown-scope")] ListUnknownScope,
     #[error("list.unknown-order")] ListUnknownOrder,
     #[error("list.error")] ListError,

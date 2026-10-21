@@ -18,7 +18,6 @@ use rust_i18n::t;
 
 use crate::context::CommandContext;
 use crate::db::{DbContext, ListRepository};
-use crate::config::BotConfig;
 use crate::reminder::{RawReminder, Reminder, ReminderData, ReminderStatus, ReminderError, DelegationType};
 
 /// Reminders filters/scopes. Can be expanded by options "all" or "assigned".
