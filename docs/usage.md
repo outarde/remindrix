@@ -15,17 +15,30 @@ Example commands:
 ### Change the Language
 You can change the room language via the settings:
 
-- `/settings lang` displays the available languages ​​(including those loaded via your localization file)
+- `/settings lang` displays the available languages (including those loaded via your localization file)
 - `/settings lang fr` sets the language using its code (in this case, French)
 
 ### Change Default Times
 You can also change the default time settings. These are the times used when no specific time is specified, as well as when you type `morning`, `afternoon`, or `evening` (including in the language set for the room).
 
 - `/settings time` displays the current values.
-- `/settings time --default 11:00 --evening 22:00` updates the values ​​(in this case, for the default time and evening).
+- `/settings time --default 11:00 --evening 22:00` updates the values (in this case, for the default time and evening).
 
 ### Change the Time Zone
 Use the `/settings tz` command to display the room's time zone - by default this is the time zone from the bot settings. To change it, add [time zone code](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) to the command, for example: `/tz Europe/Paris`.
+
+### View the list of reminders
+Send the `/list` command to view help information. The full command for displaying the list is: `/list [scope] [page] [size] [order]`.
+
+You should filter reminders by their scope:
+
+- ⏲️ `pending` — scheduled reminders;
+- 🟢 `sent` — reminders that have already been sent (their scheduled time has passed);
+- 🔴 `missed` — reminders that failed to be sent on time (currently, this only happens if the bot was offline).
+
+Other parameters are set to default values: page `1`; the number of reminders per page is determined by the `list_size` variable in the configuration (default is `30`); and the default sort order is ascending (`asc`) by date for `pending` reminders, and descending (`desc`) for all other statuses.
+
+You can navigate between pages using the reaction buttons (⏪ and ⏩) located below the list message. If these buttons do not appear, it means there are no further reminders on subsequent pages.
 
 ## Behaviour Details
 ### Summary
@@ -37,11 +50,23 @@ After reminders are sent, they are not deleted from the database but marked as s
 > Reminders are stored unencrypted.
 
 ### Statuses
-Currently, only two statuses are implemented for reminders: pending and sent. Interaction with them is not provided.
+Currently, only three statuses are implemented for reminders: pending, sent and missed. Interaction with them is not provided. These are more in the nature of reminder states than characteristics that a user sets in order to manage them.
+
+### Reaction-buttons
+Reaction-buttons are a way to interact with entities linked to specific messages—for instance, pagination buttons on a message containing a list of reminders. When a user "presses" one—which, in practice, means adding their own reaction to a message where the bot has already placed a reaction acting as a button specific action is triggered.
+
+#### Technical Details
+Implementing this functionality is quite cumbersome in terms of code. The database must store a mapping between a message ID and the ID of the associated entity (such as a specific reminder) or a functional key (like "list"), along with a unique action key for each button. State information must be tracked individually, as each update provides only the new state for that specific reaction. We must either retrieve existing data from the database and merge it with the new information, or—as is currently implemented—store each button as a separate entry in the database to allow for simple overwriting.
+
+Furthermore, an earlier version of the implementation tracked the IDs of the buttons attached to each message, which would have allowed for button management. For example, removing pagination buttons once the final page is reached. However, this approach encountered a visual issue: when a user adds a reaction, it remains "pressed" (active). While the bot can remove its own reaction, the button’s removal won't be visible to the user until they also remove their own reaction. One could theoretically resolve this by generating a new message for every page, but that would result in an even poorer user experience than simply abandoning the button-removal feature. The relevant code remains in the bot, though it is currently unused.
+
+Additionally, there is a limitation regarding these "button presses": after a user selects a reaction, they must remove it before they can select it again. (The Matrix protocol does not allow a user to send the same reaction multiple times.) Treating the removal of a reaction as equivalent to a button press struck us as a solution that might not be intuitive for users. Furthermore, due to the specifics of the Matrix Rust SDK (the content of a redacted reaction event (`RedactedMessageLikeEvent { content: RedactedReactionEventContent }`) lacks a `related_to` field) we would have had to store user reactions in a database. Then, whenever **any** reaction was removed, we would have needed to verify whether the reaction ID (from the `RedactedSyncMessageLikeEvent` structure) was linked to the ID of the message being listed, and only then trigger a page flip. This would have created unnecessary overhead.
+
+I also considered using the `moka` crate to store the state of the buttons, which would avoid the need to query the database. This same crate could be used to implement features such as triggering a "reaction" when the end of a list is reached. A reaction that would then disappear when the user scrolls in the opposite direction or when its TTL in `moka` expires. However, it seems likely that triggering a reaction for every single click would become annoying; the buttons would shift position, meaning the button on the right wouldn't always stay on the right, even though it would still trigger a reaction. Furthermore, while using reactions to signal that the end of a list has been reached is an elegant touch, it might not be intuitively understood by everyone.
 
 ## Rooms and Users Settings
 ### Settings Distribution
-Room settings (configured individually for each room where the bot is present, or using values ​​from the config):
+Room settings (configured individually for each room where the bot is present, or using values from the config):
 - language
 - time zone
 
@@ -93,4 +118,4 @@ You don't need to enable this mode specifically: the bot tries to recognize any 
 If you delegate a reminder to another room, the reminder will use that room's time zone. Default time settings cannot be used in this case, as it is unknown which specific user they would apply to. Even if you specify a user via the `--user` parameter, the Remindrix-bot will use your `default_time` rather than the one saved for that user.
 
 ### User Delegation
-This feature is designed to mention the user to whom the reminder is delegated when the notification appears, rather than to search for that user's personal chat with the bot. The idea of ​​an "address book" is being considered, but for now, it seems too cumbersome for a messenger interface.
+This feature is designed to mention the user to whom the reminder is delegated when the notification appears, rather than to search for that user's personal chat with the bot. The idea of an "address book" is being considered, but for now, it seems too cumbersome for a messenger interface.
