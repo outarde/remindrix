@@ -1197,32 +1197,32 @@ list.order.DESC:
 list.by-date:
   en: |
     **%{scope_short} Reminders**
-    *%{count} out of %{size} requested, page %{page}, %{order}*
+    *page %{page}, %{order}, %{count} out of %{size} requested*
 
     %{list}
   de: |
     **%{scope_short}-Erinnerungen**
-    *%{count} von %{size} angefordert, Seite %{page}, %{order}*
+    *Seite %{page}, %{order}, %{count} von %{size} angefordert*
 
     %{list}
   fr: |
     **Rappels %{scope_short}**
-    *%{count} sur %{size} demandés, page %{page}, %{order}*
+    *page %{page}, %{order}, %{count} sur %{size} demandés*
     
     %{list}
   it: |
     **Promemoria %{scope_short}**
-    *%{count} su %{size} richiesti, pagina %{page}, %{order}*
+    *pagina %{page}, %{order}, %{count} su %{size} richiesti*
 
     %{list}
   es: |
     **Recordatorios de %{scope_short}**
-    *%{count} de %{size} solicitados, página %{page}, %{order}*
+    *página %{page}, %{order}, %{count} de %{size} solicitados*
 
     %{list}
   sv: |
     **%{scope_short} Påminnelser**
-    *%{count} av %{size} efterfrågade, sida %{page}, %{order}*
+    *sida %{page}, %{order}, %{count} av %{size} efterfrågade*
 
     %{list}
   pl: |
@@ -1232,32 +1232,32 @@ list.by-date:
     %{list}
   cs: |
     **Připomínky: %{scope_short}**
-    *%{count} z %{size} vyžádaných, strana %{page}, %{order}*
+    *strana %{page}, %{order}, %{count} z %{size} vyžádaných*
 
     %{list}
   fi: |
     **%{scope_short}-muistutukset**
-    *%{count} / %{size} pyydetty, sivu %{page}, %{order}*
+    *sivu %{page}, %{order}, %{count} / %{size} pyydetty*
 
     %{list}
   ja: |
     **%{scope_short} リマインダー**
-    *%{size} 件中 %{count} 件取得済み、ページ %{page}、%{order}*
+    *ページ %{page}、%{order}、%{size} 件中 %{count} 件取得済み*
 
     %{list}
   zh: |
     **%{scope_short} 提醒**
-    *已请求 %{count} 项（共 %{size} 项），第 %{page} 页，排序方式：%{order}*
+    *第 %{page} 页，排序方式：%{order}，已请求 %{count} 项（共 %{size} 项）*
 
     %{list}
   ru: |
     **%{scope_short} Напоминания**
-    *%{count} из запрошенных %{size}, страница %{page}, %{order}*
+    *страница %{page}, %{order}, %{count} из запрошенных %{size}*
 
     %{list}
   uk: |
     **Нагадування: %{scope_short}**
-    *%{count} із %{size} запитаних, сторінка %{page}, %{order}*
+    *сторінка %{page}, %{order}, %{count} із %{size} запитаних*
 
     %{list}
 list.by-date.section:
