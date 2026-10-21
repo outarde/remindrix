@@ -43,4 +43,4 @@ evening: "19:00"
 # Default length for the reminder list (the `/list` command to the bot).
 list_size: 30
 # Send new pages as new messages or edit the single message.
-new_message_for_page: true
+messages_for_pages: true
