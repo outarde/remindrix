@@ -21,7 +21,7 @@ use crate::settings::{
 use crate::messaging::{
     RoomMessenger, MessageReaction,
 };
-use crate::list::{StateKey, ButtonState, ReminderStats};
+use crate::list::{StateKey, ReminderStats};
 
 /// Parse i18n, like months names
 #[derive(Debug)]
@@ -271,7 +271,10 @@ impl CommandContext {
         let sent_count = stats.by_status.iter()
             .find(|s| s.status == ReminderStatus::Sent)
             .map(|s| s.count)
-            //.copied()
+            .unwrap_or(0);
+        let missed_count = stats.by_status.iter()
+            .find(|s| s.status == ReminderStatus::Missed)
+            .map(|s| s.count)
             .unwrap_or(0);
 
         let msg = t!(
@@ -280,6 +283,7 @@ impl CommandContext {
             all_count = stats.total,
             pending_count = pending_count,
             sent_count = sent_count,
+            missed_count = missed_count,
             cmd = self.bot_config().list_commands.join(" | "),
             list_size = self.bot_config().list_size,
         );
@@ -294,25 +298,30 @@ impl CommandContext {
         size: &i32,
         count: i32,
     ) {
-        // The commented-out lines are options for cases where the removal 
-        // of buttons upon reaching the end of the list is enabled.
+        // Buttons are not displayed if there are no pages beyond the first one
+        if count != *size && *page == 1 { return; }
+        
+        self.msng.react(event_id.to_owned(), MessageReaction::Previous).await;
+        self.msng.react(event_id.to_owned(), MessageReaction::Next).await;
+
+        /*
         if count == *size {
             if *page > 1 {
-                self.msng.react_bundle(event_id.to_owned(), vec![MessageReaction::Previous, MessageReaction::Next]).await;
+                self.msng.react(event_id.to_owned(), MessageReaction::Previous).await;
             }
             else {
-                // self.msng.react(event_id.to_owned(), MessageReaction::Next).await;
-                self.msng.react_bundle(event_id.to_owned(), vec![MessageReaction::Previous, MessageReaction::Next]).await;
+                self.msng.react(event_id.to_owned(), MessageReaction::Next).await;
             }
         }
         else {
             if *page > 1 {
-                // self.msng.react(event_id.to_owned(), MessageReaction::Previous).await;
-                self.msng.react_bundle(event_id.to_owned(), vec![MessageReaction::Previous, MessageReaction::Next]).await;
+                self.msng.react(event_id.to_owned(), MessageReaction::Previous).await;
             }
         }
+        */
     }
 
+    /*
     /// Manage reactions-as-buttons for the list message: 
     /// set buttons, remove "next" button if it is the last page.
     // This method is disabled because, although the functionality to remove buttons is implemented, 
@@ -357,15 +366,6 @@ impl CommandContext {
         ).await;
 
         // Mute DB error...
-        /*
-        let button_id = match button_id {
-            Ok(id) => id,
-            Err(e) => {
-                tracing::error!("Error of the reaction-button selecting: {:?}", e);
-                return;
-            }
-        };
-        */
         let button_id = button
             .map_or_else(|e| {
                 tracing::error!("Error of the reaction-button selecting: {:?}", e);
@@ -385,4 +385,5 @@ impl CommandContext {
             }
         }
     }
+    */
 }

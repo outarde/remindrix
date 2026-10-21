@@ -1,14 +1,20 @@
 use matrix_sdk::{
+    deserialized_responses::{TimelineEvent, TimelineEventKind},
     Room, RoomState,
     ruma::{
+        room_version_rules::RedactionRules,
+        serde::Raw,
         UserId, OwnedEventId, EventId,
         events::{
-            OriginalSyncMessageLikeEvent,
-            reaction::{OriginalSyncReactionEvent, ReactionEventContent},
+            OriginalSyncMessageLikeEvent, AnyTimelineEvent, AnySyncTimelineEvent, AnyMessageLikeEvent,
+            AnySyncMessageLikeEvent,
+            reaction::{OriginalSyncReactionEvent, SyncReactionEvent, ReactionEvent, ReactionEventContent},
             room::{
                 member::StrippedRoomMemberEvent, 
                 message::{MessageType, OriginalSyncRoomMessageEvent},
-            }
+                redaction::SyncRoomRedactionEvent
+            },
+            relation::RelationType,
         }
     }
 };
@@ -23,7 +29,7 @@ use clap::Parser;
 // app crates
 use crate::context::CommandContext;
 use crate::reminder::{ReminderData, DelegationType, ReminderError};
-use crate::list::{ListScopes, ListOrder, StateKey, PageState, ButtonState};
+use crate::list::{ListScopes, ListOrder, StateKey, PageState};
 use crate::settings_service::{SettingsService};
 use crate::settings::{
     SettingError, 
@@ -37,7 +43,7 @@ use crate::parsers::{
 use crate::natural::{
     process_natural_reminder
 };
-use crate::messaging::MessageButton;
+use crate::messaging::ReactionButton;
 
 static MENTION_REGEX: OnceLock<Regex> = OnceLock::new();
 
@@ -331,6 +337,50 @@ pub async fn on_room_message(
     }
 }
 
+/*
+/// Handler for message or reaction redaction.
+pub async fn on_redaction(
+    event: SyncRoomRedactionEvent, 
+    room: Room, 
+    ctx: Arc<super::BotContext>
+) {
+    if room.state() != RoomState::Joined { return; }
+
+    // Get the EventId that event redacts
+    if let Some(redacted_event_id) = event.redacts(&RedactionRules::V11) {
+        println!("EVENT 1 {:?}", redacted_event_id);
+
+        let filter = vec![RelationType::Annotation, RelationType::Reference];
+        let super_event = room.load_or_fetch_event_with_relations(redacted_event_id, Some(filter), None).await;
+        println!("EVENT 2 {:?}", super_event);
+
+        // { event: msg_event_kind }
+        if let Ok(timeline_event) = room.event(redacted_event_id, None).await {
+            let raw_event = timeline_event.kind.into_raw();
+            // let TimelineEventKind::Decrypted(decrypted_event) = timeline_event.kind else { return };
+            
+
+
+            // let AnySyncTimelineEvent::MessageLike(msg) = msg_event.kind;
+            // let TimelineEventKind::PlainText { event: ev } = msg_event.kind else { return };
+
+
+
+
+            // if let Ok(AnyTimelineEvent::MessageLike(msg_event)) = decrypted_event.event.deserialize() {
+            if let Ok(AnySyncTimelineEvent::MessageLike(msg_event)) = raw_event.deserialize() {
+                let AnySyncMessageLikeEvent::Reaction(reaction_event) = msg_event else {return};
+                // let SyncReactionEvent::Redacted(redacted_event) = reaction_event else {return};
+                // let RedactedMessageLikeEvent::Redacted(redacted_event) = reaction_event else {return};
+                // println!("EVENT {:?}", reaction_event.into_full_event(room.room_id().to_owned()));
+                println!("EVENT {:?}", reaction_event.as_original());
+                todo!();
+            }
+        }
+    }
+}
+*/
+
 /// React to reaction.
 pub async fn on_reaction(
     event: OriginalSyncReactionEvent, 
@@ -338,19 +388,19 @@ pub async fn on_reaction(
     ctx: Arc<super::BotContext>
 ) {
     if room.state() != RoomState::Joined { return; }
+    if event.sender == ctx.bot_id { return; }
 
-    // Get sender, related_to event_id and reaction's emoji.
-    let sender = &event.sender;
+    // Get related_to event_id and reaction's emoji.
     let reaction_content = &event.content;
     
     let target_event_id = &reaction_content.relates_to.event_id;
     let emoji = &reaction_content.relates_to.key;
 
     // Routing.
-    let reaction: Option<MessageButton> = emoji.parse().ok(); // or from_str(&emoji).
+    let reaction: Option<ReactionButton> = emoji.parse().ok(); // or from_str(&emoji).
     let key = match reaction {
-        Some(MessageButton::Next) => BotReactionsCommand::NextListPage,
-        Some(MessageButton::Previous) => BotReactionsCommand::PrevListPage,
+        Some(ReactionButton::Next) => BotReactionsCommand::NextListPage,
+        Some(ReactionButton::Previous) => BotReactionsCommand::PrevListPage,
         None => return
     };
 
@@ -560,6 +610,7 @@ pub async fn handle_list(
     Ok(())
 }
 
+/*
 /// Set connection between message and reaction in the mesage_states table.
 pub async fn _handle_reaction_update(
     event_id: OwnedEventId,
@@ -582,10 +633,11 @@ pub async fn _handle_reaction_update(
 
     Ok(())
 }
+*/
 
 /// Handle flipping through pages of reminders list via reaction-buttons.
 pub async fn handle_list_flipping(
-    event: OriginalSyncMessageLikeEvent<ReactionEventContent>,
+    _event: OriginalSyncMessageLikeEvent<ReactionEventContent>,
     target_event_id: &EventId,
     key: BotReactionsCommand,
     cmd_ctx: CommandContext,
@@ -614,92 +666,24 @@ pub async fn handle_list_flipping(
     let raw_reminders = super::list::get_raw_list(&cmd_ctx.ctx.db_ctx.list, cmd_ctx.room.room_id(), &page_state, true).await?;
     let count = raw_reminders.len();
 
-    // Get and send a message.
+    // Get message.
     let message = super::list::get_list_message_by_date(raw_reminders, &page_state, &cmd_ctx).await?;
-    let _ = cmd_ctx.msng.edit_message(&target_event_id, &message).await;
-    
-    // Save event to message_states.
-    let _ = cmd_ctx.ctx.db_ctx.list.set_list_page(&target_event_id, cmd_ctx.room.room_id(), &page_state).await?;
 
-    // Manage reaction-buttons. See the comments for an explanation of why it’s disabled.
-    // cmd_ctx.manage_nextprev_buttons(&target_event_id, &page_state.page, &page_state.size, count as i32).await;
+    // Send a new message or edit the current.
+    if cmd_ctx.bot_config().new_messages_for_pages {
+        let response = cmd_ctx.msng.text_md_long_with_event_id(&message).await;
+        let event_id = response.map_err(|_| ReminderError::ListError)?;
+        let _ = cmd_ctx.ctx.db_ctx.list.set_list_page(&event_id, cmd_ctx.room.room_id(), &page_state).await?;
+
+        cmd_ctx.send_nextprev_buttons(&event_id, &page_state.page, &page_state.size, count as i32).await;
+    }
+    else {
+        let _ = cmd_ctx.msng.edit_message(&target_event_id, &message).await;
+        let _ = cmd_ctx.ctx.db_ctx.list.set_list_page(&target_event_id, cmd_ctx.room.room_id(), &page_state).await?;
+    }
 
     Ok(())
 }
-
-/*
-/// Handles the entire process of retrieving the necessary reminders, grouping them, and returning the message.
-pub async fn get_list_message_by_date(page_state: PageState, cmd_ctx: &CommandContext) -> Result<String, OutputError> {
-    // Get Reminder's and sort them by date (to a HashMap), then get localized summary list items.
-    let raw_reminders = super::list::get_raw_list(&cmd_ctx.ctx.db_ctx.reminders, cmd_ctx.room.room_id(), page_state.clone()).await?;
-    let reminders = super::list::from_raw_reminders(cmd_ctx.ctx.clone(), raw_reminders).map_err(|_| ReminderError::ListError)?;
-    let reminders_count = reminders.len();
-
-    let sorted_reminders = super::list::group_by_date(reminders);
-    let list = super::list::get_summary_for_dates(sorted_reminders, &cmd_ctx.settings.room.room_lang);
-
-    // Form a message.
-    let scope_local = t!(format!("list.scope.{}", page_state.scope.clone() as i32), locale = &cmd_ctx.settings.room.room_lang);
-    let message = t!(
-        "list.by-date", 
-        locale = &cmd_ctx.settings.room.room_lang,
-        scope = scope_local,
-        count = reminders_count,
-        page = page_state.page,
-        list = list.join("\n")
-    );
-    
-    Ok(message.to_string())
-}
-*/
-
-/*
-/// The same as above get_list_message_by_date() but with an Option<&EventId>.
-/// For handling both scenarios: sending a new list, and translating the page. It’s an overly universal method.
-pub async fn send_list_page(
-    target_event_id: Option<&EventId>,
-    page_state: PageState,
-    cmd_ctx: &CommandContext,
-) -> Result<(), OutputError> {
-    // Get Reminder's and sort them by date (to a HashMap), then get localized summary list items.
-    let raw_reminders = super::list::get_raw_list(&cmd_ctx.ctx.db_ctx.reminders, cmd_ctx.room.room_id(), page_state.clone()).await?;
-    let reminders = super::list::from_raw_reminders(cmd_ctx.ctx.clone(), raw_reminders).map_err(|_| ReminderError::ListError)?;
-    let reminders_count = reminders.len();
-
-    let sorted_reminders = super::list::group_by_date(reminders);
-    let list = super::list::get_summary_for_dates(sorted_reminders, &cmd_ctx.settings.room.room_lang);
-
-    // Send a message.
-    let scope_local = t!(format!("list.scope.{}", page_state.scope.clone() as i32), locale = &cmd_ctx.settings.room.room_lang);
-    let message = t!(
-        "list.by-date", 
-        locale = &cmd_ctx.settings.room.room_lang,
-        scope = scope_local,
-        count = reminders_count,
-        page = page_state.page,
-        list = list.join("\n")
-    );
-
-    let event_id = match target_event_id {
-        Some(id) => {
-            let _ = cmd_ctx.msng.edit_message(&id, &message).await;
-            id
-        },
-        None => {
-            let response = cmd_ctx.msng.text_md_long_with_event_id(&message).await;
-            let event_id = response.map_err(|_| ReminderError::ListError)?;
-            // Send button-reaction.
-            cmd_ctx.send_nextprev_buttons(&event_id).await;
-            &event_id.clone()
-        }
-    };
-    
-    // Save event to message_states.
-    let _ = cmd_ctx.ctx.db_ctx.reminders.set_list_page(&event_id, cmd_ctx.room.room_id(), &cmd_ctx.user_id, page_state).await?;
-    
-    Ok(())
-}
-*/
 
 // ====== Settings =====
 /// Room (optional, user) Settings.

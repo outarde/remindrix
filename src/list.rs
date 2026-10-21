@@ -44,39 +44,16 @@ pub enum ListOrder {
     Desc,
 }
 
-/// Key for pages.
+/// Keys for states.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumString, Display)]
 #[strum(serialize_all = "snake_case")]
 pub enum StateKey {
-    #[strum(ascii_case_insensitive)]
     Page,
-    #[strum(ascii_case_insensitive)]
     ListButtonNext,
-    #[strum(ascii_case_insensitive)]
     ListButtonPrev,
     // Filter,
     // SelectedItem,
 }
-
-/*
-impl StateKey {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            StateKey::Page => "page",
-            StateKey::ListButtonNext => "list_button_next",
-            StateKey::ListButtonPrev => "list_button_prev",
-        }
-    }
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "page" => Some(StateKey::Page),
-            "list_button_next" => Some(StateKey::ListButtonNext),
-            "list_button_prev" => Some(StateKey::ListButtonPrev),
-            _ => None,
-        }
-    }
-}
-*/
 
 /// State of the current list of reminders. Bound to message with a list.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,12 +64,12 @@ pub struct PageState {
     pub order: ListOrder,
 }
 
-/// Reaction-button event_id (not the message it realated to).
-// THOUGHT: it can be renamed to RelatedState: 
-// This structure is not specific to buttons; it is a way to record sub-events.
+/// A common way to record sub-events like reaction-buttons.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ButtonState {
+pub struct _ReactionState {
+    pub target_event_id: OwnedEventId,
     pub event_id: OwnedEventId,
+    // pub key: StateKey,
 }
 
 /// List statistics.

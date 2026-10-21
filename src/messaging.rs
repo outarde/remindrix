@@ -78,7 +78,7 @@ impl MessageReaction {
 
 #[derive(PartialEq, EnumString, Display)]
 #[strum(serialize_all = "snake_case")]
-pub enum MessageButton {
+pub enum ReactionButton {
     #[strum(serialize = "⏩")] Next,
     #[strum(serialize = "⏪")] Previous,
 }
@@ -185,16 +185,16 @@ impl RoomMessenger {
     /// Send reaction to the related event (message).
     pub async fn react_with_event_id(
         &self,
-        target_event_id: OwnedEventId,
-        emoji: MessageButton
+        event_id: OwnedEventId,
+        emoji: MessageReaction
     ) -> anyhow::Result<OwnedEventId> {
-        let annotation = Annotation::new(target_event_id, emoji.to_string());
+        let annotation = Annotation::new(event_id, emoji.to_string());
         let content = ReactionEventContent::new(annotation);
         
         let response = self.room.send(content).await?;
-        let event_id = response.response.event_id.to_owned();
+        let reaction_event_id = response.response.event_id.to_owned();
         
-        Ok(event_id)
+        Ok(reaction_event_id)
     }
     /// Send multiple reactions.
     pub async fn react_bundle(

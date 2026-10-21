@@ -11,7 +11,7 @@ use tokio_rusqlite::{params, Connection, OptionalExtension};
 use anyhow::{Result, Context};
 
 use crate::reminder::{RawReminder, Reminder, ReminderData, ReminderStatus, ReminderError};
-use crate::list::{ListScopes, StateKey, PageState, ButtonState, RawStatRow, ReminderStats, StatusCount};
+use crate::list::{ListScopes, StateKey, PageState, RawStatRow, ReminderStats, StatusCount};
 use crate::settings::{SettingError, RawSetting};
 use jiff::{Timestamp, Unit};
 
@@ -259,7 +259,7 @@ impl ListRepository {
         Ok(reminders)
     }
 
-    // Get current page and scope from the message event_id bound to list of reminders.
+    /// Get current page and scope from the message event_id bound to list of reminders.
     pub async fn get_list_page(&self, event_id: &EventId, room_id: &RoomId) -> Result<Option<PageState>, ReminderError> {
         let conn = self.conn.clone();
         let event_id_s = event_id.to_string();
@@ -301,7 +301,7 @@ impl ListRepository {
         Ok(page_state)
     }
 
-    // Set current page and scope for the list of reminders.
+    /// Set current page and scope for the list of reminders.
     pub async fn set_list_page(&self, event_id: &EventId, room_id: &RoomId, page: &PageState) -> Result<(), ReminderError> {
         let conn = self.conn.clone();
         let event_id = event_id.to_string();
@@ -324,6 +324,8 @@ impl ListRepository {
         Ok(())
     }
 
+    // Draft for states
+    /*
     // 
     pub async fn get_page_button(&self, target_event_id: &EventId, room_id: &RoomId, state_key: StateKey) -> Result<Option<String>, ReminderError> {
         let conn = self.conn.clone();
@@ -370,6 +372,7 @@ impl ListRepository {
 
         Ok(())
     }
+    */
 }
 
 /// Settings Repository.

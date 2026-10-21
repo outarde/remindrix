@@ -134,7 +134,7 @@ impl BotRuntime {
                 tracing::warn!("⚠️ Could not remove healthcheck file during cleanup: {}", e);
             }
         } else {
-            tracing::info!("🧹 Healthcheck file removed successfully.");
+            tracing::info!("Healthcheck file removed successfully.");
         }
     }
 
@@ -258,7 +258,12 @@ impl BotManager {
         });
         self.context.client.add_event_handler(move |event, room| {
             handlers::on_reaction(event, room, ctx_3.clone())
-        });    
+        });
+        /*
+        self.context.client.add_event_handler(move |redaction_event, room| {
+            handlers::on_redaction(redaction_event, room, ctx_4.clone())
+        });
+        */
     }
 }
 
