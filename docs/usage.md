@@ -27,7 +27,7 @@ You can also change the default time settings. These are the times used when no 
 ### Change the Time Zone
 Use the `/settings tz` command to display the room's time zone - by default this is the time zone from the bot settings. To change it, add [time zone code](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) to the command, for example: `/tz Europe/Paris`.
 
-### View the list of reminders
+### View the List of Reminders
 Send the `/list` command to view help information. The full command for displaying the list is: `/list [scope] [page] [size] [order]`.
 
 You should filter reminders by their scope:
@@ -52,7 +52,7 @@ After reminders are sent, they are not deleted from the database but marked as s
 ### Statuses
 Currently, only three statuses are implemented for reminders: pending, sent and missed. Interaction with them is not provided. These are more in the nature of reminder states than characteristics that a user sets in order to manage them.
 
-### Reaction-buttons
+### Reaction-Buttons
 Reaction-buttons are a way to interact with entities linked to specific messages—for instance, pagination buttons on a message containing a list of reminders. When a user "presses" one—which, in practice, means adding their own reaction to a message where the bot has already placed a reaction acting as a button specific action is triggered.
 
 #### Technical Details
