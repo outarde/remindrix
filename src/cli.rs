@@ -193,7 +193,7 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
         .prompt()?.to_string();
 
     let list_size = 30;
-    let new_messages_for_pages = false;
+    let new_message_for_page = false;
 
     let new_config = config::BotConfig {
         lang,
@@ -213,7 +213,7 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
         afternoon,
         evening,
         list_size,
-        new_messages_for_pages,
+        new_message_for_page,
     };
 
     let overwrite = Confirm::new("Overwrite current configuration if any?").with_default(true).prompt()?;

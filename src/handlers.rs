@@ -670,7 +670,7 @@ pub async fn handle_list_flipping(
     let message = super::list::get_list_message_by_date(raw_reminders, &page_state, &cmd_ctx).await?;
 
     // Send a new message or edit the current.
-    if cmd_ctx.bot_config().new_messages_for_pages {
+    if cmd_ctx.bot_config().new_message_for_page {
         let response = cmd_ctx.msng.text_md_long_with_event_id(&message).await;
         let event_id = response.map_err(|_| ReminderError::ListError)?;
         let _ = cmd_ctx.ctx.db_ctx.list.set_list_page(&event_id, cmd_ctx.room.room_id(), &page_state).await?;
