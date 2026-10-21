@@ -96,6 +96,8 @@ pub struct BotConfig {
 
     #[serde(default = "BotConfig::default_list_size")]
     pub list_size: i32,
+    #[serde(default = "BotConfig::new_messages_for_pages")]
+    pub new_messages_for_pages: bool,
 
     // If the "strict" mode is defined in the config, then 
     // any settings will be saved under the bot ID, 
@@ -174,6 +176,9 @@ impl BotConfig {
     }
     fn default_list_size() -> i32 {
         30
+    }
+    fn new_messages_for_pages() -> bool {
+        false
     }
 
     /// Create config.yaml from config variable
