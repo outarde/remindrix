@@ -113,6 +113,7 @@ Create a conversation with the bot or add it to a room. Send the `/remind`, `!re
 > Put `/` or `!` at the beginning.
 > - `remind` - create a reminder
 > - `settings` - bot settings, including time zone
+> - `list` - list of reminders
 > - `remind --help` - print help for Pro mode
 
 ## Feature Roadmap
@@ -125,9 +126,9 @@ Create a conversation with the bot or add it to a room. Send the `/remind`, `!re
 - [x] Alternative text for the bot activation command
 - [x] Bot’s replies via reactions
 - [x] Delegation of reminders
-- [ ] Sending a list of reminders
+- [x] Sending a list of reminders
 - [ ] Recurring reminders
-- [ ] Reaction-as-a-button
+- [x] Reaction-as-a-button
 #### Language and Translation:
 - [x] Adding languages
 - [x] Upload your own translation
