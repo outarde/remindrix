@@ -128,7 +128,7 @@ Create a conversation with the bot or add it to a room. Send the `/remind`, `!re
 - [x] Delegation of reminders
 - [x] Sending a list of reminders
 - [ ] Recurring reminders
-- [x] Reaction-as-a-button
+- [x] [Reaction-buttons](https://github.com/outarde/remindrix/blob/main/docs/usage.md#reaction-buttons)
 #### Language and Translation:
 - [x] Adding languages
 - [x] Upload your own translation
@@ -137,6 +137,7 @@ Create a conversation with the bot or add it to a room. Send the `/remind`, `!re
 #### Other:
 - [ ] Database cleanup settings
 - [ ] Alarm mode
+- [ ] Contribution docs
 - [ ] Learn to not be late
 
 ## Alternatives
