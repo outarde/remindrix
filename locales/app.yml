@@ -977,146 +977,159 @@ list.empty-affectionately:
 list.help:
   en: |
     **📜 List of reminders**
-    *Total %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}*
+    *Total %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}, 🔴 %{missed_count}*
     
     To display the list of reminders, specify the selection type:
     ⏲️ `pending` scheduled,
     🟢 `sent` sent,
     🔴 `missed` missed,
     
-    You can also specify the page number (default is 1), the number of items per page (default is %{list_size}), and the order (default ascending `asc` order is for scheduled and descending `desc` is for the remaining).
+    You can also specify the page number (default is `1`), the number of items per page (default is `%{list_size}`), and the order (default ascending `asc` order is for scheduled and descending `desc` is for the remaining).
+    
     For example: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
   de: |
     **📜 Liste der Erinnerungen**
-    *Gesamt: %{all_count}, ⏲️ Ausstehend: %{pending_count}, 🟢 Gesendet: %{sent_count}*
+    *Gesamt: %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}, 🔴 %{missed_count}*
 
     Um die Liste der Erinnerungen anzuzeigen, geben Sie den Auswahltyp an:
     ⏲️ `pending` (geplant),
     🟢 `sent` (gesendet),
     🔴 `missed` (verpasst),
 
-    Sie können zudem die Seitenzahl (Standard: 1), die Anzahl der Einträge pro Seite (Standard: %{list_size}) sowie die Sortierreihenfolge festlegen (die standardmäßige aufsteigende Sortierung (`asc`) gilt für geplante Einträge, die absteigende Sortierung (`desc`) für die übrigen). 
+    Sie können zudem die Seitenzahl (Standard: `1`), die Anzahl der Einträge pro Seite (Standard: `%{list_size}`) sowie die Sortierreihenfolge festlegen (die standardmäßige aufsteigende Sortierung (`asc`) gilt für geplante Einträge, die absteigende Sortierung (`desc`) für die übrigen). 
+    
     Beispiele: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
   fr: |
     **📜 Liste des rappels**
-    *Total : %{all_count}, ⏲️ En attente : %{pending_count}, 🟢 Envoyés : %{sent_count}*
+    *Total : %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}, 🔴 %{missed_count}*
 
     Pour afficher la liste des rappels, précisez le type de sélection :
     ⏲️ `pending` (en attente),
     🟢 `sent` (envoyés),
     🔴 `missed` (manqués),
 
-    Vous pouvez également indiquer le numéro de page (par défaut : 1), le nombre d'éléments par page (par défaut : %{list_size}) et l'ordre de tri (l'ordre croissant par défaut (`asc`) s'applique aux éléments planifiés, tandis que l'ordre décroissant (`desc`) s'applique au reste). 
+    Vous pouvez également indiquer le numéro de page (par défaut : `1`), le nombre d'éléments par page (par défaut : `%{list_size}`) et l'ordre de tri (l'ordre croissant par défaut (`asc`) s'applique aux éléments planifiés, tandis que l'ordre décroissant (`desc`) s'applique au reste). 
+    
     Exemples : `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
   it: |
     **📜 Elenco dei promemoria**
-    *Totale %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}*
+    *Totale %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}, 🔴 %{missed_count}*
 
     Per visualizzare l'elenco dei promemoria, specifica il tipo di selezione:
     ⏲️ `pending` (pianificati),
     🟢 `sent` (inviati),
     🔴 `missed` (mancati),
 
-    Puoi inoltre specificare il numero di pagina (predefinito: 1), il numero di elementi per pagina (predefinito: %{list_size}) e l'ordine (predefinito è crescente (`asc`) per gli elementi pianificati, mentre è decrescente (`desc`) per i restanti). 
+    Puoi inoltre specificare il numero di pagina (predefinito: `1`), il numero di elementi per pagina (predefinito: `%{list_size}`) e l'ordine (predefinito è crescente (`asc`) per gli elementi pianificati, mentre è decrescente (`desc`) per i restanti). 
+    
     Esempi: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
   es: |
     **📜 Lista de recordatorios**
-    *Total: %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}*
+    *Total: %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}, 🔴 %{missed_count}*
 
     Para mostrar la lista de recordatorios, especifica el tipo de selección:
     ⏲️ `pending` (programados),
     🟢 `sent` (enviados),
     🔴 `missed` (omitidos),
 
-    También puedes indicar el número de página (por defecto es 1), la cantidad de elementos por página (por defecto es %{list_size}) y el orden (ascendente predeterminado (`asc`) se aplica a los elementos programados, mientras que el descendente (`desc`) se aplica al resto). 
+    También puedes indicar el número de página (por defecto es `1`), la cantidad de elementos por página (por defecto es `%{list_size}`) y el orden (ascendente predeterminado (`asc`) se aplica a los elementos programados, mientras que el descendente (`desc`) se aplica al resto). 
+    
     Por ejemplo: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
   sv: |
     **📜 Lista över påminnelser**
-    *Totalt %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}*
+    *Totalt %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}, 🔴 %{missed_count}*
 
     För att visa listan över påminnelser, ange urvalstyp:
     ⏲️ `pending` – schemalagda,
     🟢 `sent` – skickade,
     🔴 `missed` – missade,
 
-    Du kan även ange sidnummer (standard är 1), antal objekt per sida (standard är %{list_size}) samt sorteringsordning (standardordningen är stigande (`asc`) för schemalagda poster, och fallande (`desc`) för övriga). 
+    Du kan även ange sidnummer (standard är `1`), antal objekt per sida (standard är `%{list_size}`) samt sorteringsordning (standardordningen är stigande (`asc`) för schemalagda poster, och fallande (`desc`) för övriga). 
+    
     Exempel: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
   pl: |
     **📜 Lista przypomnień**
-    *Łącznie: %{all_count}, ⏲️ oczekujące: %{pending_count}, 🟢 wysłane: %{sent_count}*
+    *Łącznie: %{all_count}, ⏲️ oczekujące: %{pending_count}, 🟢 wysłane: %{sent_count}, pominięte: 🔴 %{missed_count}*
 
     Aby wyświetlić listę przypomnień, określ typ zestawienia:
     ⏲️ `pending` – zaplanowane,
     🟢 `sent` – wysłane,
     🔴 `missed` – pominięte.
 
-    Możesz również podać numer strony (domyślnie 1), liczbę elementów na stronie (domyślnie %{list_size}) oraz kolejność sortowania (domyślny porządek rosnący (`asc`) dotyczy elementów zaplanowanych, a porządek malejący (`desc`) – pozostałych). 
+    Możesz również podać numer strony (domyślnie `1`), liczbę elementów na stronie (domyślnie `%{list_size}`) oraz kolejność sortowania (domyślny porządek rosnący (`asc`) dotyczy elementów zaplanowanych, a porządek malejący (`desc`) – pozostałych). 
+    
     Przykłady: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
   cs: |
     **📜 Seznam připomínek**
-    *Celkem %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}*
+    *Celkem %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}, 🔴 %{missed_count}*
 
     Pro zobrazení seznamu připomínek uveďte typ výběru:
     ⏲️ `pending` – naplánované,
     🟢 `sent` – odeslané,
     🔴 `missed` – zmeškané,
 
-    Můžete také zadat číslo stránky (výchozí je 1), počet položek na stránku (výchozí je %{list_size}) a pořadí (výchozí vzestupné pořadí (`asc`) platí pro naplánované položky, zatímco sestupné pořadí (`desc`) platí pro ostatn). 
+    Můžete také zadat číslo stránky (výchozí je `1`), počet položek na stránku (výchozí je `%{list_size}`) a pořadí (výchozí vzestupné pořadí (`asc`) platí pro naplánované položky, zatímco sestupné pořadí (`desc`) platí pro ostatn). 
+    
     Například: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
   fi: |
     **📜 Muistutusluettelo**
-    *Yhteensä %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}*
+    *Yhteensä %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}, 🔴 %{missed_count}*
 
     Näytä muistutusluettelo määrittämällä valintatyyppi:
     ⏲️ `pending` – ajoitetut,
     🟢 `sent` – lähetetyt,
     🔴 `missed` – väliin jääneet,
 
-    Voit myös määrittää sivun numeron (oletus on 1), kohteiden määrän sivulla (oletus on %{list_size}) sekä järjestyksen (oletusarvoinen nouseva järjestys (`asc`) koskee ajoitettuja kohteita, ja laskeva järjestys (`desc`) koskee loput). 
+    Voit myös määrittää sivun numeron (oletus on `1`), kohteiden määrän sivulla (oletus on `%{list_size}`) sekä järjestyksen (oletusarvoinen nouseva järjestys (`asc`) koskee ajoitettuja kohteita, ja laskeva järjestys (`desc`) koskee loput). 
+    
     Esimerkiksi: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
   ja: |
     **📜 リマインダー一覧**
-    *合計 %{all_count} 件、⏲️ 未送信 %{pending_count} 件、🟢 送信済み %{sent_count} 件*
+    *合計 %{all_count} 件、⏲️ 未送信 %{pending_count} 件、🟢 送信済み %{sent_count} 件、🔴 送信できなかったもの %{missed_count}*
 
     リマインダー一覧を表示するには、対象の種類を指定してください：
     ⏲️ `pending`（予定されているもの）、
     🟢 `sent`（送信済み）、
     🔴 `missed`（送信できなかったもの）
 
-    ページ番号（デフォルトは1）、1ページあたりの項目数（デフォルトは %{list_size}）、および並び順（デフォルトは、予定されている項目については昇順 `asc`、それ以外については降順 `desc`）を指定することも可能です。
+    ページ番号（デフォルトは1）、`1`ページあたりの項目数（デフォルトは `%{list_size}`）、および並び順（デフォルトは、予定されている項目については昇順 `asc`、それ以外については降順 `desc`）を指定することも可能です。
+    
     例：`/%{cmd} pending`、`/%{cmd} sent 1 50 asc`
   zh: |
     **📜 提醒列表**
-    *总计 %{all_count}，⏲️ 待发送 %{pending_count}，🟢 已发送 %{sent_count}*
+    *总计 %{all_count}，⏲️ 待发送 %{pending_count}，🟢 已发送 %{sent_count}，🔴 已错过 %{missed_count}*
 
     若要查看提醒列表，请指定筛选类型：
     ⏲️ `pending`（待发送），
     🟢 `sent`（已发送），
     🔴 `missed`（已错过），
 
-    您还可以指定页码（默认为 1）、每页显示的条目数（默认为 %{list_size}）以及排序方式（默认采用升序 `asc`，适用于“已计划”项；其余项则默认采用降序 `desc`）。
+    您还可以指定页码（默认为 `1`）、每页显示的条目数（默认为 `%{list_size}`）以及排序方式（默认采用升序 `asc`，适用于“已计划”项；其余项则默认采用降序 `desc`）。
+    
     例如：`/%{cmd} pending`，`/%{cmd} sent 1 50 asc`。
   ru: |
     **📜 Список напоминаний**
-    *Всего %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}*
+    *Всего %{all_count}, ⏲️ %{pending_count}, 🟢 %{sent_count}, 🔴 %{missed_count}*
     
     Для отображения списка напоминаний укажите тип напоминаний:
     - `pending` планируемые,
     - `sent` отправленные,
     - `missed` пропущенные,
     
-    Также вы можете указать номер страницы (по умолчанию 1), количество элементов на странице (по умолчанию %{list_size}) и порядок сортировки (по умолчанию по возрастанию для запланированных — `asc`, по убыванию для остальных — `desc`).
+    Также вы можете указать номер страницы (по умолчанию `1`), количество элементов на странице (по умолчанию `%{list_size}`) и порядок сортировки (по умолчанию по возрастанию для запланированных — `asc`, по убыванию для остальных — `desc`).
+    
     Например: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
   uk: |
     **📜 Список нагадувань**
-    *Усього: %{all_count}, ⏲️ очікують: %{pending_count}, 🟢 надіслані: %{sent_count}*
+    *Усього: %{all_count}, ⏲️ очікують: %{pending_count}, 🟢 надіслані: %{sent_count}, 🔴 пропущені: %{missed_count}*
 
     Щоб переглянути список нагадувань, вкажіть тип вибірки:
     ⏲️ `pending` — заплановані,
     🟢 `sent` — надіслані,
     🔴 `missed` — пропущені.
 
-    Також можна вказати номер сторінки (за замовчуванням — 1), кількість записів на сторінці (за замовчуванням — %{list_size}) та порядок сортування (для запланованих використовується порядок за зростанням `asc`, а для решти — порядок за спаданням `desc`). 
+    Також можна вказати номер сторінки (за замовчуванням — `1`), кількість записів на сторінці (за замовчуванням — `%{list_size}`) та порядок сортування (для запланованих використовується порядок за зростанням `asc`, а для решти — порядок за спаданням `desc`). 
+    
     Наприклад: `/%{cmd} pending`, `/%{cmd} sent 1 50 asc`.
 list.scope.0:
   en: ⏲️ scheduled
