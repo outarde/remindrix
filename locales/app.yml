@@ -669,6 +669,7 @@ reminder.missed:
   uk: |
     ⚠️ Пропущені нагадування у цій кімнаті: 
     %{sum}
+
 error.month:
   en: Unable to determine the reminder month.
   de: Der Erinnerungsmonat kann nicht ermittelt werden.
@@ -900,6 +901,21 @@ error.db:
 error.matrix:
   en: Internal Matrix SDK error, sorry.
 
+error.send-message:
+  en: An error occurred while sending message.
+  de: Beim Senden der Nachricht ist ein Fehler aufgetreten.
+  fr: Une erreur s’est produite lors de l’envoi du message.
+  it: Si è verificato un errore durante l'invio del messaggio.
+  es: Se produjo un error al enviar el mensaje.
+  sv: Ett fel uppstod när meddelandet skulle skickas.
+  pl: Podczas wysyłania wiadomości wystąpił błąd.
+  cs: Při odesílání zprávy došlo k chybě.
+  fi: Viestiä lähetettäessä tapahtui virhe.
+  ja: メッセージの送信中にエラーが発生しました。
+  zh: 发送消息时发生错误。
+  ru: При отправке сообщения возникла ошибка.
+  uk: Під час надсилання повідомлення сталася помилка.
+
 list.error:
   en: Error creating the reminder list.
   de: Fehler beim Erstellen der Erinnerungsliste.
@@ -914,6 +930,28 @@ list.error:
   zh: 创建提醒列表时出错。
   ru: Ошибка при создании списка напоминаний.
   uk: Помилка під час створення списку нагадувань.
+list.error.save-state:
+  en: An error occurred while saving the current page. Please print the list of reminders via a command.
+  de: Beim Speichern der aktuellen Seite ist ein Fehler aufgetreten. Bitte drucken Sie die Liste der Erinnerungen über einen Befehl aus.
+  fr: Une erreur s’est produite lors de l’enregistrement de la page actuelle. Veuillez imprimer la liste des rappels à l’aide d’une commande.
+  it: Si è verificato un errore durante il salvataggio della pagina corrente. Si prega di stampare l'elenco dei promemoria tramite un apposito comando.
+  es: Se produjo un error al guardar la página actual. Por favor, imprima la lista de recordatorios mediante un comando.
+  sv: Ett fel uppstod när den aktuella sidan skulle sparas. Skriv ut listan över påminnelser med hjälp av ett kommando.
+  pl: Podczas zapisywania bieżącej strony wystąpił błąd. Proszę wydrukować listę przypomnień za pomocą odpowiedniego polecenia.
+  cs: Při ukládání aktuální stránky došlo k chybě. Vytiskněte prosím seznam připomenutí pomocí příkazu.
+  fi: Nykyistä sivua tallennettaessa tapahtui virhe. Tulosta muistutusluettelo komennon avulla.
+  ja: 現在のページを保存する際にエラーが発生しました。コマンドを使用して、リマインダーの一覧を印刷してください。
+  zh: 保存当前页面时出错。请通过命令打印提醒列表。
+  ru: Возникла ошибка сохранения текущей страницы. Отображайте список напоминаний через команду.
+  uk: Під час збереження поточної сторінки сталася помилка. Будь ласка, роздрукуйте список нагадувань за допомогою відповідної команди.
+list.error.display-buttons:
+  en: An error occurred while displaying the navigation buttons. Please specify the page using the reminder list command.
+  ru: Возникла ошибка при отображении кнопок перелистывания. Указывайте страницу через команду списка напоминаний.
+list.error.redact-old-buttons:
+  en: An error occurred while deleting the old buttons for navigating through lists of reminders.
+list.error.redact-prev-buttons:
+  en: An error occurred while removing the navigation buttons from the previous message. They are likely no longer active, but they remain visible.
+
 list.unknown-scope:
   en: Invalid selection type. Specify whether to display sent (`sent`), missed (`missed`), or scheduled (`pending`) reminders.
   de: Ungültiger Auswahltyp. Geben Sie an, ob gesendete (`sent`), verpasste (`missed`) oder geplante (`pending`) Erinnerungen angezeigt werden sollen.
