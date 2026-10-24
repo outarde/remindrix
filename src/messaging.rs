@@ -129,6 +129,21 @@ impl RoomMessenger {
     }
 
     /// Send message with returning event_id.
+    pub async fn text_md_with_event_id(&self, text: &str) -> anyhow::Result<OwnedEventId> {
+        let _ = self.room.typing_notice(true).await;
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        let _ = self.room.typing_notice(false).await;
+
+        // Full response has type: `ruma::api::client::message::send_message_event::v3::Response`
+        // or `matrix_sdk::ruma::api::ruma_client_api::message::send_message_event::v3::Response`.
+        // `matrix_sdk::room::futures::SendMessageLikeEvent` is what you get before response.response
+        let response = self.room.send(RoomMessageEventContent::text_markdown(text)).await?;
+        let event_id = response.response.event_id.to_owned();
+        
+        Ok(event_id)
+    }
+
+    /// Send message with returning event_id.
     pub async fn text_md_long_with_event_id(&self, text: &str) -> anyhow::Result<OwnedEventId> {
         let _ = self.room.typing_notice(true).await;
         tokio::time::sleep(Duration::from_millis(500)).await;
@@ -165,7 +180,7 @@ impl RoomMessenger {
             .make_edit_event(original_event_id, edited_content)
             .await?;
 
-        let _ = self.room.send(edit_event_content).await;
+        let _ = self.room.send(edit_event_content).await?;
 
         Ok(())
     }
@@ -183,7 +198,7 @@ impl RoomMessenger {
         let _ = self.room.send(content).await;
     }
     /// Send reaction to the related event (message).
-    pub async fn _react_with_event_id(
+    pub async fn react_with_event_id(
         &self,
         event_id: OwnedEventId,
         emoji: MessageReaction

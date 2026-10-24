@@ -597,15 +597,14 @@ pub async fn handle_list(
     // Get a message.
     let message = super::list::get_list_message_by_date(raw_reminders, &page_state, &cmd_ctx).await?;
 
-    // Get event id for the sent message or for user message as a callback.
-    let response = cmd_ctx.msng.text_md_long_with_event_id(&message).await;
-    let event_id = response.unwrap_or_else(|_| event.event_id.clone());
+    // Get event id for the sent message.
+    let event_id = cmd_ctx.msng.text_md_long_with_event_id(&message).await.map_err(|_| ReminderError::SendError)?;
     
     // Save event to message_states.
     let _ = cmd_ctx.ctx.db_ctx.list.set_list_page(&event_id, cmd_ctx.room.room_id(), &page_state).await?;
 
-    // Send button-reactions.
-    cmd_ctx.send_nextprev_buttons(&event_id, &page_state.page, &page_state.size, count as i32).await;
+    // Send and save button-reactions.
+    super::list::set_list_buttons(&cmd_ctx, &event_id, &page_state.page, &page_state.size, count as i32).await;
 
     Ok(())
 }
@@ -642,7 +641,8 @@ async fn handle_list_flipping(
     key: BotReactionsCommand,
     cmd_ctx: CommandContext,
 ) -> Result<(), OutputError> {
-    let page = cmd_ctx.ctx.db_ctx.list.get_list_page(&target_event_id, cmd_ctx.room.room_id()).await?;
+    let room_id = cmd_ctx.room.room_id();
+    let page = cmd_ctx.ctx.db_ctx.list.get_list_page(&target_event_id, &room_id).await?;
 
     // Deserialize PageState.
     let mut page_state = if let Some(p) = page {
@@ -663,7 +663,7 @@ async fn handle_list_flipping(
     };
 
     // Get Reminder's and sort them by date (to a HashMap), then get localized summary list items.
-    let raw_reminders = super::list::get_raw_list(&cmd_ctx.ctx.db_ctx.list, cmd_ctx.room.room_id(), &page_state, true).await?;
+    let raw_reminders = super::list::get_raw_list(&cmd_ctx.ctx.db_ctx.list, &room_id, &page_state, true).await?;
     let count = raw_reminders.len();
 
     // Get message.
@@ -671,15 +671,19 @@ async fn handle_list_flipping(
 
     // Send a new message or edit the current.
     if cmd_ctx.bot_config().messages_for_pages {
-        let response = cmd_ctx.msng.text_md_long_with_event_id(&message).await;
-        let event_id = response.map_err(|_| ReminderError::ListError)?;
-        let _ = cmd_ctx.ctx.db_ctx.list.set_list_page(&event_id, cmd_ctx.room.room_id(), &page_state).await?;
+        let event_id = cmd_ctx.msng.text_md_with_event_id(&message).await.map_err(|_| ReminderError::SendError)?;
+        
+        // Remove previous PageState and then set new ones
+        let _ = cmd_ctx.ctx.db_ctx.list.remove_list_page(&target_event_id, &room_id).await; // mute db error since there is automatic cleaning
+        let _ = cmd_ctx.ctx.db_ctx.list.set_list_page(&event_id, &room_id, &page_state).await?;
 
-        cmd_ctx.send_nextprev_buttons(&event_id, &page_state.page, &page_state.size, count as i32).await;
+        // Remove ListButtons and set & save new
+        super::list::remove_list_buttons_from_mes(&cmd_ctx, &target_event_id).await;
+        super::list::set_list_buttons(&cmd_ctx, &event_id, &page_state.page, &page_state.size, count as i32).await;
     }
     else {
-        let _ = cmd_ctx.msng.edit_message(&target_event_id, &message).await;
-        let _ = cmd_ctx.ctx.db_ctx.list.set_list_page(&target_event_id, cmd_ctx.room.room_id(), &page_state).await?;
+        let _ = cmd_ctx.msng.edit_message(&target_event_id, &message).await.map_err(|_| ReminderError::SendError)?;
+        let _ = cmd_ctx.ctx.db_ctx.list.set_list_page(&target_event_id, &room_id, &page_state).await?;
     }
 
     Ok(())

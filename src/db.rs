@@ -11,7 +11,7 @@ use tokio_rusqlite::{params, Connection, OptionalExtension};
 use anyhow::{Result, Context};
 
 use crate::reminder::{RawReminder, Reminder, ReminderData, ReminderStatus, ReminderError};
-use crate::list::{ListScopes, StateKey, PageState, RawStatRow, ReminderStats, StatusCount};
+use crate::list::{ListScopes, StateKey, PageState, ListButtons, RawStatRow, ReminderStats, StatusCount};
 use crate::settings::{SettingError, RawSetting};
 use jiff::{Timestamp, Unit};
 
@@ -314,8 +314,26 @@ impl ListRepository {
                 "INSERT INTO message_states (event_id, room_id, key, value, created_at) 
                 VALUES (?1, ?2, ?3, ?4, ?5)
                 ON CONFLICT(event_id, room_id, key) 
-                DO UPDATE SET value=excluded.value;",
+                DO UPDATE SET value=excluded.value, created_at=excluded.created_at;",
                 params![&event_id, &room_id, StateKey::Page.to_string(), &value, &Timestamp::now().to_string()]
+            )?;
+
+            Ok(())
+        }).await.map_err(|e| ReminderError::ListStateError(e))?;
+
+        Ok(())
+    }
+
+    /// Remove PageState from the message_states.
+    pub async fn remove_list_page(&self, event_id: &EventId, room_id: &RoomId) -> Result<(), ReminderError> {
+        let conn = self.conn.clone();
+        let event_id = event_id.to_string();
+        let room_id = room_id.to_string();
+        
+        let _ = conn.call(move |c| {
+            c.execute(
+                "DELETE FROM message_states WHERE event_id = ?1 AND room_id = ?2 AND key = ?3;",
+                params![&event_id, &room_id, &StateKey::Page.to_string()]
             )?;
 
             Ok(())
@@ -324,20 +342,18 @@ impl ListRepository {
         Ok(())
     }
 
-    // Draft for states
-    /*
-    // 
-    pub async fn get_page_button(&self, target_event_id: &EventId, room_id: &RoomId, state_key: StateKey) -> Result<Option<String>, ReminderError> {
+    // == ListButtons States
+    /// Remove page_buttons from the message_states with returning event_id for both of them as ListButtons.
+    pub async fn get_and_delete_page_buttons(&self, event_id: &EventId, room_id: &RoomId) -> Result<Option<ListButtons>, ReminderError> {
         let conn = self.conn.clone();
-        let target_event_id = target_event_id.to_string();
+        let event_id_s = event_id.to_string();
         let room_id = room_id.to_string();
 
-        let button = conn.call(move |conn| {
+        let buttons = conn.call(move |conn| {
             let value: Option<String> = conn.query_row(
-                "SELECT value FROM message_states 
-                WHERE key = ?1 AND event_id = ?2 AND room_id = ?3 
-                ORDER BY created_at DESC LIMIT 1;",
-                params![&state_key.to_string(), &target_event_id, &room_id],
+                "DELETE FROM message_states WHERE event_id = ?1 AND room_id = ?2 AND key = ?3
+                RETURNING value;",
+                params![&event_id_s, &room_id, &StateKey::ListButtons.to_string()],
 
                 |r| {
                     r.get(0)
@@ -347,24 +363,30 @@ impl ListRepository {
             Ok(value)
         }).await?;
 
-        Ok(button)
+        let buttons_state = buttons
+            .and_then(|s| serde_json::from_str::<ListButtons>(&s).ok())
+            .or_else(|| {
+                tracing::error!("Empty or invalid button state value for event_id: {:?}", event_id);
+                None
+            });
+
+        Ok(buttons_state)
     }
 
-    // 
-    pub async fn set_page_button(&self, event_id: &EventId, room_id: &RoomId, key: StateKey, button: ButtonState) -> Result<(), ReminderError> {
+    /// Set page_buttons in message_states from ListButtons for some message.
+    pub async fn set_page_buttons(&self, event_id: &EventId, room_id: &RoomId, buttons: ListButtons) -> Result<(), ReminderError> {
         let conn = self.conn.clone();
         let event_id = event_id.to_string();
         let room_id = room_id.to_string();
-        // let user_id: Option<String> = user_id.map(|id| id.to_string());
-        let value = serde_json::to_string(&button).unwrap_or(String::from(""));
-        
-        let _ = conn.call(move |c| {
-            c.execute(
+        let value = serde_json::to_string(&buttons).unwrap_or(String::from(""));
+
+        let _ = conn.call(move |conn| {
+            conn.execute(
                 "INSERT INTO message_states (event_id, room_id, key, value, created_at) 
                 VALUES (?1, ?2, ?3, ?4, ?5)
                 ON CONFLICT(event_id, room_id, key) 
-                DO UPDATE SET value=excluded.value;",
-                [&event_id, &room_id, &key.to_string(), &value, &Timestamp::now().to_string()]
+                DO UPDATE SET value=excluded.value, created_at=excluded.created_at;",
+                [&event_id, &room_id, &StateKey::ListButtons.to_string(), &value, &Timestamp::now().to_string()]
             )?;
 
             Ok(())
@@ -372,7 +394,6 @@ impl ListRepository {
 
         Ok(())
     }
-    */
 }
 
 /// Settings Repository.

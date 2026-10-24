@@ -21,7 +21,7 @@ use crate::settings::{
 use crate::messaging::{
     RoomMessenger, MessageReaction,
 };
-use crate::list::{StateKey, ReminderStats};
+use crate::list::{StateKey, ReminderStats, ListButtons};
 
 /// Parse i18n, like months names
 #[derive(Debug)]
@@ -292,96 +292,38 @@ impl CommandContext {
     }
 
     // ===== Reactions-as-buttons =====
-    /// Sent buttons on the basis of the current page and remaining reminders that haven't been displayed yet.
-    pub async fn send_nextprev_buttons(&self, 
+    /// Send buttons, return ListButtons.
+    pub async fn send_list_buttons(&self, 
         event_id: &EventId,  
-        page: &i32,
-        size: &i32,
-        count: i32,
-    ) {
+        // page: &i32,
+        // size: &i32,
+        // count: i32,
+    ) -> Option<ListButtons> {
         // Buttons are not displayed if there are no pages beyond the first one
-        if count != *size && *page == 1 { return; }
-        
-        self.msng.react(event_id.to_owned(), MessageReaction::Previous).await;
-        self.msng.react(event_id.to_owned(), MessageReaction::Next).await;
+        // if count != *size && *page == 1 { return None; }
 
-        /*
-        if count == *size {
-            if *page > 1 {
-                self.msng.react(event_id.to_owned(), MessageReaction::Previous).await;
-            }
-            else {
-                self.msng.react(event_id.to_owned(), MessageReaction::Next).await;
-            }
-        }
-        else {
-            if *page > 1 {
-                self.msng.react(event_id.to_owned(), MessageReaction::Previous).await;
-            }
-        }
-        */
+        let prev_button = self.msng.react_with_event_id(event_id.to_owned(), MessageReaction::Previous).await.ok()?;
+        let next_button = self.msng.react_with_event_id(event_id.to_owned(), MessageReaction::Next).await.ok()?;
+
+        Some(ListButtons { message: event_id.to_owned(), prev_button, next_button })
     }
 
     /*
-    /// Manage reactions-as-buttons for the list message: 
-    /// set buttons, remove "next" button if it is the last page.
-    // This method is disabled because, although the functionality to remove buttons is implemented, 
-    // it requires calls to the database and so on. Furthermore - and most importantly - the visual effect 
-    // of removing a button is barely noticeable; when the bot deletes its button, it remains in a "pressed" 
-    // state from the user's perspective. The user must clear their interaction (reaction) before they can see 
-    // that the button is gone.
-    pub async fn _manage_nextprev_buttons(&self,
-        target_event_id: &EventId,
-        page: &i32,
-        size: &i32,
-        count: i32,
-    ) {
-        if *page > 1 {
-            self.msng.react_bundle(target_event_id.to_owned(), vec![MessageReaction::Previous, MessageReaction::Next]).await;
-        }
-        else {
-            self.msng.react(target_event_id.to_owned(), MessageReaction::Next).await;
-        }
-
-        /*
-        // remove next button if there are less than `size` items
-        if count < *size {
-            self.redact_button(&target_event_id, StateKey::ListButtonNext).await;
-        }
-        // remove prev button if it is the first page
-        if *page == 1 {
-            self.redact_button(&target_event_id, StateKey::ListButtonPrev).await;
-        }
-        */
-    }
-
-    /// Remove reaction-button by its event_id and key in message_states.
-    pub async fn _redact_button(&self,
-        target_event_id: &EventId,
-        button_type: StateKey,
-    ) {
-        let button = self.ctx.db_ctx.list.get_page_button(
-            &target_event_id,
-            self.room.room_id(),
-            button_type
-        ).await;
-
-        // Mute DB error...
-        let button_id = button
-            .map_or_else(|e| {
-                tracing::error!("Error of the reaction-button selecting: {:?}", e);
-                None
-            }, 
-            |val| val
-        );
-
-        if let Some(id) = button_id {
-            match serde_json::from_str::<ButtonState>(&id) {
-                Ok(state) => {
-                    let result = self.room.redact(&state.event_id, None, None).await;
-                },
-                Err(err) => {
-                    tracing::error!("Error in the reaction-button event_id value: {:?}", err);
+    /// Get and remove ListButtons for the target_event_id.
+    pub async fn get_and_remove_list_buttons(&self, target_event_id: &EventId) {
+        let old_buttons = self.ctx.db_ctx.list.get_and_remove_page_buttons(&target_event_id).await;
+        
+        // Mute DB error because it will not be obvious to users which event ended in an error.
+        match old_buttons {
+            Ok(buttons) => {
+                if let Some(b) = buttons {
+                    let _ = self.room.redact(&b.prev_button, None, None).await;
+                    let _ = self.room.redact(&b.next_button, None, None).await;
+                }
+            }
+            Err(error) => {
+                if let ReminderError(e) = error {
+                    tracing::error!("SQLite error while deleting page_buttons for event_id: {}. Error: {:?}", &target_event_id, e);
                 }
             }
         }

@@ -80,9 +80,12 @@ pub enum ReminderError {
     #[error("tz.not-set")] TzNotSet,
     #[error("error.unsafe-datetime")] JiffError(#[from] jiff::Error), 
     #[error("error.matrix")] MatrixError(#[from] matrix_sdk::Error),
+    #[error("error.send-message")] SendError,
     #[error("list.unknown-scope")] ListUnknownScope,
     #[error("list.unknown-order")] ListUnknownOrder,
     #[error("list.error")] ListError,
+    // #[error("list.error.display-buttons")] ListButtonsError,
+    #[error("list.error.save-state")] ListStateError(tokio_rusqlite::Error),
     #[error("list.empty")] ListEmpty,
     #[error("list.empty-page")] ListEmptyPage,
     #[error("list.empty-affectionately")] ListEmptyAffectionately,
@@ -100,7 +103,7 @@ impl ReminderError {
                 let msg = t!(self.to_string(), locale = locale, date = date, time = time);
                 msg.to_string()
             },
-            ReminderError::Db(error) => {
+            ReminderError::Db(error) | ReminderError::ListStateError(error) => {
                 tracing::error!("{:?}", error);
 
                 let key = self.to_string(); 

@@ -3,7 +3,7 @@ use std::cmp::Reverse;
 use matrix_sdk::{
     deserialized_responses::SyncOrStrippedState,
     Room, ruma::{
-        OwnedEventId,
+        OwnedEventId, EventId,
         RoomId, OwnedRoomId, UserId, OwnedUserId
     }
 };
@@ -48,8 +48,7 @@ pub enum ListOrder {
 #[strum(serialize_all = "snake_case")]
 pub enum StateKey {
     Page,
-    ListButtonNext,
-    ListButtonPrev,
+    ListButtons,
     // Filter,
     // SelectedItem,
 }
@@ -70,6 +69,15 @@ pub struct _ReactionState {
     pub event_id: OwnedEventId,
     // pub key: StateKey,
 }
+
+//
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListButtons {
+    pub message: OwnedEventId,
+    pub prev_button: OwnedEventId,
+    pub next_button: OwnedEventId,   
+}
+
 
 /// List statistics.
 #[derive(Debug)]
@@ -301,4 +309,44 @@ pub async fn get_list_message_by_date(
     );
     
     Ok(message.to_string())
+}
+
+// ===== List-Messages =====
+/// Get and remove ListButtons for the target_event_id.
+pub async fn remove_list_buttons_from_mes(cmd_ctx: &CommandContext, target_event_id: &EventId) {
+    let old_buttons = cmd_ctx.ctx.db_ctx.list.get_and_delete_page_buttons(&target_event_id, cmd_ctx.room.room_id()).await;
+    
+    // Mute DB error because it will not be obvious to users which event ended in an error.
+    match old_buttons {
+        Ok(buttons) => {
+            if let Some(b) = buttons {
+                let _ = cmd_ctx.room.redact(&b.prev_button, None, None).await;
+                let _ = cmd_ctx.room.redact(&b.next_button, None, None).await;
+            }
+            // If None, the method in db.rs has already sent tracing::error!().
+        }
+        Err(error) => {
+            if let ReminderError::Db(e) = error {
+                tracing::error!("SQLite error while deleting page_buttons for event_id: {}. Error: {:?}", &target_event_id, e);
+            }
+        }
+    }
+}
+
+/// Send & save buttons on the basis of the current page and remaining reminders that haven't been displayed yet.
+pub async fn set_list_buttons(cmd_ctx: &CommandContext, event_id: &EventId, page: &i32, size: &i32, count: i32) {
+    // Buttons are not displayed if there are no pages beyond the first one
+    if count != *size && *page == 1 { return; }
+
+    if let Some(buttons) = cmd_ctx.send_list_buttons(event_id).await {
+        let res = cmd_ctx.ctx.db_ctx.list.set_page_buttons(&event_id, cmd_ctx.room.room_id(), buttons).await;
+
+        // Mute DB error because adding buttons to a table only affects the ability to delete them later, 
+        // whereas navigating between pages is handled using the message event_id itself.
+        if let Err(e) = res {
+            tracing::error!("SQLite error while insert page_buttons for event_id: {}. Error: {:?}", &event_id, e);
+        }
+    } else {
+        tracing::error!("Can't display page buttons for the event_id: {:?}", &event_id);
+    }
 }
