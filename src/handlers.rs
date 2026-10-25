@@ -649,7 +649,7 @@ async fn handle_list_flipping(
         p
     } else {
         tracing::error!("Incorrect page state value for event_id: {:?}", &target_event_id);
-        cmd_ctx.msng.react(target_event_id.to_owned(), super::messaging::MessageReaction::Cross).await;
+        // cmd_ctx.msng.react(target_event_id.to_owned(), super::messaging::MessageReaction::Cross).await;
         return Ok(())
     };
 

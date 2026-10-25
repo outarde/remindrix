@@ -11,7 +11,11 @@ use tokio_rusqlite::{params, Connection, OptionalExtension};
 use anyhow::{Result, Context};
 
 use crate::reminder::{RawReminder, Reminder, ReminderData, ReminderStatus, ReminderError};
-use crate::list::{ListScopes, StateKey, PageState, ListButtons, RawStatRow, ReminderStats, StatusCount};
+use crate::list::{
+    ListScopes, StateKey, PageState, 
+    ListButtons, RawListButtons, 
+    RawStatRow, ReminderStats, StatusCount
+};
 use crate::settings::{SettingError, RawSetting};
 use jiff::{Timestamp, Unit};
 
@@ -393,6 +397,68 @@ impl ListRepository {
         }).await?;
 
         Ok(())
+    }
+
+    // Cleanup
+    /// Delete by key `page` and return a count of deleted rows.
+    pub async fn cleanup_page_states(&self, lifetime: &i32, limit: &i32) -> Result<usize, ReminderError> {
+        let conn = self.conn.clone();
+        let lifetime = lifetime.to_owned();
+        let limit = limit.to_owned();
+        
+        let count = conn.call(move |c| {
+            let query = format!("
+                DELETE FROM message_states 
+                WHERE event_id IN (
+                    SELECT event_id FROM message_states
+                    WHERE key = ?1 AND created_at < datetime('now', '-{} days')
+                    ORDER BY created_at
+                    LIMIT ?2
+                );", lifetime);
+            let count: usize = c.execute(
+                &query,
+                params![&StateKey::Page.to_string(), &limit]
+            )?;
+
+            Ok(count)
+
+        }).await?;
+
+        Ok(count)
+    }
+
+    /// Remove page_buttons from the message_states with returning event_id for both of them as ListButtons.
+    pub async fn cleanup_and_get_buttons_states(&self, lifetime: &i32, limit: &i32) -> Result<Vec<RawListButtons>, ReminderError> {
+        let conn = self.conn.clone();
+        let lifetime = lifetime.to_owned();
+        let limit = limit.to_owned();
+
+        let buttons = conn.call(move |conn| {
+            let query = format!("
+                DELETE FROM message_states 
+                WHERE event_id IN (
+                    SELECT event_id FROM message_states
+                    WHERE key = ?1 AND created_at < datetime('now', '-{} days')
+                    ORDER BY created_at
+                    LIMIT ?2
+                )
+                RETURNING room_id, value;", lifetime);
+            let mut stmt = conn.prepare(&query)?;
+            let mut rows = stmt.query(params![&StateKey::ListButtons.to_string(), &limit])?;
+
+            let mut result: Vec<RawListButtons> = Vec::new();
+            
+            while let Some(row) = rows.next()? {
+                result.push(RawListButtons {
+                    room_id: row.get(0)?,
+                    value: row.get(1)?,
+                });
+            }
+            
+            Ok(result)
+        }).await?;
+
+        Ok(buttons)
     }
 }
 

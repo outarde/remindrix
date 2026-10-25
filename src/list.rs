@@ -20,6 +20,11 @@ use crate::context::CommandContext;
 use crate::db::{DbContext, ListRepository};
 use crate::reminder::{RawReminder, Reminder, ReminderData, ReminderStatus, ReminderError, DelegationType};
 
+/// The lifespan of states, in days.
+const STATE_LIFETIME_DAYS: i32 = 30;
+/// The number of states that will be removed in a single cleanup cycle.
+const STATE_EXPIRED_LIMIT: i32 = 50;
+
 /// Reminders filters/scopes. Can be expanded by options "all" or "assigned".
 /// Grouping is not featured.
 #[derive(Clone, Debug, PartialEq, EnumString, Serialize, Deserialize)]
@@ -76,6 +81,13 @@ pub struct ListButtons {
     pub message: OwnedEventId,
     pub prev_button: OwnedEventId,
     pub next_button: OwnedEventId,   
+}
+
+//
+#[derive(Debug, Clone)]
+pub struct RawListButtons {
+    pub room_id: String,
+    pub value: String,
 }
 
 
@@ -349,4 +361,59 @@ pub async fn set_list_buttons(cmd_ctx: &CommandContext, event_id: &EventId, page
     } else {
         tracing::error!("Can't display page buttons for the event_id: {:?}", &event_id);
     }
+}
+
+/// Clean-up task for old page and page_buttons.
+pub async fn states_cleanup(ctx: Arc<super::BotContext>) -> anyhow::Result<()> {
+    tracing::info!("Starting automatic page states cleanup...");
+
+    let states_count = ctx.db_ctx.list.cleanup_page_states(&STATE_LIFETIME_DAYS, &STATE_EXPIRED_LIMIT).await?;
+    let raw_buttons = ctx.db_ctx.list.cleanup_and_get_buttons_states(&STATE_LIFETIME_DAYS, &STATE_EXPIRED_LIMIT).await?;
+    let raw_buttons_len = raw_buttons.len();
+    
+    if states_count > 0 {
+        tracing::info!("{} pages have been successfully deleted", states_count);
+    }
+
+    // Make a HashMap for each room with buttons
+    let mut cleanup_buttons: HashMap<OwnedRoomId, Vec<ListButtons>> = HashMap::new();
+
+    for raw_button in raw_buttons {
+        let room_id = RoomId::parse(&raw_button.room_id)?;
+        let list_buttons = serde_json::from_str::<ListButtons>(&raw_button.value)?;
+
+        cleanup_buttons
+            .entry(room_id.clone())
+            .or_default()
+            .push(list_buttons);
+    }
+
+    let cleaned_rooms = cleanup_buttons.len();
+
+    // Redact buttons from room
+    for (room_id, list_buttons) in cleanup_buttons {
+        let room = match ctx.client.get_room(&room_id) {
+            Some(r) => r,
+            None => {
+                tracing::error!("Error removing ListButtons from messages. Can't load room with id: {:?}", room_id);
+                continue;
+            }
+        };
+        for button in list_buttons {
+            let _ = room.redact(&button.prev_button, Some("Reaction-button has expired"), None).await;
+            let _ = room.redact(&button.next_button, Some("Reaction-button has expired"), None).await;
+
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        }
+    }
+    if cleaned_rooms > 0 {
+        tracing::info!("{} reaction-button states from {} room(s) have been successfully redacted",
+            raw_buttons_len,
+            cleaned_rooms
+        );
+    }
+
+    tracing::info!("Automatic page states cleanup completed successfully!");
+
+    Ok(())
 }
