@@ -151,12 +151,102 @@ impl ReminderRepository {
         Ok(result)
     }
 
+    /// Get all reminders filtered by status, typically for restoring.
+    pub async fn get_by_status(&self, status: ReminderStatus) -> Result<Vec<RawReminder>, ReminderError> {
+        let conn = self.conn.clone();
+        // let status = status as i64;
+        
+        let reminders = conn.call(move |conn| {
+            let query = "
+                SELECT id, 
+                room_id, 
+                text, 
+                target_time, 
+                utc_time, 
+                tz, 
+                created_by, 
+                target_user_id, 
+                delegation_kind 
+                FROM reminders WHERE status = ?1
+                ORDER BY utc_time";
+            let mut stmt = conn.prepare(&query)?;
+            let mut rows = stmt.query(params![status as i64])?;
+
+            let mut result: Vec<RawReminder> = Vec::new();
+            
+            while let Some(row) = rows.next()? {
+                result.push(RawReminder {
+                    id: row.get(0)?,
+                    room_id: row.get(1)?,
+                    text: row.get(2)?,
+                    target_time: row.get(3)?,
+                    utc_time: row.get(4)?,
+                    tz: row.get(5)?,
+                    created_by: row.get(6)?,
+                    // status: row.get(7)?,
+                    target_user_id: row.get(7)?,
+                    delegation_kind: row.get(8)?,
+                });
+            }
+            
+            Ok(result)
+        }).await?;
+
+        Ok(reminders)
+    }
+
     pub async fn _get_by_id(&self, _id: i64) -> Result<Reminder> {
         todo!()
     }
 
-    pub async fn _update_status(&self, _id: i64, _status: i32) -> Result<()> {
-        todo!()
+    /// Update the status of a single reminder by its ID.
+    pub async fn update_reminder_status(&self, id: i64, status: ReminderStatus) -> Result<(), tokio_rusqlite::Error> {
+        let conn = self.conn.clone();
+
+        let _ = conn.call(move |c| {
+            c.execute("UPDATE reminders SET status = ?1 WHERE id = ?2", params![status as i64, id])?;
+            
+            Ok(())
+        }).await?;
+        
+        Ok(())
+    }
+    /// Update all reminder statuses in the Room.
+    pub async fn update_reminder_status_by_room(&self, room_id: &RoomId, status: ReminderStatus) -> Result<(), ReminderError> {
+        let conn = self.conn.clone();
+        let room_id = room_id.to_string();
+
+        let _ = conn.call(move |c| {
+            c.execute("UPDATE reminders SET status = ?1 WHERE room_id = ?2", params![status as i64, room_id])?;
+            
+            Ok(())
+        }).await?;
+        
+        Ok(())
+    }
+
+    /// Update reminder statuses based on a Vec of IDs.
+    pub async fn update_reminders_status(&self, ids: Vec<i64>, status: ReminderStatus) -> Result<(), ReminderError> {
+        let conn = self.conn.clone();
+
+        // let placeholders = vec!["?"; ids.len()].join(", ");
+        let placeholders: String = std::iter::repeat("?")
+            .take(ids.len())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let query = format!("UPDATE reminders SET status = ?1 WHERE id IN ({})", placeholders);
+
+        let _ = conn.call(move |c| {
+            let mut all_params: Vec<_> = vec![status as i64];
+            all_params.extend(ids.iter());
+            let params = tokio_rusqlite::params_from_iter(all_params);
+            
+            c.execute(&query, params)?;
+            
+            Ok(())
+        }).await?;
+        
+        Ok(())
     }
 
 }

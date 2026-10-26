@@ -203,7 +203,7 @@ pub async fn schedule_reminder(
             None => {
                 tracing::warn!("Room {} was not found for reminder #{}", &reminder.data.room_id, &reminder.id);
             
-                if let Err(e) = update_reminder_status(ctx.db.clone(), reminder.id, ReminderStatus::Missed).await {
+                if let Err(e) = ctx.db_ctx.reminders.update_reminder_status(reminder.id, ReminderStatus::Missed).await {
                     tracing::error!("Failed to update status for reminder: {:?}", e);
                 }
 
@@ -246,7 +246,7 @@ pub async fn schedule_reminder(
         // If the message was sent successfully, update the status!
         match room.send(RoomMessageEventContent::text_markdown(msg)).await {
             Ok(_) => {
-                if let Err(e) = update_reminder_status(ctx.db.clone(), reminder.id, ReminderStatus::Sent).await {
+                if let Err(e) = ctx.db_ctx.reminders.update_reminder_status(reminder.id, ReminderStatus::Sent).await {
                     tracing::error!("Failed to update status for reminder: {:?}", e);
                 }
             }
@@ -258,6 +258,8 @@ pub async fn schedule_reminder(
 /// Restores all future (or missed) reminders from the database.
 pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()> {
     // Get reminders
+    let raw_reminders = ctx.db_ctx.reminders.get_by_status(ReminderStatus::Pending).await?;
+    /*
     let raw_reminders: Vec<RawReminder> = ctx.db.call(move |c| {
         let mut stmt = c.prepare("SELECT id, room_id, text, target_time, utc_time, tz, created_by, target_user_id, delegation_kind FROM reminders WHERE status = 0")?;
         
@@ -283,90 +285,10 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
         
         Ok::<_, tokio_rusqlite::Error>(res)
     }).await?;
+    */
 
     // Make a Vec for reminders.
     let reminders = super::list::from_raw_reminders(ctx.clone(), raw_reminders)?;
-
-    /*
-    let mut reminders = Vec::with_capacity(raw_reminders.len());
-
-    for raw in raw_reminders {
-        let id: i64 = raw.id;
-        let room_id_str = raw.room_id.to_string();
-        let created_by_str = raw.created_by.to_string();
-        let text = raw.text;
-        let utc_time_str = raw.utc_time;
-        let room_tz_str = raw.tz;
-
-        // Parse strings to OwnedRoomId and OwnedUserId
-        let room_id = RoomId::parse(&room_id_str)?;
-        let created_by = UserId::parse(&created_by_str)?;
-
-        // Delegation data
-        let delegation = match DelegationType::from_raw(&raw.delegation_kind, raw.target_user_id.as_deref()) {
-            Ok(d) => d,
-            Err(e) => {
-                tracing::warn!(
-                    reminder_id = raw.id,
-                    delegation_kind = %raw.delegation_kind,
-                    target_user = ?raw.target_user_id,
-                    "invalid delegation in DB, falling back to Personal: {e}"
-                );
-                DelegationType::Personal
-            }
-        };
-
-        // Get TZ
-        let tz = ctx.settings_service.get_tz_or_fallback(Some(room_tz_str));
-
-        // Parse Utc as Timestamp
-        let timestamp: Timestamp = match utc_time_str.parse() {
-            Ok(t) => t,
-            // DateTime for the legacy (chrono) format of utc_time as 2026-09-06 04:00:00 UTC
-            Err(_) => {
-                let parts: Vec<&str> = utc_time_str.split(|c| c == '-' || c == ' ' || c == ':').collect();
-                if parts.len() < 5 {
-                    return Err(anyhow::anyhow!("Error restoring reminders with the legacy date format; delete the database to fix this."));
-                }
-
-                let target_time = CivilDateTime::new(
-                    parts[0].parse().unwrap(), 
-                    parts[1].parse().unwrap(), 
-                    parts[2].parse().unwrap(),
-                    parts[3].parse().unwrap(), 
-                    parts[4].parse().unwrap(),
-                    0,
-                    0
-                )?;
-
-                let utc_time: Zoned = target_time.to_zoned(TimeZone::UTC)?;
-                utc_time.timestamp()
-            }
-        };
-
-        // Parse Civil from Timestamp -> Zoned.
-        // let target_zoned = timestamp.in_tz(&room_tz_str);
-        let dt_zoned = timestamp.to_zoned(tz.clone());
-        let civil_dt = dt_zoned.datetime();
-
-        // Prepare ReminderData.
-        let reminder_data = ReminderData {
-            room_id,
-            utc_dt: timestamp,
-            civil_dt,
-            tz,
-            text,
-            created_by,
-            delegation,
-        };
-
-        reminders.push(Reminder {
-            id,
-            data: reminder_data,
-            status: ReminderStatus::Pending,
-        });
-    }
-    */
 
     // HashMap for missed reminders
     let mut missed_by_room: HashMap<OwnedRoomId, Vec<Reminder>> = HashMap::new();
@@ -421,11 +343,7 @@ async fn summary_missed(
                 Some(r) => r,
                 None => {
                     tracing::warn!("Room {} was not found for the summary. All reminders in this room have been marked as missed", &room_id);
-                    if let Err(e) = update_room_reminder_status(
-                        ctx_clone.db.clone(), 
-                        room_id.to_string(), 
-                        ReminderStatus::Missed
-                    ).await {
+                    if let Err(e) = ctx_clone.db_ctx.reminders.update_reminder_status_by_room(&room_id, ReminderStatus::Missed).await {
                         tracing::error!("Failed to update status to missed for room {}: {:?}", room_id, e);
                     }
 
@@ -467,62 +385,13 @@ async fn summary_missed(
             if room.send(RoomMessageEventContent::text_markdown(message)).await.is_ok() {
                 let ids: Vec<i64> = reminders.iter().map(|r| r.id).collect();
                 tracing::info!("Missed reminders #{:?} has been sent", ids);
-                if let Err(e) = update_reminders_status(ctx_clone.db.clone(), ids, ReminderStatus::Sent).await {
+                if let Err(e) = ctx_clone.db_ctx.reminders.update_reminders_status(ids, ReminderStatus::Sent).await {
                     tracing::error!("Failed to update status to sent for ids {}: {:?}", room_id, e);
                 }
             }
         });
     }
 
-    Ok(())
-}
-
-// ===== DB =====
-/// Update all reminders in the room with the given status.
-async fn update_room_reminder_status(
-    db: Arc<Connection>, 
-    room_id: String, 
-    status: ReminderStatus
-) -> Result<(), tokio_rusqlite::Error> {
-    db.call(move |c| {
-        c.execute("UPDATE reminders SET status = ?1 WHERE room_id = ?2", params![status as i64, &room_id])
-    }).await?;
-    Ok(())
-}
-
-/// Update reminders by ids with the given status.
-async fn update_reminders_status(
-    db: Arc<Connection>, 
-    ids: Vec<i64>, 
-    status: ReminderStatus
-) -> Result<(), tokio_rusqlite::Error> {
-    // let placeholders = vec!["?"; ids.len()].join(", ");
-    let placeholders: String = std::iter::repeat("?")
-        .take(ids.len())
-        .collect::<Vec<_>>()
-        .join(", ");
-    let query = format!("UPDATE reminders SET status = ?1 WHERE id IN ({})", placeholders);
-
-    db.call(move |c| {
-        let mut all_params: Vec<_> = vec![status as i64];
-        all_params.extend(ids.iter());
-
-        let params = tokio_rusqlite::params_from_iter(all_params);
-        c.execute(&query, params)?;
-        Ok(())
-    }).await?;
-    Ok(())
-}
-
-async fn update_reminder_status(
-    db: Arc<Connection>, 
-    id: i64, 
-    status: ReminderStatus
-) -> Result<(), tokio_rusqlite::Error> {
-    db.call(move |c| {
-        c.execute("UPDATE reminders SET status = ?1 WHERE id = ?2", [status as i64, id])?;
-        Ok(())
-    }).await?;
     Ok(())
 }
 
