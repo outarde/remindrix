@@ -1,6 +1,7 @@
 use matrix_sdk::{
     deserialized_responses::{TimelineEvent, TimelineEventKind},
     Room, RoomState,
+    room::reply::{Reply, EnforceThread},
     ruma::{
         room_version_rules::RedactionRules,
         serde::Raw,
@@ -11,7 +12,7 @@ use matrix_sdk::{
             reaction::{OriginalSyncReactionEvent, SyncReactionEvent, ReactionEvent, ReactionEventContent},
             room::{
                 member::StrippedRoomMemberEvent, 
-                message::{MessageType, OriginalSyncRoomMessageEvent},
+                message::{MessageType, OriginalSyncRoomMessageEvent, ReplyWithinThread, AddMentions},
                 redaction::SyncRoomRedactionEvent
             },
             relation::RelationType,
@@ -680,6 +681,15 @@ async fn handle_list_flipping(
         // Remove ListButtons and set & save new
         super::list::remove_list_buttons_from_mes(&cmd_ctx, &target_event_id).await;
         super::list::set_list_buttons(&cmd_ctx, &event_id, &page_state.page, &page_state.size, count as i32).await;
+    }
+    else if cmd_ctx.bot_config().thread_for_pages {
+        let reply = Reply {
+            event_id: target_event_id.to_owned(),
+            enforce_thread: EnforceThread::Threaded(ReplyWithinThread::No),
+            add_mentions: AddMentions::No
+        };
+        let _ = cmd_ctx.msng.reply_with_event_id(&message, reply).await.map_err(|_| ReminderError::SendError)?;
+        let _ = cmd_ctx.ctx.db_ctx.list.set_list_page(&target_event_id, &room_id, &page_state).await?;
     }
     else {
         let _ = cmd_ctx.msng.edit_message(&target_event_id, &message).await.map_err(|_| ReminderError::SendError)?;

@@ -98,6 +98,8 @@ pub struct BotConfig {
     pub list_size: i32,
     #[serde(default = "BotConfig::messages_for_pages")]
     pub messages_for_pages: bool,
+    #[serde(default = "BotConfig::thread_for_pages")]
+    pub thread_for_pages: bool,
 
     // If the "strict" mode is defined in the config, then 
     // any settings will be saved under the bot ID, 
@@ -178,6 +180,9 @@ impl BotConfig {
         DEFAULT_LIST_SIZE
     }
     fn messages_for_pages() -> bool {
+        false
+    }
+    fn thread_for_pages() -> bool {
         false
     }
 

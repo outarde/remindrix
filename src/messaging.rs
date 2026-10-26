@@ -1,5 +1,6 @@
 use matrix_sdk::{
     Room, room::edit::EditedContent,
+    room::reply::Reply,
     ruma::{
         EventId, OwnedEventId,
         events::{
@@ -138,6 +139,19 @@ impl RoomMessenger {
         // or `matrix_sdk::ruma::api::ruma_client_api::message::send_message_event::v3::Response`.
         // `matrix_sdk::room::futures::SendMessageLikeEvent` is what you get before response.response
         let response = self.room.send(RoomMessageEventContent::text_markdown(text)).await?;
+        let event_id = response.response.event_id.to_owned();
+        
+        Ok(event_id)
+    }
+
+    /// Send text as a Reply.
+    pub async fn reply_with_event_id(&self, text: &str, reply: Reply) -> anyhow::Result<OwnedEventId> {
+        let _ = self.room.typing_notice(true).await;
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        let _ = self.room.typing_notice(false).await;
+
+        let content = self.room.make_reply_event(RoomMessageEventContentWithoutRelation::text_markdown(text), reply).await?;
+        let response = self.room.send(content).await?;
         let event_id = response.response.event_id.to_owned();
         
         Ok(event_id)
