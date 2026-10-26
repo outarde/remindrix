@@ -234,7 +234,7 @@ impl ListRepository {
                 target_user_id, 
                 delegation_kind 
                 FROM reminders WHERE room_id = ?1 AND status = ?2
-                ORDER BY target_time {}
+                ORDER BY utc_time {}
                 LIMIT ?3
                 OFFSET ?4", order);
             let mut stmt = conn.prepare(&query)?;
