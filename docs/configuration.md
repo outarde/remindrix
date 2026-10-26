@@ -63,7 +63,8 @@ Confirm that you want to create or overwrite a settings file.
 | `afternoon`       | The time that is considered afternoon.                                                                                                                                                               | `14:00`        |
 | `evening`         | The time that is considered evening.                                                                                                                                                                 | `19:00`        |
 | `list_size`         | Default length for the reminder list (the `/list` command to the bot).                                                                                                                                                                 | `30`        |
-| `messages_for_pages`         | Send new pages as new messages (instead of editing the single message).                                                                                                                                                                 | `false`        |
+| `messages_for_pages`         | Send new pages for reminders list as new messages instead of editing the single message.                                                                                                                                                                 | `false`        |
+| `thread_for_pages`         | Send new pages for reminders list as replies in a thread.                                                                                                                                                                 | `false`        |
 
 > [!NOTE]
 >  New versions may contain incompatible configuration changes. We'll reflect these in the releases notes.
