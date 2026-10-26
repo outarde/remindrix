@@ -296,7 +296,7 @@ impl BotManager {
 
     /// Create cleanup scheduler in tokio::spawn.
     async fn start_cleanup_scheduler(&self) -> Result<tokio::task::JoinHandle<()>> {
-        let context_for_cleanup = self.context.clone();
+        let context_for_cleanup: SharedState = self.context.clone();
         
         let scheduler = JobScheduler::new().await?;
         
