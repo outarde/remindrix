@@ -41,9 +41,12 @@ A chatbot for reminders on Matrix servers focused on multilingual support and us
 	  <td>
 		  <img src="docs/assets/UI-List2-Dark.jpg" alt="Missed reminders notification in chats list" width="200px">
 	  </td>
-      <td>
-        <img src="docs/assets/UI-Tz-Dark.jpg" alt="Setting a room's time zone via chat" width="200px">
-      </td>
+    <td>
+      <img src="docs/assets/UI-Tz-Dark.jpg" alt="Setting a room's time zone via chat" width="200px">
+    </td>
+    <td>
+      <img src="docs/assets/UI-ReminderList-Dark.jpg" alt="Viewing a list of reminders with navigation buttons" width="200px">
+    </td>
   </tr>
   <tr>
     <td>
@@ -60,6 +63,9 @@ A chatbot for reminders on Matrix servers focused on multilingual support and us
     </td>
     <td>
       <p align="center"><i>Setting a room's time zone</i></p>
+    </td>
+    <td>
+      <p align="center"><i>A list of reminders with reaction-buttons for navigating through the pages</i></p>
     </td>
   </tr>
 </table>
