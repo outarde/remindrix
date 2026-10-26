@@ -33,3 +33,4 @@ rust-i18n = "^4.2.0"
 # pulldown-cmark = "0.13"
 inquire = "^0.9.4"
 itertools = "0.15.0"
+tokio-cron-scheduler = { version = "0.15.1" }

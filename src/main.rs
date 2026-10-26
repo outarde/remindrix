@@ -19,6 +19,7 @@ use tracing::info;
 use tokio::signal;
 use tokio::sync::RwLock;
 use tokio_rusqlite::Connection;
+use tokio_cron_scheduler::{Job, JobScheduler};
 
 mod cli;
 mod config;
@@ -141,6 +142,7 @@ impl BotRuntime {
     // ===== Sync =====
     /// Sync
     pub async fn sync(&self) -> Result<()> {
+        /*
         let heartbeat_handle = self.start_healthcheck_heartbeat();
 
         tokio::select! {
@@ -157,8 +159,11 @@ impl BotRuntime {
                 Self::cleanup_healthcheck().await;
             }
         }
-
-        Ok(())
+        */
+        
+        auth::sync(self.client.clone(), self.sync_settings.clone(), &self.session_file).await
+        
+        // Ok(())
     }
 }
 
@@ -232,16 +237,39 @@ impl BotManager {
 
     pub async fn start(&self, runtime: &BotRuntime) -> Result<()> {
         // Restore reminders
-        match reminder::restore_reminders(self.context.clone()).await {
-            Ok(_) => (),
-            Err(e) => tracing::error!("Restoring reminders failed with an error: {:?}", e)
-        };
+        if let Err(e) = reminder::restore_reminders(self.context.clone()).await {
+            tracing::error!("Restoring reminders failed with an error: {:?}", e);
+        }
+
+        // Start cleanup process
+        let _ = self.start_cleanup_scheduler().await?;
+
+        // Heartbeat
+        let heartbeat_handle = runtime.start_healthcheck_heartbeat();
 
         // Register handlers
         self.register_handlers();
 
         // Start synchronization
-        runtime.sync().await?;
+        // runtime.sync().await?;
+
+        tokio::select! {
+            result = runtime.sync() => {
+                result?;
+            }
+            _ = signal::ctrl_c() => {
+                info!("🛑 The application is terminating...");
+                // https://docs.rs/matrix-sdk/latest/matrix_sdk/struct.Client.html#method.sync
+                // https://docs.rs/matrix-sdk/latest/matrix_sdk/sliding_sync/struct.SlidingSync.html#method.stop_sync
+                // drop(client); or let _ = client;
+            }
+        }
+
+        heartbeat_handle.abort();
+        BotRuntime::cleanup_healthcheck().await;
+
+        tracing::info!("Remindrix stopped cleanly.");
+
         Ok(())
     }
 
@@ -264,6 +292,46 @@ impl BotManager {
             handlers::on_redaction(redaction_event, room, ctx_4.clone())
         });
         */
+    }
+
+    /// Create cleanup scheduler in tokio::spawn.
+    async fn start_cleanup_scheduler(&self) -> Result<tokio::task::JoinHandle<()>> {
+        let context_for_cleanup = self.context.clone();
+        
+        let scheduler = JobScheduler::new().await?;
+        
+        scheduler.add(
+            // 03:00 a.m.
+            Job::new_async("0 0 3 * * *", move |_uuid, mut _l| {
+                let context = context_for_cleanup.clone();
+
+                Box::pin(async move {
+                    tracing::info!("Background cleanup task by scheduler is starting");
+                    
+                    if let Err(e) = list::states_cleanup(context).await {
+                        tracing::error!("Failed to cleanup old states: {:?}", e);
+                    }
+                })
+            })?
+        ).await?;
+        
+        /*
+        scheduler.shutdown_on_signal(signal::unix::SignalKind::terminate());
+        scheduler.set_shutdown_handler(Box::new(|| {
+            Box::pin(async move {
+                tracing::info!("Scheduler has been shut down");
+            })
+        }));
+        */
+        
+        let scheduler_clone = scheduler.clone();
+        let handle = tokio::spawn(async move { 
+            if let Err(e) = scheduler_clone.start().await {
+                tracing::error!("Failed to start scheduler: {:?}", e);
+            }
+        });
+
+        Ok(handle)
     }
 }
 
