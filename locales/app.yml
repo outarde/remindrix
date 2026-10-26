@@ -1368,6 +1368,60 @@ list.by-date.item:
     %{text} (в %{time})
   uk: >
     %{text} (у %{time})
+list.by-date.item-user-delegated:
+  en: >
+    👤 To %{to}: %{text} at %{time} (from %{from})
+  de: >
+    👤 Für %{to}: %{text} um %{time} (von %{from})
+  fr: >
+    👤 Pour %{to}: %{text} à %{time} (de %{from})
+  it: >
+    👤 Per %{to}: %{text} alle %{time} (da %{from})
+  es: >
+    👤 Para %{to}: %{text} a las %{time} (de %{from})
+  sv: >
+    👤 Till %{to}: %{text} kl. %{time} (från %{from})
+  pl: >
+    👤 Dla %{to}: %{text} o godzinie %{time} (od %{from})
+  cs: >
+    👤 Pro %{to}: %{text} v %{time} (od %{from})
+  fi: >
+    👤 Vastaanottajalle %{to}: %{text} kello %{time} (lähettäjältä %{from})
+  ja: >
+    👤 のために%{to}: %{text} (%{time}) から %{from}
+  zh: >
+    👤 为了%{to}: %{text} (%{time}) 从%{from}
+  ru: >
+    👤 Для %{to}: %{text} в %{time} (от %{from})
+  uk: >
+    👤 Для %{to}: %{text} у %{time} (від %{from})
+list.by-date.item-room-delegated:
+  en: >
+    %{text} at %{time} (from %{from})
+  de: >
+    %{text} um %{time} (von %{from})
+  fr: >
+    %{text} à %{time} (de %{from})
+  it: >
+    %{text} alle %{time} (da %{from})
+  es: >
+    %{text} a las %{time} (de %{from})
+  sv: >
+    %{text} kl. %{time} (från %{from})
+  pl: >
+    %{text} o godzinie %{time} (od %{from})
+  cs: >
+    %{text} v %{time} (od %{from})
+  fi: >
+    %{text} kello %{time} (lähettäjältä %{from})
+  ja: >
+    %{text} (%{time}) から%{from}
+  zh: >
+    %{text} (%{time}) 从%{from}
+  ru: >
+    %{text} в %{time} (от %{from})
+  uk: >
+    %{text} у %{time} (від %{from})
 
 tz.current:
   en: >
