@@ -269,14 +269,42 @@ fn get_list_section_for_date(reminders: Vec<Reminder>, date: &Date, locale: &str
     let items = reminders
         .iter()
         .map(|r| {
-            let time = r.data.civil_dt.strftime("%H:%M").to_string();
-            let item = t!(
-                "list.by-date.item", 
-                locale = locale, 
-                text = r.data.text,
-                time = time
-            );
-            item
+            match r.data.delegation {
+                DelegationType::Personal => {
+                    let time = r.data.civil_dt.strftime("%H:%M").to_string();
+                    let item = t!(
+                        "list.by-date.item", 
+                        locale = locale, 
+                        text = r.data.text,
+                        time = time
+                    );
+                    item
+                },
+                DelegationType::User(ref user_id) => {
+                    let time = r.data.civil_dt.strftime("%H:%M").to_string();
+                    let item = t!(
+                        "list.by-date.item-user-delegated", 
+                        locale = locale, 
+                        text = r.data.text,
+                        time = time,
+                        to = &user_id.to_string(),
+                        from = r.data.created_by
+                    );
+                    item
+                },
+                DelegationType::Room => {
+                    let time = r.data.civil_dt.strftime("%H:%M").to_string();
+                    let item = t!(
+                        "list.by-date.item-room-delegated", 
+                        locale = locale, 
+                        text = r.data.text,
+                        time = time,
+                        from = r.data.created_by
+                    );
+                    item
+                }
+            }
+            
         })
         .collect::<String>();
 
