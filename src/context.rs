@@ -224,6 +224,7 @@ impl CommandContext {
             locale = &self.settings.room.room_lang,
             cmd = self.bot_config().settings_commands.join("|"),
             default = self.settings.user.default_time.strftime("%H:%M").to_string(),
+            default_room = self.bot_config().default_time,
             morning = self.settings.user.morning.strftime("%H:%M").to_string(),
             afternoon = self.settings.user.afternoon.strftime("%H:%M").to_string(),
             evening = self.settings.user.evening.strftime("%H:%M").to_string(),

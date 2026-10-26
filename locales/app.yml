@@ -1679,7 +1679,7 @@ settings.default-times:
     - 🌅 `%{morning}` - morning
     - ☀️ `%{afternoon}` - afternoon
     - 🌃 `%{evening}` - evening
-    - `%{default}` - without a specific time (same day or next day)
+    - `%{default}` - without a specific time (same day or next day), `%{default_room}` for delegation rooms
 
     To change the time: 
     - Specify its type: `morning | afternoon | evening | default`. 
@@ -1690,7 +1690,7 @@ settings.default-times:
     - 🌅 `%{morning}` – Morgen 
     - ☀️ `%{afternoon}` – Nachmittag 
     - 🌃 `%{evening}` – Abend 
-    - `%{default}` – ohne bestimmte Uhrzeit (gleicher Tag oder nächster Tag) 
+    - `%{default}` – ohne bestimmte Uhrzeit (gleicher Tag oder nächster Tag), `%{default_room}` für Delegationsräume
 
     So ändern Sie die Uhrzeit: 
     - Geben Sie den Typ an: `morning | afternoon | evening | default`. 
@@ -1701,7 +1701,7 @@ settings.default-times:
     - 🌅 `%{morning}` - matin
     - ☀️ `%{afternoon}` - après-midi
     - 🌃 `%{evening}` - soir
-    - `%{default}` - sans moment précis (le jour même ou le lendemain)
+    - `%{default}` - sans moment précis (le jour même ou le lendemain), `%{default_room}` pour les salles de délégation
 
     Pour modifier l'heure :
     - Indiquez le type : `morning | afternoon | evening | default`. 
@@ -1712,7 +1712,7 @@ settings.default-times:
     - 🌅 `%{morning}` - mattina
     - ☀️ `%{afternoon}` - pomeriggio
     - 🌃 `%{evening}` - sera
-    - `%{default}` - senza un orario specifico (stesso giorno o giorno successivo)
+    - `%{default}` - senza un orario specifico (stesso giorno o giorno successivo), `%{default_room}` per le sale delle delegazioni
 
     Per modificare l'orario:
     - Specifica il tipo: `morning | afternoon | evening | default`. 
@@ -1723,7 +1723,7 @@ settings.default-times:
     - 🌅 `%{morning}` - mañana
     - ☀️ `%{afternoon}` - tarde
     - 🌃 `%{evening}` - noche
-    - `%{default}` - sin un momento específico (mismo día o día siguiente)
+    - `%{default}` - sin un momento específico (mismo día o día siguiente), `%{default_room}` para salas de delegación
 
     Para cambiar el momento:
     - Especifica el tipo: `morning | afternoon | evening | default`. 
@@ -1734,7 +1734,7 @@ settings.default-times:
     - 🌅 `%{morning}` – morgon
     - ☀️ `%{afternoon}` – eftermiddag
     - 🌃 `%{evening}` – kväll
-    - `%{default}` – utan specifik tid (samma dag eller nästa dag)
+    - `%{default}` – utan specifik tid (samma dag eller nästa dag), `%{default_room}` för delegationsrum
 
     För att ändra tiden:
     - Ange typen: `morning | afternoon | evening | default`. 
@@ -1745,7 +1745,7 @@ settings.default-times:
     - 🌅 `%{morning}` – rano
     - ☀️ `%{afternoon}` – popołudnie
     - 🌃 `%{evening}` – wieczór
-    - `%{default}` – bez konkretnej pory (ten sam lub następny dzień)
+    - `%{default}` – bez konkretnej pory (ten sam lub następny dzień), `%{default_room}` do sal delegacyjnych
 
     Aby zmienić godzinę:
     - Określ typ pory: `morning | afternoon | evening | default`. 
@@ -1756,7 +1756,7 @@ settings.default-times:
     - 🌅 `%{morning}` – ráno
     - ☀️ `%{afternoon}` – odpoledne
     - 🌃 `%{evening}` – večer
-    - `%{default}` – bez konkrétního času (tentýž nebo následující den)
+    - `%{default}` – bez konkrétního času (tentýž nebo následující den), `%{default_room}` pro delegační místnosti
 
     Pro změnu času:
     - Uveďte jeho typ: `morning | afternoon | evening | default`. 
@@ -1767,7 +1767,7 @@ settings.default-times:
     - 🌅 `%{morning}` – aamu
     - ☀️ `%{afternoon}` – iltapäivä
     - 🌃 `%{evening}` – ilta
-    - `%{default}` – ilman tiettyä kellonaikaa (sama päivä tai seuraava päivä)
+    - `%{default}` – ilman tiettyä kellonaikaa (sama päivä tai seuraava päivä), `%{default_room}` delegaatiotiloihin
 
     Kellonajan muuttaminen:
     - Määritä tyyppi: `morning | afternoon | evening | default`. 
@@ -1778,7 +1778,7 @@ settings.default-times:
     - 🌅 `%{morning}` - 午前
     - ☀️ `%{afternoon}` - 午後
     - 🌃 `%{evening}` - 夜間
-    - `%{default}` - 特定の時刻指定なし（当日または翌日）
+    - `%{default}` - 特定の時刻指定なし（当日または翌日）、`%{default_room}` 委任された部屋の場合
 
     時刻を変更する場合：
     - 種類（`default`、`morning`、`afternoon`、`evening`）を指定します。 
@@ -1789,7 +1789,7 @@ settings.default-times:
     - 🌅 `%{morning}` - 上午/早晨
     - ☀️ `%{afternoon}` - 下午
     - 🌃 `%{evening}` - 晚上
-    - `%{default}` - 无特定时间（当天或次日）
+    - `%{default}` - 无特定时间（当天或次日）、`%{default_room}` 指定房间
 
     若要更改时间：
     - 指定类型：`morning | afternoon | evening | default`。 
@@ -1799,7 +1799,7 @@ settings.default-times:
     - 🌅 `%{morning}` - утро
     - 🌆 `%{afternoon}` - день
     - 🌃 `%{evening}` - вечер
-    - `%{default}` - напоминания без времени (тот же или следующий день)
+    - `%{default}` - напоминания без времени (тот же или следующий день), `%{default_room}` для комнат делегирования
 
     Для изменения времени: 
     - Укажите его тип: `morning | afternoon | evening | default`.
@@ -1810,7 +1810,7 @@ settings.default-times:
     - 🌅 `%{morning}` — ранок
     - ☀️ `%{afternoon}` — день
     - 🌃 `%{evening}` — вечір
-    - `%{default}` — без конкретного часу (той самий або наступний день)
+    - `%{default}` — без конкретного часу (той самий або наступний день), `%{default_room}` для кімнат делегування
 
     Щоб змінити час:
     - Вкажіть його тип: `morning | afternoon | evening | default`. 
