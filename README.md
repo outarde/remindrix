@@ -45,7 +45,7 @@ A chatbot for reminders on Matrix servers focused on multilingual support and us
       <img src="docs/assets/UI-Tz-Dark.jpg" alt="Setting a room's time zone via chat" width="200px">
     </td>
     <td>
-      <img src="docs/assets/UI-ReminderList-Dark.jpg" alt="Viewing a list of reminders with navigation buttons" width="200px">
+      <img src="docs/assets/UI-ReminderListNoThread-Dark.jpg" alt="Viewing a list of reminders with navigation buttons" width="200px">
     </td>
   </tr>
   <tr>
