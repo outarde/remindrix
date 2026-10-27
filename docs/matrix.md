@@ -56,6 +56,19 @@ command:
 - your-recovery-key
 - --fix-backup
 ```
+
+### Reset Recovery
+To reset all verification data, use the command `remindrix reset-recovery --confirmation`. The `--confirmation` flag is mandatory. By including the `--backup` and `--recovery-key <your-active-recovery-key>` flags, you can perform a reset while preserving a backup of room keys (key backup). After the reset, a new recovery key will be displayed in the terminal - make sure to write it down!
+
+### Recall Recovery Key
+If you have verified your device using a recovery key - or if you received one when first launching the bot - you can quickly display it in your terminal by running the command `remindrix recall-recovery-key`. The key is stored in an unencrypted format within a file named `recovery.json`, primarily as a safeguard in case you forgot to record it when it was first provided. It is therefore best to save the key in a secure location and then delete this json file.
+
 ## Verify Your Other Devices
->[!NOTE]
->This section is under construction but the bot can verify your other devices by the command `verify-some-device`. Use `devices-list` to show devices of the bot account.
+You can verify not only the current device that the bot uses to communicate with the Matrix server, but other devices as well. (Your current device must be verified first.) This is useful for clients such as FluffyChat that display warnings when you interact with a user who has one or more unverified devices.
+
+First, list all devices by running: `remindrix devices-list`. You will receive a list containing the device ID, its name (which defaults to `reminder-bot-device` for Remindrix and can be changed via the `.env` file), and its verification status.
+
+To verify another device, copy its ID from the list and use it in the following command: `remindrix verify-some-device <device-id>`. If the device is found, the command will display the status of the verification process.
+
+## What's Next
+Once verification is successful, start [exploring the bot's features](https://github.com/outarde/remindrix/blob/main/docs/usage.md)!
