@@ -425,7 +425,7 @@ pub async fn devices_list(client: Client) -> anyhow::Result<()> {
     }
 
     println!("\
-        Use command remindrix verify-device <device-id> to verify some of your own device \
+        Use command remindrix verify-some-device <device-id> to verify some of your own device \
         and command remindrix recover <recovery-key> for your current bot's device to recover your \
         cross-signing key on which depends device verification\
     ");
