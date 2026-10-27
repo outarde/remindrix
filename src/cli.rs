@@ -50,7 +50,7 @@ enum Commands {
     /// Read and print recovery key from json file if you got it before
     RecallRecoveryKey,
 
-    /// Clean your db
+    /// Reset recovery state
     ResetRecovery { 
         /// Reset your key with backup
         #[arg(short, long)]
