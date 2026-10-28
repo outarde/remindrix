@@ -397,7 +397,15 @@ pub async fn on_reaction(
     let target_event_id = &reaction_content.relates_to.event_id;
     let emoji = &reaction_content.relates_to.key;
 
+    // let mut emoji = reaction_content.relates_to.key.to_string();
+    // emoji.retain(|c| c != '\u{FE0F}');
+
     // Routing.
+    //** Why are only the reactions previously added by the bot recognized, 
+    // while new reactions from users are not? This is because user-added reactions
+    // include the `\u{FE0F}` character following the emoji. We intentionally do not 
+    // strip this character, as doing so ensures the desired behavior for reaction-based buttons. */
+    
     let reaction: Option<ReactionButton> = emoji.parse().ok(); // or from_str(&emoji).
     let key = match reaction {
         Some(ReactionButton::Next) => BotReactionsCommand::NextListPage,
@@ -636,6 +644,13 @@ pub async fn _handle_reaction_update(
 */
 
 /// Handle flipping through pages of reminders list via reaction-buttons.
+// A note on safety. If forwarded messages did not change their `event_id`,
+// it would be possible to forward a message with an associated `PageState`
+// and view reminders for a room that the user is not a part of.
+// The check based on `room_id`, which ensures that a `PageState` can only be retrieved
+// for an `event_id` within the current room, provides an additional safeguard.
+// However, the error message returned is generic: ReminderError::ListNoState.
+// Also, when messages are forwarded, they lose their reactions, which minimizes the chance of an error.
 async fn handle_list_flipping(
     _event: OriginalSyncMessageLikeEvent<ReactionEventContent>,
     target_event_id: &EventId,
@@ -646,12 +661,12 @@ async fn handle_list_flipping(
     let page = cmd_ctx.ctx.db_ctx.list.get_list_page(&target_event_id, &room_id).await?;
 
     // Deserialize PageState.
-    let mut page_state = if let Some(p) = page {
-        p
-    } else {
-        tracing::error!("Incorrect page state value for event_id: {:?}", &target_event_id);
-        // cmd_ctx.msng.react(target_event_id.to_owned(), super::messaging::MessageReaction::Cross).await;
-        return Ok(())
+    let mut page_state = if let Some(p) = page { p }
+    // This branch could be caused by data corruption or absence (due to cleanup process, for example)
+    // and **not** in case of next or prev reaction sent by user on a non-list message (see comment on on_reaction()).
+    else {
+        cmd_ctx.msng.react(target_event_id.to_owned(), super::messaging::MessageReaction::Cross).await;
+        Err(ReminderError::ListNoState)?
     };
 
     // Update PageState. Define next page and its state on the basis of key.
