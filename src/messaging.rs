@@ -187,6 +187,10 @@ impl RoomMessenger {
         original_event_id: &EventId,
         new_text: &str,
     ) -> anyhow::Result<()> {
+        let _ = self.room.typing_notice(true).await;
+        tokio::time::sleep(Duration::from_millis(80)).await;
+        let _ = self.room.typing_notice(false).await;
+
         let new_content = RoomMessageEventContentWithoutRelation::text_markdown(new_text);
         let edited_content = EditedContent::RoomMessage(new_content);
 

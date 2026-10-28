@@ -330,4 +330,12 @@ impl CommandContext {
         }
     }
     */
+
+    /// Send Cross emoji for a message for a 5 seconds.
+    pub async fn wink_error_reaction(&self, event_id: &EventId) {
+        if let Ok(emoji) = self.msng.react_with_event_id(event_id.to_owned(), MessageReaction::Cross).await {
+            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+            let _ = self.room.redact(&emoji, Some("Redact a bot error reaction"), None).await;
+        }
+    }
 }

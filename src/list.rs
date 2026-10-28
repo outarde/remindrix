@@ -360,8 +360,8 @@ pub async fn remove_list_buttons_from_mes(cmd_ctx: &CommandContext, target_event
     match old_buttons {
         Ok(buttons) => {
             if let Some(b) = buttons {
-                let _ = cmd_ctx.room.redact(&b.prev_button, None, None).await;
-                let _ = cmd_ctx.room.redact(&b.next_button, None, None).await;
+                let _ = cmd_ctx.room.redact(&b.prev_button, Some("Turn the page and move the reaction-button"), None).await;
+                let _ = cmd_ctx.room.redact(&b.next_button, Some("Turn the page and move the reaction-button"), None).await;
             }
             // If None, the method in db.rs has already sent tracing::error!().
         }
