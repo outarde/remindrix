@@ -944,6 +944,20 @@ list.error.save-state:
   zh: 保存当前页面时出错。请通过命令打印提醒列表。
   ru: Возникла ошибка сохранения текущей страницы. Отображайте список напоминаний через команду.
   uk: Під час збереження поточної сторінки сталася помилка. Будь ласка, роздрукуйте список нагадувань за допомогою відповідної команди.
+list.error.no-state:
+  en: No reminder list found or it is expired. Please print a new one using the list command, and ensure that you haven't forwarded the message containing the list to another room - it will not function there.
+  de: Informationen zu dieser Erinnerungsliste konnten nicht gefunden werden. Bitte erstellen Sie eine neue Liste und stellen Sie sicher, dass Sie die Nachricht mit der Liste nicht an einen anderen Raum weitergeleitet haben – dort wird sie nicht funktionieren.
+  fr: Les informations relatives à cette liste de rappels sont introuvables. Veuillez en générer une nouvelle et vous assurer que vous n’avez pas transféré le message contenant cette liste vers une autre discussion ; elle n’y sera pas fonctionnelle.
+  it: Non è stato possibile trovare informazioni su questo elenco di promemoria. Ti invitiamo a crearne uno nuovo; assicurati inoltre di non aver inoltrato il messaggio contenente l'elenco in un'altra chat, poiché in quel contesto non funzionerebbe.
+  es: No se ha podido encontrar información sobre esta lista de recordatorios. Por favor, genera una nueva y asegúrate de no haber reenviado el mensaje que contiene la lista a otra sala, ya que no funcionará allí.
+  sv: Information om den här påminnelselistan kunde inte hittas. Skapa en ny lista och se till att du inte har vidarebefordrat meddelandet som innehåller listan till ett annat rum – där kommer den inte att fungera.
+  pl: Nie udało się odnaleźć informacji na temat tej listy przypomnień. Prosimy o wygenerowanie nowej listy. Upewnij się również, że wiadomość zawierająca listę nie została przekazana do innego pokoju – w takim przypadku nie będzie ona działać.
+  cs: Informace o tomto seznamu připomínek se nepodařilo najít. Vytvořte prosím nový seznam a ujistěte se, že jste zprávu obsahující tento seznam nepřeposlali do jiné místnosti – tam by totiž nefungoval.
+  fi: Tätä muistutuslistaa koskevia tietoja ei löytynyt. Luo uusi lista ja varmista, ettet ole välittänyt listan sisältävää viestiä toiseen huoneeseen – se ei toimi siellä.
+  ja: このリマインダーリストに関する情報が見つかりませんでした。新しく作成し直してください。また、リストが含まれるメッセージを別のルームに転送していないか確認してください。転送先では機能しません。
+  zh: 无法找到此提醒列表的相关信息。请重新生成一个；同时请确保您未将包含该列表的消息转发至其他聊天室——它在其他聊天室中无法正常运作。
+  ru: Информация об этом списке напоминаний не найдена, либо истек срок его действия. Выведите новый и убедитесь, что не переслали сообщение со списком в другую комнату - там он не будет действовать.
+  uk: Інформація про цей список нагадувань не знайдена. Виведіть новий і переконайтеся, що не надіслали повідомлення зі списком в іншу кімнату - там він не діятиме.
 list.error.display-buttons:
   en: An error occurred while displaying the navigation buttons. Please specify the page using the reminder list command.
   ru: Возникла ошибка при отображении кнопок перелистывания. Указывайте страницу через команду списка напоминаний.
