@@ -364,23 +364,22 @@ fn _parse_time_parts(time_str: &str) -> Result<(String, String), ReminderError> 
 fn parse_time_parts_ext(time_str: &str) -> Result<(String, String, DayPeriod), ReminderError> {
     // Find am/pm.
     let lower_str = time_str.to_lowercase();
-    let period = if lower_str.contains("am") { // or we can use ends_with()
+    let period = if lower_str.contains("am") | lower_str.contains("a.m.") { // or we can use ends_with()
         DayPeriod::Am
-    } else if lower_str.contains("pm") {
+    } else if lower_str.contains("pm") | lower_str.contains("p.m.") {
         DayPeriod::Pm
     } else {
         DayPeriod::No
     };
 
-    // Sanitize string.
-    // this makes it impossible to use dot notation
+    // Sanitize string, split it and filter empty &str.
     let sanitized: String = time_str
         .chars()
         .filter(|c| c.is_ascii_digit() || *c == ':' || *c == '.')
         .collect();
-
-    // Split it.
-    let parts: Vec<&str> = sanitized.split(&[':', '.']).collect();
+    
+    let parts: Vec<&str> = sanitized.split(|c| c == ':' || c == '.').collect();
+    let parts: Vec<&str> = parts.into_iter().filter(|s| !s.is_empty()).collect();
 
     match parts.len() {
         2 => Ok((parts[0].to_string(), parts[1].to_string(), period)),
