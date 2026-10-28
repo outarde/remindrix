@@ -86,6 +86,7 @@ pub enum ReminderError {
     #[error("list.error")] ListError,
     // #[error("list.error.display-buttons")] ListButtonsError,
     #[error("list.error.save-state")] ListStateError(tokio_rusqlite::Error),
+    #[error("list.error.no-state")] ListNoState,
     #[error("list.empty")] ListEmpty,
     #[error("list.empty-page")] ListEmptyPage,
     #[error("list.empty-affectionately")] ListEmptyAffectionately,
@@ -403,4 +404,14 @@ pub fn is_time_valid(time_str: &str) -> bool {
     let h = parts[0].parse::<u8>().unwrap_or(99);
     let m = parts[1].parse::<u8>().unwrap_or(99);
     h < 24 && m < 60
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_time_valid() {
+        assert_eq!(is_time_valid("24:00"), false);
+    }
 }
