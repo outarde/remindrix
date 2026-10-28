@@ -397,15 +397,12 @@ pub async fn on_reaction(
     let target_event_id = &reaction_content.relates_to.event_id;
     let emoji = &reaction_content.relates_to.key;
 
-    // let mut emoji = reaction_content.relates_to.key.to_string();
-    // emoji.retain(|c| c != '\u{FE0F}');
-
     // Routing.
-    //** Why are only the reactions previously added by the bot recognized, 
+    //** Why **in Element X** are only the reactions previously added by the bot recognized, 
     // while new reactions from users are not? This is because user-added reactions
     // include the `\u{FE0F}` character following the emoji. We intentionally do not 
-    // strip this character, as doing so ensures the desired behavior for reaction-based buttons. */
-    
+    // strip this character, as doing so ensures the desired behavior for reaction-based buttons at least in Element X. 
+    // To change behavior for Element X, remove the special character: `emoji.retain(|c| c != '\u{FE0F}');` */
     let reaction: Option<ReactionButton> = emoji.parse().ok(); // or from_str(&emoji).
     let key = match reaction {
         Some(ReactionButton::Next) => BotReactionsCommand::NextListPage,
@@ -663,10 +660,15 @@ async fn handle_list_flipping(
     // Deserialize PageState.
     let mut page_state = if let Some(p) = page { p }
     // This branch could be caused by data corruption or absence (due to cleanup process, for example)
-    // and **not** in case of next or prev reaction sent by user on a non-list message (see comment on on_reaction()).
+    // and - in many clients, but not in Element X, for example - in case of "next" or "prev" reaction 
+    // sent by user on a non-list message. See comment for `on_reaction()`.
+    // Therefore, to avoid spam errors on harmless messages, 
+    // we decided to output it only to the console and exit the function silently.
     else {
-        cmd_ctx.msng.react(target_event_id.to_owned(), super::messaging::MessageReaction::Cross).await;
-        Err(ReminderError::ListNoState)?
+        // cmd_ctx.msng.react(target_event_id.to_owned(), super::messaging::MessageReaction::Cross).await;
+        // Err(ReminderError::ListNoState)?
+        tracing::error!("Incorrect or empty page state value, or false positive handle_list_flipping() for event_id: {:?}, in room: {:?}", &target_event_id, &room_id);
+        return Ok(())
     };
 
     // Update PageState. Define next page and its state on the basis of key.
