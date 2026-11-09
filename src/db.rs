@@ -17,7 +17,7 @@ use crate::list::{
     RawStatRow, ReminderStats, StatusCount
 };
 use crate::settings::{SettingError, RawSetting};
-use jiff::{Timestamp, Unit};
+use jiff::{Timestamp, Unit, civil::{DateTime as CivilDateTime}};
 
 struct Migration {
     version: i32,
@@ -125,11 +125,13 @@ impl ReminderRepository {
         let created_by = data.created_by.to_string();
         let created_at = Timestamp::now().round(Unit::Second)?.to_string();
         let (delegation_kind, target_user_id) = data.delegation.to_raw();
+        let (schedule_type, schedule) = data.schedule.to_raw();
 
         let result = conn.call(move |c| {
             c.execute(
-                "INSERT INTO reminders (room_id, text, target_time, utc_time, tz, created_at, created_by, target_user_id, delegation_kind) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                "INSERT INTO reminders
+                 (room_id, text, target_time, utc_time, tz, created_at, created_by, target_user_id, delegation_kind, schedule_type, schedule) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                 params![
                     &room_id, 
                     &text, 
@@ -139,7 +141,9 @@ impl ReminderRepository {
                     &created_at, 
                     &created_by,
                     &target_user_id,
-                    &delegation_kind
+                    &delegation_kind,
+                    &schedule_type,
+                    &schedule
                 ],
             )?;
             
@@ -169,8 +173,11 @@ impl ReminderRepository {
                 utc_time, 
                 tz, 
                 created_by, 
+                status, 
                 target_user_id, 
-                delegation_kind 
+                delegation_kind,
+                schedule_type,
+                schedule 
                 FROM reminders WHERE status = ?1
                 ORDER BY utc_time";
             let mut stmt = conn.prepare(&query)?;
@@ -187,9 +194,11 @@ impl ReminderRepository {
                     utc_time: row.get(4)?,
                     tz: row.get(5)?,
                     created_by: row.get(6)?,
-                    // status: row.get(7)?,
-                    target_user_id: row.get(7)?,
-                    delegation_kind: row.get(8)?,
+                    status: row.get(7)?,
+                    target_user_id: row.get(9)?,
+                    delegation_kind: row.get(9)?,
+                    schedule_type: row.get(10)?,
+                    schedule: row.get(11)?,
                 });
             }
             
@@ -199,8 +208,70 @@ impl ReminderRepository {
         Ok(reminders)
     }
 
-    pub async fn _get_by_id(&self, _id: i64) -> Result<Reminder> {
-        todo!()
+    pub async fn get_by_id(&self, id: i64) -> Result<RawReminder, ReminderError> {
+        let conn = self.conn.clone();
+
+        let reminder = conn.call(move |conn| {
+            let result: RawReminder = conn.query_row(
+                "SELECT
+                 id, 
+                 room_id, 
+                 text, 
+                 target_time, 
+                 utc_time, 
+                 tz, 
+                 created_by, 
+                 status, 
+                 target_user_id, 
+                 delegation_kind,
+                 schedule_type,
+                 schedule 
+                 FROM reminders WHERE id = ?1 LIMIT 1;",
+                params![id],
+
+                |row| {
+                    Ok(RawReminder {
+                        id: row.get(0)?,
+                        room_id: row.get(1)?,
+                        text: row.get(2)?,
+                        target_time: row.get(3)?,
+                        utc_time: row.get(4)?,
+                        tz: row.get(5)?,
+                        created_by: row.get(6)?,
+                        status: row.get(7)?,
+                        target_user_id: row.get(9)?,
+                        delegation_kind: row.get(9)?,
+                        schedule_type: row.get(10)?,
+                        schedule: row.get(11)?,
+                    })
+                },
+            )?;
+
+            Ok(result)
+        }).await?;
+
+        Ok(reminder)
+    }
+
+    pub async fn get_reminder_status(&self, id: i64) -> Result<ReminderStatus, ReminderError> {
+        let conn = self.conn.clone();
+
+        let status = conn.call(move |conn| {
+            let value: i64 = conn.query_row(
+                "SELECT status FROM reminders WHERE id = ?1 LIMIT 1;",
+                params![id],
+
+                |r| {
+                    r.get(0)
+                },
+            )?;
+
+            Ok(value)
+        }).await?;
+
+        let reminder_status: ReminderStatus = status.into();
+
+        Ok(reminder_status)
     }
 
     /// Update the status of a single reminder by its ID.
@@ -246,6 +317,24 @@ impl ReminderRepository {
             let params = tokio_rusqlite::params_from_iter(all_params);
             
             c.execute(&query, params)?;
+            
+            Ok(())
+        }).await?;
+        
+        Ok(())
+    }
+
+    /// Update time of the reminder, used for recurring reminders.
+    pub async fn update_reminder_time(&self, id: i64, utc_time: Timestamp, civil_dt: CivilDateTime) -> Result<(), tokio_rusqlite::Error> {
+        let conn = self.conn.clone();
+        // let utc_dt = utc_time.to_string();
+        // let target_time = civil_dt.to_string();
+
+        let _ = conn.call(move |c| {
+            c.execute(
+                "UPDATE reminders SET utc_dt = ?1, target_time = ?2 WHERE id = ?3",
+                params![&utc_time.to_string(), &civil_dt.to_string(), &id]
+            )?;
             
             Ok(())
         }).await?;
@@ -326,7 +415,9 @@ impl ListRepository {
                 tz, 
                 created_by, 
                 target_user_id, 
-                delegation_kind 
+                delegation_kind,
+                schedule_type,
+                schedule 
                 FROM reminders WHERE room_id = ?1 AND status = ?2
                 ORDER BY utc_time {}
                 LIMIT ?3
@@ -345,9 +436,11 @@ impl ListRepository {
                     utc_time: row.get(4)?,
                     tz: row.get(5)?,
                     created_by: row.get(6)?,
-                    // status: row.get(7)?,
-                    target_user_id: row.get(7)?,
-                    delegation_kind: row.get(8)?,
+                    status: row.get(7)?,
+                    target_user_id: row.get(8)?,
+                    delegation_kind: row.get(9)?,
+                    schedule_type: row.get(10)?,
+                    schedule: row.get(11)?,
                 });
             }
             

@@ -10,19 +10,17 @@ use matrix_sdk::{
 use anyhow::Result;
 use jiff::{
     Zoned, ToSpan, Timestamp,
-    civil::{DateTime as CivilDateTime}
+    civil::{DateTime as CivilDateTime},
+    tz::TimeZone
 };
 use regex::Regex;
-use std::{string::ToString, sync::{OnceLock, Arc}};
+use std::{string::ToString, str::FromStr, sync::{OnceLock, Arc}};
+use croner::Cron;
 
 // app crates
-use crate::reminder::{ReminderError, ReminderData, DelegationType, DayPeriod};
-use crate::context::{
-    CommandContext, I18nManager
-};
-use crate::messaging::{
-    MessageReaction,
-};
+use crate::reminder::{ReminderError, ReminderData, DelegationType, ScheduleType, DayPeriod};
+use crate::context::{CommandContext, I18nManager};
+use crate::messaging::{MessageReaction};
 
 // Compile regex only once
 static REMINDER_REGEX: OnceLock<Regex> = OnceLock::new();
@@ -37,7 +35,8 @@ struct ParsedReminder {
     hour: String,
     min: String,
     period: DayPeriod,
-    is_auto: bool
+    is_auto: bool,
+    schedule: Option<String>
 }
 
 /// Day options in natural language.
@@ -103,19 +102,32 @@ pub async fn process_natural_reminder(
     };
 
     // Parse input.
-    let reminder_data = parse_reminder_data(&caps, &cmd_ctx)?;
+    let parsed_reminder_data = parse_reminder_data(&caps, &cmd_ctx)?;
+
+    // Get schedule.
+    let schedule = match parsed_reminder_data.schedule {
+        Some(ref cron) => {
+            let cron_all = Cron::from_str(&cron).map_err(|_| ReminderError::InvalidCronExpression)?;
+            ScheduleType::Recurring(cron_all)
+        },
+        None => ScheduleType::Once
+    };
 
     // Get datetime.
-    let (utc_dt, civil_dt) = build_datetime_utc(&reminder_data, &cmd_ctx)?;
+    let (utc_dt, civil_dt) = match schedule {
+        ScheduleType::Recurring(ref cron) => build_cron_datetime(&cron, cmd_ctx.settings.room.room_tz.clone()).await?,
+        ScheduleType::Once => build_datetime_utc(&parsed_reminder_data, &cmd_ctx)?
+    };
 
     let reminder_data = ReminderData {
         room_id: cmd_ctx.room.room_id().to_owned(),
         utc_dt,
         civil_dt,
         tz: cmd_ctx.settings.room.room_tz.clone(),
-        text: reminder_data.text,
+        text: parsed_reminder_data.text,
         created_by: cmd_ctx.user_id.clone(),
         delegation: DelegationType::Personal,
+        schedule,
     };
 
     // Saving.
@@ -142,7 +154,7 @@ fn build_reminder_regex(
         
         // [^\.\-\s]{1,15} in ?P<month> can be replaced with white list of months names
         // if we do not need shortenings.
-        regex_str.push_str(r"^(?i)(?:(?P<datetime>(?P<day>\d{1,2})(?:\s|\.|\/|-)(?P<month>[^\.\-\s]{1,15}|\d{2})(?:\s|\.|\/|-)?(?P<year>\d{4})?)\s+|(?P<day_natural>");
+        regex_str.push_str(r"^(?i)(?:[\(\[]{1}cron:\s*(?P<cron>[a-z*@\d\s]*)[\)\]]{1}\s*)?+(?:(?P<datetime>(?P<day>\d{1,2})(?:\s|\.|\/|-)(?P<month>[^\.\-\s]{1,15}|\d{2})(?:\s|\.|\/|-)?(?P<year>\d{4})?)\s+|(?P<day_natural>");
         regex_str.push_str(&i18n.days.join("|"));
         regex_str.push_str(r")\s+)");
 
@@ -173,6 +185,13 @@ fn parse_reminder_data(
     let now = Zoned::now().with_time_zone(cmd_ctx.settings.room.room_tz.clone());
     // If date is set to default
     let mut is_auto = false;
+
+    // Schedule type
+    let schedule = if let Some(c) = caps.name("cron") {
+        Some(c.as_str().to_string())
+    } else {
+        None
+    };
     
     // Day and month
     let (day, month) = if let (Some(d), Some(m)) = (caps.name("day"), caps.name("month")) {
@@ -230,7 +249,7 @@ fn parse_reminder_data(
     // Reminder's text
     let text = caps.name("text").ok_or(ReminderError::EmptyText)?.as_str().to_string();
 
-    Ok(ParsedReminder { text, year, month, day, hour, min, period, is_auto })
+    Ok(ParsedReminder { text, year, month, day, hour, min, period, is_auto, schedule })
 }
 
 /// Build final UTC DateTime for DB and validate its time in the future.
@@ -285,6 +304,23 @@ fn build_datetime_utc(
             Err(ReminderError::TimeInPast(user_dt))?
         }
     } else { (utc_dt, civil_dt) };
+
+    Ok((utc_dt, civil_dt))
+}
+
+/// Build the nearest datetime from the CRON expression.
+pub async fn build_cron_datetime(
+    // cron: &str,
+    cron_all: &Cron, 
+    tz: TimeZone
+) -> Result<(Timestamp, CivilDateTime), ReminderError> {
+    // let cron_all = Cron::from_str(cron).map_err(|_| ReminderError::InvalidCronExpression)?;
+
+    let today = Zoned::now().with_time_zone(tz);
+    let next = cron_all.find_next_occurrence(&today, true).map_err(|_| ReminderError::NoCronTime)?;
+
+    let utc_dt = next.timestamp();
+    let civil_dt: CivilDateTime = next.datetime();
 
     Ok((utc_dt, civil_dt))
 }

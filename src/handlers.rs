@@ -29,7 +29,7 @@ use clap::Parser;
 
 // app crates
 use crate::context::CommandContext;
-use crate::reminder::{ReminderData, DelegationType, ReminderError};
+use crate::reminder::{ReminderData, DelegationType, ScheduleType, ReminderError};
 use crate::list::{ListScopes, ListOrder, StateKey, PageState};
 use crate::settings_service::{SettingsService};
 use crate::settings::{
@@ -538,6 +538,9 @@ pub async fn process_cli_reminder(
     // Get times.
     let (utc_dt, civil_dt) = resolve_target_dt(date, time, &tz)?;
 
+    // Schedule.
+    let schedule = ScheduleType::Once;
+
     // Fill a structure.
     let reminder_data = ReminderData {
         room_id: room_settings.room_id.clone(),
@@ -547,6 +550,7 @@ pub async fn process_cli_reminder(
         text,
         created_by: cmd_ctx.user_id.clone(),
         delegation,
+        schedule,
     };
 
     // Saving.

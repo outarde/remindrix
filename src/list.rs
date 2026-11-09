@@ -18,7 +18,7 @@ use rust_i18n::t;
 
 use crate::context::CommandContext;
 use crate::db::{DbContext, ListRepository};
-use crate::reminder::{RawReminder, Reminder, ReminderData, ReminderStatus, ReminderError, DelegationType};
+use crate::reminder::{RawReminder, Reminder, ReminderData, ReminderStatus, ReminderError, DelegationType, ScheduleType};
 
 /// The lifespan of states, in days.
 const STATE_LIFETIME_DAYS: i32 = 30;
@@ -198,6 +198,18 @@ pub fn from_raw_reminders(ctx: Arc<super::BotContext>, raw_reminders: Vec<RawRem
         let dt_zoned = timestamp.to_zoned(tz.clone());
         let civil_dt = dt_zoned.datetime();
 
+        // Schedule
+        let schedule = match ScheduleType::from_raw(&raw.schedule_type, raw.schedule.as_deref()) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::warn!(
+                    reminder_id = raw.id,
+                    "Invalid schedule in DB, falling back to default (the reminder won't be considered recurring): {e}"
+                );
+                ScheduleType::Once
+            }
+        };;
+
         // Prepare ReminderData.
         let reminder_data = ReminderData {
             room_id,
@@ -207,12 +219,13 @@ pub fn from_raw_reminders(ctx: Arc<super::BotContext>, raw_reminders: Vec<RawRem
             text,
             created_by,
             delegation,
+            schedule,
         };
 
         reminders.push(Reminder {
             id,
             data: reminder_data,
-            status: ReminderStatus::Pending,
+            status: raw.status.into(),
         });
     }
 
