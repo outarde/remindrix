@@ -121,7 +121,7 @@ impl CommandContext {
             &user_id
         ).await;
         let i18n = ctx.get_i18n_manager(&settings.room.room_lang).await;
-        let msng = RoomMessenger::new(room.clone(), i18n.clone());
+        let msng = RoomMessenger::new(room.clone());
 
         Self { room, user_id, ctx, settings, i18n, msng } 
     }

@@ -27,6 +27,7 @@ pub enum MessageReaction {
     #[strum(serialize = "✅")] Check,
     #[strum(serialize = "❌")] Cross,
     #[strum(serialize = "🟢")] Done,
+    #[strum(serialize = "⭕")] Cancel,
     #[strum(serialize = "⏲️")] Timer, 
     #[strum(serialize = "🕒")] Clock,
     #[strum(serialize = "🕛")] ClockHour,
@@ -93,7 +94,7 @@ pub struct RoomMessenger {
 }
 
 impl RoomMessenger {
-    pub fn new(room: Room, _i18n: Arc<I18nManager>) -> Self {
+    pub fn new(room: Room) -> Self {
         Self { room }
     }
 
