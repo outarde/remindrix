@@ -195,7 +195,7 @@ impl ReminderRepository {
                     tz: row.get(5)?,
                     created_by: row.get(6)?,
                     status: row.get(7)?,
-                    target_user_id: row.get(9)?,
+                    target_user_id: row.get(8)?,
                     delegation_kind: row.get(9)?,
                     schedule_type: row.get(10)?,
                     schedule: row.get(11)?,
@@ -208,6 +208,7 @@ impl ReminderRepository {
         Ok(reminders)
     }
 
+    /// Get one RawReminder by id.
     pub async fn get_by_id(&self, id: i64) -> Result<RawReminder, ReminderError> {
         let conn = self.conn.clone();
 
@@ -239,7 +240,7 @@ impl ReminderRepository {
                         tz: row.get(5)?,
                         created_by: row.get(6)?,
                         status: row.get(7)?,
-                        target_user_id: row.get(9)?,
+                        target_user_id: row.get(8)?,
                         delegation_kind: row.get(9)?,
                         schedule_type: row.get(10)?,
                         schedule: row.get(11)?,
@@ -253,6 +254,7 @@ impl ReminderRepository {
         Ok(reminder)
     }
 
+    /// Get reminder status.
     pub async fn get_reminder_status(&self, id: i64) -> Result<ReminderStatus, ReminderError> {
         let conn = self.conn.clone();
 
@@ -286,6 +288,7 @@ impl ReminderRepository {
         
         Ok(())
     }
+
     /// Update all reminder statuses in the Room.
     pub async fn update_reminder_status_by_room(&self, room_id: &RoomId, status: ReminderStatus) -> Result<(), ReminderError> {
         let conn = self.conn.clone();
@@ -332,7 +335,7 @@ impl ReminderRepository {
 
         let _ = conn.call(move |c| {
             c.execute(
-                "UPDATE reminders SET utc_dt = ?1, target_time = ?2 WHERE id = ?3",
+                "UPDATE reminders SET utc_time = ?1, target_time = ?2 WHERE id = ?3",
                 params![&utc_time.to_string(), &civil_dt.to_string(), &id]
             )?;
             
@@ -342,6 +345,113 @@ impl ReminderRepository {
         Ok(())
     }
 
+    // === Relations ===
+    pub async fn set_reminder_message(&self, message_id: &EventId, room_id: &RoomId, reminder_id: i64) -> Result<(), ReminderError> {
+        let conn = self.conn.clone();
+        let message_id = message_id.to_string();
+        let room_id = room_id.to_string();
+        // let value = serde_json::to_string(&relation).unwrap_or(String::from(""));
+
+        let _ = conn.call(move |conn| {
+            conn.execute(
+                "INSERT INTO message_states (event_id, room_id, key, value, created_at) 
+                VALUES (?1, ?2, ?3, ?4, ?5)
+                ON CONFLICT(event_id, room_id, key) 
+                DO UPDATE SET value=excluded.value, created_at=excluded.created_at;",
+                params![&message_id, &room_id, &StateKey::ReminderMessage.to_string(), &reminder_id, &Timestamp::now().to_string()]
+            )?;
+
+            Ok(())
+        }).await?;
+
+        Ok(())
+    }
+
+    /// Try to get reminder id by message's EventId and update it's status.
+    pub async fn update_status_by_message(&self, message_id: &EventId, status: ReminderStatus) -> Result<RawReminder, ReminderError> {
+        let conn = self.conn.clone();
+        let message_id = message_id.to_string();
+
+        let reminder = conn.call(move |conn| {
+            let tx = conn.transaction()?;
+            let reminder_id: String = tx.query_row(
+                "SELECT value FROM message_states WHERE key = ?1 AND event_id = ?2 LIMIT 1;",
+                params![&StateKey::ReminderMessage.to_string(), &message_id],
+                |r| r.get(0),
+            ).optional()?.ok_or_else(|| ReminderError::NoMessageRelation)?;
+
+            let reminder: RawReminder = tx.query_row(
+                "SELECT
+                 id, 
+                 room_id, 
+                 text, 
+                 target_time, 
+                 utc_time, 
+                 tz, 
+                 created_by, 
+                 status, 
+                 target_user_id, 
+                 delegation_kind,
+                 schedule_type,
+                 schedule 
+                 FROM reminders WHERE id = ?1 LIMIT 1;",
+                params![reminder_id],
+
+                |row| {
+                    Ok(RawReminder {
+                        id: row.get(0)?,
+                        room_id: row.get(1)?,
+                        text: row.get(2)?,
+                        target_time: row.get(3)?,
+                        utc_time: row.get(4)?,
+                        tz: row.get(5)?,
+                        created_by: row.get(6)?,
+                        status: row.get(7)?,
+                        target_user_id: row.get(8)?,
+                        delegation_kind: row.get(9)?,
+                        schedule_type: row.get(10)?,
+                        schedule: row.get(11)?,
+                    })
+                },
+            )?;
+
+            let prev_status: ReminderStatus = reminder.status.into();
+
+            /*
+            let prev_status: ReminderStatus = tx.query_row(
+                "SELECT status FROM reminders WHERE id = ?1",
+                params![reminder_id],
+                |r| r.get(0),
+            ).optional()?.ok_or_else(|| ReminderError::NoMessageRelation)?.into();
+            */
+
+            if prev_status == status {
+                tx.commit()?;
+                return Err(ReminderError::StatusNotUpdated);
+            }
+
+            tx.execute(
+                "UPDATE reminders SET status = ?1 WHERE id = ?2",
+                params![status as i64, reminder_id],
+            )?;
+
+            tx.commit()?;
+
+            Ok(reminder)
+        }).await.map_err(|e| match e {
+            // The closure returns a `ReminderError` (either explicitly or via `From`
+            // for `tokio_rusqlite::Error` and `tokio_rusqlite::rusqlite::Error`),
+            // but the call() function wraps it in a custom Error type.
+            tokio_rusqlite::Error::Error(err) => err,
+
+            // Errors outside a closure - about connection, as I understand
+            _ => ReminderError::DbCommon(e.to_string().into()),
+        })?;
+
+        // let status: ReminderStatus = status.into();
+        
+        Ok(reminder)
+    }
 }
 /// List of reminders Repository.
 #[derive(Clone, Debug)]
@@ -414,6 +524,7 @@ impl ListRepository {
                 utc_time, 
                 tz, 
                 created_by, 
+                status,
                 target_user_id, 
                 delegation_kind,
                 schedule_type,
