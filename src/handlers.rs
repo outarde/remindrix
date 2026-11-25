@@ -29,7 +29,7 @@ use clap::Parser;
 
 // app crates
 use crate::context::CommandContext;
-use crate::reminder::{ReminderData, DelegationType, ScheduleType, ReminderError};
+use crate::reminder::{ReminderData, ReminderStatus, DelegationType, ScheduleType, ReminderError};
 use crate::list::{ListScopes, ListOrder, StateKey, PageState};
 use crate::settings_service::{SettingsService};
 use crate::settings::{
@@ -104,6 +104,7 @@ enum BotCommand {
 enum BotReactionsCommand {
     NextListPage,
     PrevListPage,
+    SetReminderSent,
 }
 
 impl BotCommand {
@@ -406,8 +407,12 @@ pub async fn on_reaction(
     // To change behavior remove the special character: `emoji.retain(|c| c != '\u{FE0F}');` */
     let reaction: Option<ReactionButton> = emoji.parse().ok(); // or from_str(&emoji).
     let key = match reaction {
+        // List
         Some(ReactionButton::Next) => BotReactionsCommand::NextListPage,
         Some(ReactionButton::Previous) => BotReactionsCommand::PrevListPage,
+
+        // Reminder
+        Some(ReactionButton::Done) => BotReactionsCommand::SetReminderSent,
         None => return
     };
 
@@ -427,6 +432,9 @@ pub async fn on_reaction(
     let result = match key {
         BotReactionsCommand::NextListPage | BotReactionsCommand::PrevListPage => {
             handle_list_flipping(event.clone(), target_event_id, key, cmd_ctx.clone()).await
+        }
+        BotReactionsCommand::SetReminderSent => {
+            handle_status_update(event.clone(), target_event_id, ReminderStatus::Sent, cmd_ctx.clone()).await
         }
     };
 
@@ -558,10 +566,66 @@ pub async fn process_cli_reminder(
     tracing::info!("Reminder #{} saved", reminder.id);
 
     // Scheduling.
-    super::reminder::schedule_reminder(cmd_ctx.ctx.clone(), reminder.clone()).await;
+    let _ = super::reminder::schedule_reminder(cmd_ctx.ctx.clone(), reminder.clone()).await?;
         
     // Send success reaction or message to the room.
     cmd_ctx.send_reminder_success(event, reminder.data, args.interval).await;
+
+    Ok(())
+}
+
+/// Update reminder's status based on message reaction.
+/// For now, it only works in one direction: the method is not called when a reaction is removed.
+async fn handle_status_update(
+    _event: OriginalSyncMessageLikeEvent<ReactionEventContent>,
+    message_id: &EventId,
+    target_status: ReminderStatus,
+    cmd_ctx: CommandContext,
+) -> Result<(), OutputError> {
+    let room_id = cmd_ctx.room.room_id();
+    let raw_reminder = cmd_ctx.ctx.db_ctx.reminders.update_status_by_message(&message_id, target_status).await;
+
+    // Check errors.
+    let reminder = match raw_reminder {
+        Ok(r) => match super::list::from_raw_reminders(cmd_ctx.ctx.clone(), vec![r]) {
+            Ok(rm) => rm[0].clone(),
+            Err(e) => {
+                tracing::warn!("Error parsing a reminder for the message {} when attempting to update its status: {}", message_id, e);
+                return Ok(())
+            }
+        },
+        // Mute this error: a reaction can be sent to a message that was never a reminder message.
+        Err(ReminderError::NoMessageRelation) => {
+            tracing::warn!("Could not find a reminder for the message: {}", message_id);
+            return Ok(())
+        },
+        Err(ReminderError::StatusNotUpdated) => {
+            let msg = t!("status.not-updated.1"), locale = &cmd_ctx.settings.room.room_lang);
+            cmd_ctx.msng.text_plain(&msg).await;
+            return Ok(())
+        },
+        Err(e) => {
+            return Err(e.into());
+        }
+    };
+
+    // Sent a succesful message as a threaded Reply for clear visualization in the timeline.
+    let msg = t!(
+        format!("status.updated.recurring.{}", target_status as i64),
+        locale = &cmd_ctx.settings.room.room_lang
+    );
+    let reply = Reply {
+        event_id: message_id.to_owned(),
+        enforce_thread: EnforceThread::Threaded(ReplyWithinThread::Yes),
+        add_mentions: AddMentions::No
+    };
+    let _ = cmd_ctx.msng.reply_with_event_id(&msg, reply).await;
+
+    // Strikethrough reminder's text
+    // TODO: add config option
+    let prev_msg = super::reminder::format_reminder_text(&reminder.data, &cmd_ctx.settings.room.room_lang).await;
+    let new_msg = format!("~{}~", prev_msg);
+    let _ = cmd_ctx.msng.edit_message(&message_id, &new_msg).await;
 
     Ok(())
 }
