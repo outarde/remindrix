@@ -521,33 +521,7 @@ reminder.saved:
   zh: ⏲️ 提醒您于 %{date} 的 %{time}
   ru: ⏲️ Напомню %{date} в %{time}
   uk: ⏲️ Нагадаю %{date} у %{time}
-reminder.list:
-  en: >
-    %{text} on %{date} at %{time}
-  de: >
-    %{text} am %{date} um %{time}
-  fr: >
-    %{text} le %{date} à %{time}
-  it: >
-    %{text} il %{date} alle %{time}
-  es: >
-    %{text} el %{date} a las %{time}
-  sv: >
-    %{text} den %{date} kl. %{time}
-  pl: >
-    %{text} w dniu %{date} o godzinie %{time}
-  cs: >
-    %{text} dne %{date} v %{time}
-  fi: >
-    %{text} päivänä %{date} kello %{time}
-  ja: >
-    %{text} %{date} %{time}
-  zh: >
-    %{text} %{date} %{time}
-  ru: >
-    %{text} (%{date} в %{time})
-  uk: >
-    %{text} (%{date} у %{time})
+
 reminder.new:
   en: >
     🟢 %{text}
@@ -629,6 +603,89 @@ reminder.new-from:
     🟢 Вам напоминание от %{from}: %{text}
   uk: >
     🟢 Вам нагадування від %{from}: %{text}
+
+reminder.recurring.new:
+  en: >
+    🔃 %{text} (cron: %{cron_desc})
+  de: >
+    🔃 %{text}
+  fr: >
+    🔃 %{text}
+  it: >
+    🔃 %{text}
+  es: >
+    🔃 %{text}
+  sv: >
+    🔃 %{text}
+  pl: >
+    🔃 %{text}
+  cs: >
+    🔃 %{text}
+  fi: >
+    🔃 %{text}
+  ja: >
+    🔃 %{text}
+  zh: >
+    🔃 %{text}
+  ru: >
+    🔃 %{text}
+  uk: >
+    🔃 %{text}
+reminder.recurring.new-to-from:
+  en: >
+    🔃 A reminder from %{from} for %{to}: %{text}
+  de: >
+    🔃 Eine Erinnerung von %{from} für %{to}: %{text}
+  fr: >
+    🔃 Un rappel de %{from} pour %{to}: %{text}
+  it: >
+    🔃 Un promemoria da %{from} per %{to}: %{text}
+  es: >
+    🔃 Un recordatorio de %{from} para %{to}: %{text}
+  sv: >
+    🔃 En påminnelse från %{from} till %{to}: %{text}
+  pl: >
+    🔃 Przypomnienie od %{from} dla %{to}: %{text}
+  cs: >
+    🔃 Připomínka od %{from} pro %{to}: %{text}
+  fi: >
+    🔃 Muistutus lähettäjältä %{from} vastaanottajalle %{to}: %{text}
+  ja: >
+    🔃 %{from}から%{to}へのリマインダー: %{text}
+  zh: >
+    🔃 来自 %{from} 给 %{to} 的提醒: %{text}
+  ru: >
+    🔃 Напоминание от %{from} для %{to}: %{text}
+  uk: >
+    🔃 Вам нагадування від %{from} для %{to}: %{text}
+reminder.recurring.new-from:
+  en: >
+    🔃 A reminder from %{from}: %{text}
+  de: >
+    🔃 Sie haben eine Erinnerung von %{from}: %{text}
+  fr: >
+    🔃 Vous avez un rappel de %{from}: %{text}
+  it: >
+    🔃 Hai ricevuto un promemoria da %{from}: %{text}
+  es: >
+    🔃 Tienes un recordatorio de %{from}: %{text}
+  sv: >
+    🔃 Du har en påminnelse från %{from}: %{text}
+  pl: >
+    🔃 Masz przypomnienie od %{from}: %{text}
+  cs: >
+    🔃 Máte připomenutí od %{from}: %{text}
+  fi: >
+    🔃 Sinulla on muistutus käyttäjältä %{from}: %{text}
+  ja: >
+    🔃 %{from} からリマインダーが届いています: %{text}
+  zh: >
+    🔃 您收到来自 %{from} 的提醒：%{text}
+  ru: >
+    🔃 Вам напоминание от %{from}: %{text}
+  uk: >
+    🔃 Вам нагадування від %{from}: %{text}
+
 reminder.missed:
   en: |
     ⚠️ Missed reminders in this room: 
@@ -669,6 +726,49 @@ reminder.missed:
   uk: |
     ⚠️ Пропущені нагадування у цій кімнаті: 
     %{sum}
+reminder.missed-recurring:
+  en: |
+    ⌛ Missed recurring reminders in this room: 
+    %{sum}
+
+reminder.list:
+  en: >
+    %{text} on %{date} at %{time}
+  de: >
+    %{text} am %{date} um %{time}
+  fr: >
+    %{text} le %{date} à %{time}
+  it: >
+    %{text} il %{date} alle %{time}
+  es: >
+    %{text} el %{date} a las %{time}
+  sv: >
+    %{text} den %{date} kl. %{time}
+  pl: >
+    %{text} w dniu %{date} o godzinie %{time}
+  cs: >
+    %{text} dne %{date} v %{time}
+  fi: >
+    %{text} päivänä %{date} kello %{time}
+  ja: >
+    %{text} %{date} %{time}
+  zh: >
+    %{text} %{date} %{time}
+  ru: >
+    %{text} (%{date} в %{time})
+  uk: >
+    %{text} (%{date} у %{time})
+reminder.list-recurring:
+  en: >
+    %{text} on %{date} at %{time}
+    🔁 %{cron_desc}, next is %{next}
+
+status.updated.recurring.1:
+  en: The reminder is marked as sent. It will no longer repeat.
+  ru: Напоминание отмечено отправленным. Оно больше не будет повторяться.
+status.not-updated.1:
+  en: The reminder is already marked as sent. To schedule it again, please create a new one.
+  ru: Напоминание уже отмечено отправленным. Чтобы запланировать его еще раз, создайте новое.
 
 error.month:
   en: Unable to determine the reminder month.
@@ -759,6 +859,9 @@ error.datetime:
   zh: 日期或时间无效。
   ru: Неверные дата и время.
   uk: Недійсна дата або час.
+
+error.no-date:
+  en: No reminder date specified.
 
 error.date-format:
   en: Invalid date format.
@@ -882,6 +985,32 @@ error.delegation-denied:
   zh: 该房间不允许委任提醒。
   ru: Комнатам запрещено делегировать напоминания.
   uk: Кімнатам заборонено делегувати нагадування.
+
+error.scheduler:
+  en: An error occurred while queuing a reminder for delivery. Please report this to the homeserver administrator.
+  ru: Ошибка постановки напоминания в очередь на отправку. Сообщите о ней администратору сервера.
+
+error.invalid-schedule:
+  en: Invalid schedule settings for this reminder.
+  ru: Неверные данные повторения напоминания.
+
+error.invalid-cron-expression:
+  en: Invalid Cron expression. Use a Vixie Cron-style expression, excluding seconds.
+
+error.invalid-cron-time:
+  en: Could not find the next occurrence time for the Cron expression.
+  ru: Не удалось найти ближайшее время выполнения Cron-выражения.
+
+error.unable-update-recurring-time:
+  en: Unfortunately, it was not possible to set a new time for reminder \#%{id} %{title}. It will be marked as missed and will not recur.
+  ru: К сожалению, для напоминания \#%{id} %{title} не удалось установить новое время. Оно будет отмечено пропущенным и не будет повторяться. 
+
+error.outdated:
+  en: The reminder has already been sent or cancelled.
+
+error.unable-set-relation:
+  en: It was not possible to link the message and the reminder. The reminder has been marked as missed and cancelled.
+  ru: Не удалось установить связь между сообщением и напоминанием. Напоминание отмечено пропущенным и отменено.
 
 error.db:
   en: Database error, sorry. Contact the administrator to view a more detailed error in the bot's log.
