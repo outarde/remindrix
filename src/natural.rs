@@ -15,7 +15,7 @@ use jiff::{
 };
 use regex::Regex;
 use std::{string::ToString, str::FromStr, sync::{OnceLock, Arc}};
-use croner::Cron;
+use croner::{Cron, parser::{Seconds, CronParser}};
 
 // app crates
 use crate::reminder::{ReminderError, ReminderData, DelegationType, ScheduleType, DayPeriod};
@@ -107,7 +107,9 @@ pub async fn process_natural_reminder(
     // Get schedule.
     let schedule = match parsed_reminder_data.schedule {
         Some(ref cron) => {
-            let cron_all = Cron::from_str(&cron).map_err(|_| ReminderError::InvalidCronExpression)?;
+            // Configure the parser to disallow seconds.
+            let parser = CronParser::builder().seconds(Seconds::Disallowed).build();
+            let cron_all = parser.parse(&cron).map_err(|_| ReminderError::InvalidCronExpression)?;
             ScheduleType::Recurring(cron_all)
         },
         None => ScheduleType::Once
@@ -135,7 +137,7 @@ pub async fn process_natural_reminder(
     tracing::info!("Reminder {} saved", reminder.id);
 
     // Scheduling.
-    super::reminder::schedule_reminder(cmd_ctx.ctx.clone(), reminder.clone()).await;
+    let _ = super::reminder::schedule_reminder(cmd_ctx.ctx.clone(), reminder.clone()).await?;
         
     // Send success reaction or message to the room.
     cmd_ctx.send_reminder_success(event, reminder.data, false).await;
@@ -154,19 +156,15 @@ fn build_reminder_regex(
         
         // [^\.\-\s]{1,15} in ?P<month> can be replaced with white list of months names
         // if we do not need shortenings.
-        regex_str.push_str(r"^(?i)(?:[\(\[]{1}cron:\s*(?P<cron>[a-z*@\d\s]*)[\)\]]{1}\s*)?+(?:(?P<datetime>(?P<day>\d{1,2})(?:\s|\.|\/|-)(?P<month>[^\.\-\s]{1,15}|\d{2})(?:\s|\.|\/|-)?(?P<year>\d{4})?)\s+|(?P<day_natural>");
+        regex_str.push_str(r"^(?i)(?:[\(\[]{1}cron:\s*(?P<cron>[a-z*@\d\s\/]*)[\)\]]{1}\s*)?+(?:(?P<datetime>(?P<day>\d{1,2})(?:\s|\.|\/|-)(?P<month>[^\.\-\s]{1,15}|\d{2})(?:\s|\.|\/|-)?(?P<year>\d{4})?)\s+|(?P<day_natural>");
         regex_str.push_str(&i18n.days.join("|"));
-        regex_str.push_str(r")\s+)");
-
-        if ctx.bot_config.remind_undated {
-            regex_str.push_str(r"?");
-        }
+        regex_str.push_str(r")\s+)?");
 
         regex_str.push_str(r"(?:(?:(?<prep>at|");
         regex_str.push_str(&i18n.prepositions.join("|"));
         regex_str.push_str(r")\s+)?((?P<hour>\d{1,2})(?:[:.]{1}(?P<min>\d{1,2}))?\s?(?P<period>[amp.]{2,4})?|(?P<time_natural>");
         regex_str.push_str(&i18n.times.join("|"));
-        regex_str.push_str(r")))?+\s?(?P<text>.+)$");
+        regex_str.push_str(r")\s+))?+(?P<text>.+)$");
         // regex_str.push_str(r")|(?P<time_interval>(?<gap>\d{1,2})\s(?<step>minutes|hours)) ))?\s+(?P<text>.+)$");
 
         Regex::new(&regex_str).unwrap()
@@ -207,6 +205,9 @@ fn parse_reminder_data(
             None => return Err(ReminderError::InvalidDateFormat)
         }
     } else {
+        if !cmd_ctx.ctx.bot_config.remind_undated && schedule.is_none() {
+            return Err(ReminderError::NoDate);
+        }
         is_auto = true;
         (now.day().to_string(), now.month().to_string())
     };

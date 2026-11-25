@@ -83,6 +83,7 @@ impl MessageReaction {
 pub enum ReactionButton {
     #[strum(serialize = "⏩")] Next,
     #[strum(serialize = "⏪")] Previous,
+    #[strum(serialize = "🟢")] Done,
 }
 
 // ===== Messages =====

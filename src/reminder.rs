@@ -71,6 +71,8 @@ impl From<i64> for ReminderStatus {
 #[derive(Debug, Error)]
 pub enum ReminderError {
     #[error("error.db")] Db(#[from] tokio_rusqlite::Error),
+    #[error("error.db")] DbRusqlite(#[from] tokio_rusqlite::rusqlite::Error),
+    #[error("error.db")] DbCommon(String),
     #[error("error.month")] InvalidMonth,
     #[error("error.past-time")] TimeInPast(Zoned),
     #[error("error.time")] _InvalidTime,
@@ -79,15 +81,20 @@ pub enum ReminderError {
     #[error("error.date-format")] InvalidDateFormat,
     #[error("error.time-format")] InvalidTimeFormat,
     #[error("error.datetime")] InvalidDateTime,
+    #[error("error.no-date")] NoDate,
     #[error("error.delegation-room-format")] InvalidDelegationRoomFormat,
     #[error("error.delegation-no-room")] NoDelegatedRoom,
     #[error("error.delegation-user-format")] InvalidUserId,
     #[error("error.delegation-options")] DelegationOptions,
     #[error("tz.not-set")] TzNotSet,
     #[error("error.sent-or-cancelled")] Outdated,
+
+    #[error("error.scheduler")] SchedulerError,
     #[error("error.invalid-schedule")] InvalidSchedule,
     #[error("error.invalid-cron-expression")] InvalidCronExpression,
     #[error("error.invalid-cron-time")] NoCronTime,
+    #[error("status.no-message-relation")] NoMessageRelation,
+    #[error("status.not-updated")] StatusNotUpdated,
 
     #[error("error.unsafe-datetime")] JiffError(#[from] jiff::Error), 
     #[error("error.matrix")] MatrixError(#[from] matrix_sdk::Error),
@@ -119,6 +126,20 @@ impl ReminderError {
             },
             ReminderError::Db(error) | ReminderError::ListStateError(error) => {
                 tracing::error!("{:?}", error);
+
+                let key = self.to_string(); 
+                let msg = t!(key, locale = locale);
+                msg.to_string()
+            },
+            ReminderError::DbRusqlite(error) => {
+                tracing::error!("DbRusqlite error: {:?}", error);
+
+                let key = self.to_string(); 
+                let msg = t!(key, locale = locale);
+                msg.to_string()
+            },
+            ReminderError::DbCommon(error) => {
+                tracing::error!("DbCommon error: {:?}", error);
 
                 let key = self.to_string(); 
                 let msg = t!(key, locale = locale);
@@ -214,18 +235,29 @@ impl ScheduleType {
     }
 }
 
+/*
+/// Relation between the reminder ID and the message EventId
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReminderMessage {
+    pub reminder_id: i64,
+}
+*/
+
 // ===== Reminders =====
 /// Schedule Reminder.
 pub async fn schedule_reminder(
     ctx: Arc<super::BotContext>,
     reminder: Reminder,
-) {
+) -> Result<(), ReminderError> {
     // Check if it is recurring reminder.
     if let ScheduleType::Recurring(ref cron) = reminder.data.schedule {
         if let Err(e) = schedule_cron_reminder(ctx, reminder.clone(), cron.clone()).await {
-            tracing::info!("Recurring reminder #{} was not queued due to an scheduler error: {}", reminder.id, e)
+            tracing::error!("Recurring reminder #{} was not queued due to an scheduler error: {}", reminder.id, e);
+            return Err(ReminderError::SchedulerError);
         }
-        return;
+        else {
+            return Ok(());
+        }
     };
 
     let now = Timestamp::now();
@@ -236,7 +268,7 @@ pub async fn schedule_reminder(
 
     if seconds <= 0 {
         tracing::error!("The reminder #{} time has already passed!", reminder.id);
-        return;
+        return Err(ReminderError::SchedulerError);
     }
 
     let std_duration = std::time::Duration::from_secs(seconds as u64);
@@ -304,6 +336,78 @@ pub async fn schedule_reminder(
             Err(e) => tracing::info!("Reminder #{} was not sent due to an error: {}", reminder.id, e)
         }
     });
+
+    Ok(())
+}
+
+/// Return recurring reminder notification message based on delegation type.
+pub async fn format_reminder_text(reminder_data: &ReminderData, locale: &str) -> String {
+    let msg = match reminder_data.schedule {
+        ScheduleType::Once => {
+            match reminder_data.delegation {
+                DelegationType::Personal => {
+                    t!(
+                        "reminder.new",
+                        locale = locale,
+                        text = reminder_data.text
+                    )
+                },
+                DelegationType::User(ref user_id) => {
+                    t!(
+                        "reminder.new-to-from",
+                        locale = locale,
+                        to = &user_id.to_string(),
+                        from = reminder_data.created_by,
+                        text = reminder_data.text
+                    )
+                },
+                DelegationType::Room => {
+                    t!(
+                        "reminder.new-from",
+                        locale = locale,
+                        from = reminder_data.created_by,
+                        text = reminder_data.text
+                    )
+                }
+            }
+        },
+        ScheduleType::Recurring(ref cron) => {
+            match reminder_data.delegation {
+                DelegationType::Personal => {
+                    t!(
+                        "reminder.recurring.new",
+                        locale = locale,
+                        text = reminder_data.text,
+                        cron = cron.pattern.as_str(),
+                        cron_desc = cron.pattern.describe()
+                    )
+                },
+                DelegationType::User(ref user_id) => {
+                    t!(
+                        "reminder.recurring.new-to-from",
+                        locale = locale,
+                        to = &user_id.to_string(),
+                        from = reminder_data.created_by,
+                        text = reminder_data.text,
+                        cron = cron.pattern.as_str(),
+                        cron_desc = cron.pattern.describe()
+                    )
+                },
+                DelegationType::Room => {
+                    t!(
+                        "reminder.recurring.new-from",
+                        locale = locale,
+                        from = reminder_data.created_by,
+                        text = reminder_data.text,
+                        cron = cron.pattern.as_str(),
+                        cron_desc = cron.pattern.describe()
+                    )
+                }
+            }
+        }
+    };
+
+    return msg.to_string()
 }
 
 // ===== Recurring =====
@@ -315,15 +419,17 @@ pub async fn schedule_cron_reminder(
 ) -> anyhow::Result<()> {        
     let scheduler = JobScheduler::new().await?;
     let scheduler_job = scheduler.clone();
+
+    let cron_pattern = parse_unix_cron_to_tokio(cron.pattern.as_str()).await?;
     
     scheduler.add(
-        Job::new_async(&cron.pattern.to_string(), move |_uuid, mut _l| {
+        Job::new_async(cron_pattern, move |_uuid, mut _l| {
             let mut scheduler_clone = scheduler_job.clone();
             let cron_clone = cron.clone();
             let ctx_clone = ctx.clone();
+            tracing::info!("Starting to send recurring reminder #{}...", &reminder.id);
 
             Box::pin(async move {
-                // tracing::info!("Start sending cron reminder...");
                 let fresh_reminder = match get_scheduled_reminder(ctx_clone.clone(), reminder.id.clone()).await {
                     Ok(r) => r,
                     Err(e) => {
@@ -386,37 +492,15 @@ async fn send_recurring_reminder(ctx: Arc<super::BotContext>, reminder: Reminder
     let room_settings = ctx.settings_service.load_room(&reminder.data.room_id, Some(&room)).await;
 
     // Message depending on whether the reminder has been delegated.
-    let msg = match reminder.data.delegation {
-        DelegationType::Personal => {
-            t!(
-                "reminder.recurring.new",
-                locale = &room_settings.room_lang,
-                text = reminder.data.text
-            )
-        },
-        DelegationType::User(user_id) => {
-            t!(
-                "reminder.recurring.new-to-from",
-                locale = &room_settings.room_lang,
-                to = &user_id.to_string(),
-                from = reminder.data.created_by,
-                text = reminder.data.text
-            )
-        },
-        DelegationType::Room => {
-            t!(
-                "reminder.recurring.new-from",
-                locale = &room_settings.room_lang,
-                from = reminder.data.created_by,
-                text = reminder.data.text
-            )
-        }
-    };
+    let msg = format_reminder_text(
+        &reminder.data, 
+        &room_settings.room_lang
+    ).await;
 
     let msng = RoomMessenger::new(room.clone());
 
     // If the message was sent successfully, update the target time!
-    let event_id = match msng.text_md_with_event_id(&msg).await {
+    let message_id = match msng.text_md_with_event_id(&msg).await {
         Ok(id) => {
             // Update reminder's target time
             if let Err(e) = update_recurring_time(ctx.clone(), reminder.id.clone(), &cron, room_settings.room_tz.clone()).await {
@@ -441,16 +525,56 @@ async fn send_recurring_reminder(ctx: Arc<super::BotContext>, reminder: Reminder
         Err(e) => {
             tracing::info!("Reminder #{} was not sent due to an error: {}", reminder.id, e);
             if let Err(e) = ctx.db_ctx.reminders.update_reminder_status(reminder.id, ReminderStatus::Missed).await {
-                tracing::error!("Failed to update status for reminder: {:?}", e);
+                tracing::error!("Failed to update status for recurring reminder: {:?}", e);
             }
 
             return;
         }
     };
 
+    // Save the link between the reminder and the message
+    let res = ctx.db_ctx.reminders.set_reminder_message(
+        &message_id,
+        &reminder.data.room_id,
+        reminder.id.clone()
+        // ReminderMessage {reminder_id: reminder.id.clone()}
+    ).await;
+
+    // Stop all future reminders if an error occurs, since there will be no button available to disable them.
+    if let Err(e) = res {
+        tracing::error!("SQLite error while insert ReminderMessage for event_id: {}. Error: {:?}", &message_id, e);
+
+        let msg = t!("error.unable-set-relation", locale = &room_settings.room_lang);
+        let _ = msng.text_md(&msg).await;
+
+        if let Err(e) = ctx.db_ctx.reminders.update_reminder_status(reminder.id, ReminderStatus::Missed).await {
+            tracing::error!("Failed to update status for recurring reminder: {:?}", e);
+        }
+
+        return;
+    }
+
     // Send reactions that will serve as buttons
     // msng.react(event_id, MessageReaction::Cancel);
-    msng.react(event_id, MessageReaction::Done).await;
+    if let Ok(_button_id) = msng.react_with_event_id(message_id.to_owned(), MessageReaction::Done).await {
+        // We can store the button IDs if we plan to remove them from old messages.
+        // In this case, we first need to select the sent and missed reminders, 
+        // and then, for those, search for expired buttons and message relations.
+        return;
+        
+        /*
+        let res = ctx.db_ctx.reminders.set_recurring_reminder_buttons(
+            &message_id,
+            &reminder.data.room_id,
+            ReminderButtons {button_id}
+        ).await;
+
+        // Mute DB error
+        if let Err(e) = res {
+            tracing::error!("SQLite error while insert ReminderButtons for event_id: {}. Error: {:?}", &message_id, e);
+        }
+        */
+    }
 }
 
 /// Try to set next target time based on the cron pattern.
@@ -534,7 +658,7 @@ pub async fn restore_reminders(ctx: Arc<super::BotContext>) -> anyhow::Result<()
     for reminder in reminders {
         // In the future, not missed.
         if reminder.data.utc_dt > Timestamp::now() {
-            schedule_reminder(
+            let _ = schedule_reminder(
                 ctx.clone(), 
                 reminder.clone()
             ).await;
@@ -679,13 +803,26 @@ async fn summary_missed_recurring(
 
             let summary = sorted
                 .iter()
-                .map(|r| {
+                .map_while(|r| {
                     let date = r.data.civil_dt.strftime("%d.%m.%Y").to_string();
                     let time = r.data.civil_dt.strftime("%H:%M").to_string();
-                    let cron_pattern = match r.data.schedule {
-                        ScheduleType::Recurring(ref cron) => cron.pattern.to_string(),
-                        ScheduleType::Once => String::new()
+
+                    let ScheduleType::Recurring(ref cron) = r.data.schedule else { return None };
+                    let today = Zoned::now().with_time_zone(room_settings.room_tz.clone());
+                    let next = match cron.find_next_occurrence(&today, true) {
+                        Ok(t) => t,
+                        Err(_) => {
+                            tracing::error!("Could not find the next occurrence time for the Cron expression for reminder #{}. Use today", r.id);
+                            today
+                        }
                     };
+
+                    /*
+                    let next = match super::natural::build_cron_datetime(&cron, room_settings.room_tz.clone()).await {
+                        Ok((_, civil)) => civil.strftime("%d.%m.%Y %H:%M").to_string(),
+                        Err(e) => String::from("err")
+                    };
+                    */
 
                     let sum = t!(
                         "reminder.list-recurring", 
@@ -693,9 +830,11 @@ async fn summary_missed_recurring(
                         text = r.data.text, 
                         date = date, 
                         time = time,
-                        cron = cron_pattern
+                        cron = cron.pattern.as_str(),
+                        cron_desc = cron.describe(),
+                        next = next.strftime("%d.%m.%Y %H:%M").to_string()
                     );
-                    sum
+                    Some(sum)
                 })
                 .collect::<String>();
 
@@ -709,7 +848,7 @@ async fn summary_missed_recurring(
             // Send the summary.
             if room.send(RoomMessageEventContent::text_markdown(message)).await.is_ok() {
                 let ids: Vec<i64> = reminders.iter().map(|r| r.id).collect();
-                tracing::info!("Missed recurring reminders #{:?} has been sent in a summary", ids);
+                tracing::info!("Missed recurring reminders #{:?} has been sent in a summary and will be queued for the next target time", ids);
             }
 
             // Set new target times and schedule recurring reminders again.
@@ -718,34 +857,32 @@ async fn summary_missed_recurring(
                 // Update reminder's target time to prevent new summary after bot reloading
                 let ScheduleType::Recurring(ref cron) = reminder.data.schedule else { continue };
                 
+                // Mark as missed, send an error and go to the next reminder if time was not updated.
                 if let Err(e) = update_recurring_time(ctx_clone.clone(), reminder.id.clone(), &cron, room_settings.room_tz.clone()).await {
-                    tracing::error!("Failed to get or update target time for recurring reminder #{}: {:?}. It will be marked as missed and cancelled.", reminder.id, e);
+                    tracing::error!("
+                        Failed to get or update target time for recurring reminder #{}: {:?}. The reminder will be marked as missed and will not be sent to the queue.",
+                        reminder.id, e
+                    );
                     
                     // Discard (mark as missed) to prevent its appearance each bot reloading
                     if let Err(e) = ctx_clone.db_ctx.reminders.update_reminder_status(reminder.id.clone(), ReminderStatus::Missed).await {
                         tracing::error!("Failed to mark recurring reminder as missed: {:?}", e);
                     }
 
+                    let msg = t!("error.unable-update-recurring-time", locale = room_settings.room_lang.as_ref(), id = reminder.id, text = reminder.data.text);
+                    let _ = room.send(RoomMessageEventContent::text_markdown(msg)).await;
+
                     continue;
                 }
-                
-                /*
-                let Ok((utc_dt, civil_dt)) = super::natural::build_cron_datetime(&cron, room_settings.room_tz.clone()).await else { continue };
-                if let Err(e) = ctx_clone.db_ctx.reminders.update_reminder_time(reminder.id.clone(), utc_dt, civil_dt).await {
-                    tracing::error!("Failed to update target time for recurring reminder: {:?}", e);
-                }
-                */
 
                 // Schedule it.
-                schedule_reminder(
+                let _ = schedule_reminder(
                     ctx_clone.clone(), 
                     reminder.clone(),
                 ).await;
 
                 ids.push(reminder.id);
             }
-            tracing::info!("Missed recurring reminders #{:?} has been queued for the next target time", ids);
-            // ==
         });
     }
 
@@ -760,6 +897,18 @@ pub fn is_time_valid(time_str: &str) -> bool {
     let h = parts[0].parse::<u8>().unwrap_or(99);
     let m = parts[1].parse::<u8>().unwrap_or(99);
     h < 24 && m < 60
+}
+
+/// Add seconds to the cron pattern, as the scheduler crate requires it.
+async fn parse_unix_cron_to_tokio(cron_pattern: &str) -> Result<String> {
+    let parts: Vec<&str> = cron_pattern.split_whitespace().collect();
+    
+    Ok(if parts.len() == 5 {
+        format!("0 {}", parts.join(" "))
+    }
+    else {
+        cron_pattern.to_string()
+    })
 }
 
 #[cfg(test)]

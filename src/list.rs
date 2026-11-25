@@ -54,6 +54,7 @@ pub enum ListOrder {
 pub enum StateKey {
     Page,
     ListButtons,
+    ReminderMessage,
     // Filter,
     // SelectedItem,
 }
@@ -65,14 +66,6 @@ pub struct PageState {
     pub page: i32, 
     pub size: i32,
     pub order: ListOrder,
-}
-
-/// A common way to record sub-events like reaction-buttons.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct _ReactionState {
-    pub target_event_id: OwnedEventId,
-    pub event_id: OwnedEventId,
-    // pub key: StateKey,
 }
 
 //
