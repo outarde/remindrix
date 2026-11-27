@@ -196,6 +196,8 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
     let messages_for_pages = false;
     let thread_for_pages = false;
 
+    let strikethrough_marked_sent = true;
+
     let new_config = config::BotConfig {
         lang,
         remind_commands,
@@ -216,6 +218,7 @@ fn config_setup() -> Result<(config::BotConfig, bool)> {
         list_size,
         messages_for_pages,
         thread_for_pages,
+        strikethrough_marked_sent
     };
 
     let overwrite = Confirm::new("Overwrite current configuration if any?").with_default(true).prompt()?;

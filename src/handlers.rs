@@ -611,7 +611,7 @@ async fn handle_status_update(
             match super::list::from_raw_reminders(cmd_ctx.ctx.clone(), vec![r]) {
                 Ok(rm) => rm[0].clone(),
                 Err(e) => {
-                    tracing::warn!("Error parsing a reminder for the message {} when attempting to update its status: {}", message_id, e);
+                    tracing::warn!("Error parsing a reminder for the message {} when attempt to update its status: {}", message_id, e);
                     return Ok(())
                 }
             }
@@ -644,11 +644,12 @@ async fn handle_status_update(
     let _ = cmd_ctx.msng.reply_with_event_id(&msg, reply).await;
 
     // Strikethrough reminder's text
-    // TODO: add to config option
-    let prev_msg = super::reminder::format_reminder_text(&reminder.data, &cmd_ctx.settings.room.room_lang);
-    let new_msg = format!("~{}~", prev_msg);
-    let _ = cmd_ctx.msng.edit_message(&message_id, &new_msg).await;
-
+    if cmd_ctx.bot_config().strikethrough_marked_sent {
+        let prev_msg = super::reminder::format_reminder_text(&reminder.data, &cmd_ctx.settings.room.room_lang);
+        let new_msg = format!("~{}~", prev_msg);
+        let _ = cmd_ctx.msng.edit_message(&message_id, &new_msg).await;
+    }
+    
     // Remove relations and buttons
     let messages_ids = cmd_ctx.ctx.db_ctx.reminders.remove_and_get_relations_for_ids(vec![reminder.id.clone()]).await?;
     let raw_buttons = cmd_ctx.ctx.db_ctx.reminders.remove_and_get_notif_buttons(messages_ids).await?;

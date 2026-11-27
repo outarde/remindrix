@@ -101,6 +101,9 @@ pub struct BotConfig {
     #[serde(default = "BotConfig::thread_for_pages")]
     pub thread_for_pages: bool,
 
+    #[serde(default = "BotConfig::strikethrough_marked_sent")]
+    pub strikethrough_marked_sent: bool,
+
     // If the "strict" mode is defined in the config, then 
     // any settings will be saved under the bot ID, 
     // in fact all settings will be tied only to rooms.
@@ -184,6 +187,9 @@ impl BotConfig {
     }
     fn thread_for_pages() -> bool {
         false
+    }
+    fn strikethrough_marked_sent() -> bool {
+        true
     }
 
     /// Create config.yaml from config variable
