@@ -138,7 +138,13 @@ pub async fn process_natural_reminder(
     let _ = super::reminder::schedule_reminder(cmd_ctx.ctx.clone(), reminder.clone()).await?;
         
     // Send success reaction or message to the room.
-    cmd_ctx.send_reminder_success(event, reminder.data, false).await;
+    cmd_ctx.send_reminder_success(event.clone(), &reminder, false).await;
+
+    // Set relation and buttons below the reminder's message.
+    // We would not delete the reminder if buttons are not added.
+    // Even if it is recurring reminder: The reminder will trigger once; 
+    // if it is not possible to add buttons again, it will be marked as missed and cancelled.
+    let _ = super::reminder::set_relation_and_buttons(&cmd_ctx, &reminder, &event.event_id).await?;
 
     Ok(())
 }
