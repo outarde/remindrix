@@ -107,9 +107,7 @@ pub async fn process_natural_reminder(
     // Get schedule.
     let schedule = match parsed_reminder_data.schedule {
         Some(ref cron) => {
-            // Configure the parser to disallow seconds.
-            let parser = CronParser::builder().seconds(Seconds::Disallowed).build();
-            let cron_all = parser.parse(&cron).map_err(|_| ReminderError::InvalidCronExpression)?;
+            let cron_all = super::natural::parse_cron(cron)?;
             ScheduleType::Recurring(cron_all)
         },
         None => ScheduleType::Once
@@ -117,7 +115,7 @@ pub async fn process_natural_reminder(
 
     // Get datetime.
     let (utc_dt, civil_dt) = match schedule {
-        ScheduleType::Recurring(ref cron) => build_cron_datetime(&cron, cmd_ctx.settings.room.room_tz.clone()).await?,
+        ScheduleType::Recurring(ref cron) => build_cron_datetime(&cron, cmd_ctx.settings.room.room_tz.clone())?,
         ScheduleType::Once => build_datetime_utc(&parsed_reminder_data, &cmd_ctx)?
     };
 
@@ -309,8 +307,17 @@ fn build_datetime_utc(
     Ok((utc_dt, civil_dt))
 }
 
+/// Parse Cron from the &str in the Cron Unix format.
+pub fn parse_cron(cron: &str) -> Result<Cron, ReminderError> {
+    // Configure the parser to disallow seconds.
+    let parser = CronParser::builder().seconds(Seconds::Disallowed).build();
+    let cron_all = parser.parse(cron).map_err(|_| ReminderError::InvalidCronExpression)?;
+    
+    Ok(cron_all)
+}
+
 /// Build the nearest datetime from the CRON expression.
-pub async fn build_cron_datetime(
+pub fn build_cron_datetime(
     // cron: &str,
     cron_all: &Cron, 
     tz: TimeZone
