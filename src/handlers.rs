@@ -32,7 +32,7 @@ use crate::context::CommandContext;
 use crate::reminder::{
     ReminderData, ReminderStatus, DelegationType, ScheduleType,
     ReminderError, 
-    ReminderNotifButtons,
+    ReminderButtons,
 };
 use crate::list::{ListScopes, ListOrder, StateKey, PageState};
 use crate::settings_service::{SettingsService};
@@ -589,7 +589,13 @@ pub async fn process_cli_reminder(
     let _ = super::reminder::schedule_reminder(cmd_ctx.ctx.clone(), reminder.clone()).await?;
         
     // Send success reaction or message to the room.
-    cmd_ctx.send_reminder_success(event, reminder.data, args.interval).await;
+    cmd_ctx.send_reminder_success(event.clone(), &reminder, args.interval).await;
+
+    // Set relation and buttons below the reminder's message.
+    // We would not delete the reminder if buttons are not added.
+    // Even if it is recurring reminder: The reminder will trigger once; 
+    // if it is not possible to add buttons again, it will be marked as missed and cancelled.
+    let _ = super::reminder::set_relation_and_buttons(&cmd_ctx, &reminder, &event.event_id).await?;
 
     Ok(())
 }
@@ -621,21 +627,34 @@ async fn handle_status_update(
             tracing::warn!("Could not find a reminder for the message: {}", message_id);
             return Ok(())
         },
+        /*
         Err(ReminderError::StatusNotUpdated) => {
             let msg = t!("status.not-updated.1", locale = &cmd_ctx.settings.room.room_lang);
             cmd_ctx.msng.text_plain(&msg).await;
             return Ok(())
         },
+        */
         Err(e) => {
             return Err(e.into());
         }
     };
 
     // Sent a succesful message as a threaded Reply for clear visualization in the timeline.
-    let msg = t!(
-        format!("status.updated.recurring.{}", target_status as i64),
-        locale = &cmd_ctx.settings.room.room_lang
-    );
+    // distinguish between recurring and not, RemindrNotifMessage and ReminderAddMessage.
+    let msg = match reminder.data.schedule {
+        ScheduleType::Recurring(ref cron) => {
+            t!(
+                format!("status.updated.recurring.{}", target_status as i64),
+                locale = &cmd_ctx.settings.room.room_lang
+            )
+        },
+        ScheduleType::Once => {
+            t!(
+                format!("status.updated.{}", target_status as i64),
+                locale = &cmd_ctx.settings.room.room_lang
+            )
+        }
+    };
     let reply = Reply {
         event_id: message_id.to_owned(),
         enforce_thread: EnforceThread::Threaded(ReplyWithinThread::Yes),
@@ -652,8 +671,8 @@ async fn handle_status_update(
     
     // Remove relations and buttons
     let messages_ids = cmd_ctx.ctx.db_ctx.reminders.remove_and_get_relations_for_ids(vec![reminder.id.clone()]).await?;
-    let raw_buttons = cmd_ctx.ctx.db_ctx.reminders.remove_and_get_notif_buttons(messages_ids).await?;
-    super::list::room_reminder_notif_buttons_remove(raw_buttons, &cmd_ctx.room).await;
+    let raw_buttons = cmd_ctx.ctx.db_ctx.reminders.remove_and_get_buttons(messages_ids).await?;
+    super::list::room_reminder_buttons_remove(raw_buttons, &cmd_ctx.room).await;
 
     Ok(())
 }

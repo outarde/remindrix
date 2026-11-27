@@ -13,7 +13,7 @@ use anyhow::{Result, Context};
 use crate::reminder::{
     RawReminder, Reminder, ReminderData, ReminderStatus, 
     ReminderError,
-    RawReminderNotifButtons, ReminderNotifButtons
+    RawReminderButtons, ReminderButtons
 };
 use crate::list::{
     ListScopes, StateKey, PageState, 
@@ -362,7 +362,7 @@ impl ReminderRepository {
                 VALUES (?1, ?2, ?3, ?4, ?5)
                 ON CONFLICT(event_id, room_id, key) 
                 DO UPDATE SET value=excluded.value, created_at=excluded.created_at;",
-                params![&message_id, &room_id, &StateKey::ReminderNotifMessage.to_string(), &reminder_id, &Timestamp::now().to_string()]
+                params![&message_id, &room_id, &StateKey::ReminderMessage.to_string(), &reminder_id, &Timestamp::now().to_string()]
             )?;
 
             Ok(())
@@ -380,7 +380,7 @@ impl ReminderRepository {
             let tx = conn.transaction()?;
             let reminder_id: String = tx.query_row(
                 "SELECT value FROM message_states WHERE key = ?1 AND event_id = ?2 LIMIT 1;",
-                params![&StateKey::ReminderNotifMessage.to_string(), &message_id],
+                params![&StateKey::ReminderMessage.to_string(), &message_id],
                 |r| r.get(0),
             ).optional()?.ok_or_else(|| ReminderError::NoMessageRelation)?;
 
@@ -459,7 +459,7 @@ impl ReminderRepository {
 
     // === Reminder Buttons ===
     /// Set buttons below the reminders' messages.
-    pub async fn set_reminder_notif_buttons(&self, event_id: &EventId, room_id: &RoomId, buttons: ReminderNotifButtons) -> Result<(), ReminderError> {
+    pub async fn set_reminder_buttons(&self, event_id: &EventId, room_id: &RoomId, buttons: ReminderButtons) -> Result<(), ReminderError> {
         let conn = self.conn.clone();
         let event_id = event_id.to_string();
         let room_id = room_id.to_string();
@@ -471,7 +471,7 @@ impl ReminderRepository {
                 VALUES (?1, ?2, ?3, ?4, ?5)
                 ON CONFLICT(event_id, room_id, key) 
                 DO UPDATE SET value=excluded.value, created_at=excluded.created_at;",
-                [&event_id, &room_id, &StateKey::ReminderNotifButtons.to_string(), &value, &Timestamp::now().to_string()]
+                [&event_id, &room_id, &StateKey::ReminderButtons.to_string(), &value, &Timestamp::now().to_string()]
             )?;
 
             Ok(())
@@ -481,7 +481,7 @@ impl ReminderRepository {
     }
 
     /// Delete relations between reminders and messages for given reminders' ids
-    /// and return deleted messages' ids. ReminderNotifMessage is not used (why?).
+    /// and return deleted messages' ids. RawReminderMessage is not used (why?).
     pub async fn remove_and_get_relations_for_ids(&self, ids: Vec<i64>) -> Result<Vec<OwnedEventId>, ReminderError> {
         let conn = self.conn.clone();
         let placeholders = vec!["?"; ids.len()].join(", ");
@@ -492,12 +492,12 @@ impl ReminderRepository {
                 WHERE key = ?1 AND value IN ({})
                 RETURNING event_id;", placeholders);
             let mut stmt = conn.prepare(&query)?;
-            let mut rows = stmt.query(params![&StateKey::ReminderNotifMessage.to_string()])?;
+            let mut rows = stmt.query(params![&StateKey::ReminderMessage.to_string()])?;
             
             /*
             let mut result: Vec<OwnedEventId> = Vec::new();
             while let Some(row) = rows.next()? {
-                result.push(RawReminderNotifMessage {
+                result.push(RawReminderMessage {
                     message_id: row.get(0)?,
                     room_id: row.get(1)?,
                     reminder_id: row.get(2)?,
@@ -542,7 +542,7 @@ impl ReminderRepository {
                 RETURNING event_id;", lifetime);
             let mut stmt = conn.prepare(&query)?;
             let mut rows = stmt.query(params![
-                &StateKey::ReminderNotifMessage.to_string(),
+                &StateKey::ReminderMessage.to_string(),
                 ReminderStatus::Sent as i64,
                 &limit
             ])?;
@@ -565,8 +565,8 @@ impl ReminderRepository {
         Ok(messages_ids)
     }
 
-    /// Delete ReminderNotifButtons for messages' ids and return them.
-    pub async fn remove_and_get_notif_buttons(&self, messages: Vec<OwnedEventId>) -> Result<Vec<RawReminderNotifButtons>, ReminderError> {
+    /// Delete ReminderButtons for messages' ids and return them.
+    pub async fn remove_and_get_buttons(&self, messages: Vec<OwnedEventId>) -> Result<Vec<RawReminderButtons>, ReminderError> {
         let conn = self.conn.clone();
         let placeholders = vec!["?"; messages.len()].join(", ");
 
@@ -576,12 +576,12 @@ impl ReminderRepository {
                 WHERE key = ?1 AND event_id IN ({})
                 RETURNING value;", placeholders);
             let mut stmt = conn.prepare(&query)?;
-            let mut rows = stmt.query(params![StateKey::ReminderNotifButtons.to_string()])?;
+            let mut rows = stmt.query(params![StateKey::ReminderButtons.to_string()])?;
 
-            let mut result: Vec<RawReminderNotifButtons> = Vec::new();
+            let mut result: Vec<RawReminderButtons> = Vec::new();
             
             while let Some(row) = rows.next()? {
-                result.push(RawReminderNotifButtons {
+                result.push(RawReminderButtons {
                     room_id: row.get(0)?,
                     value: row.get(1)?,
                 });

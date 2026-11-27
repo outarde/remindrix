@@ -21,7 +21,7 @@ use crate::db::{DbContext, ListRepository};
 use crate::reminder::{RawReminder, Reminder, ReminderData, ReminderStatus, 
     ReminderError, 
     DelegationType, ScheduleType,
-    RawReminderNotifButtons, ReminderNotifButtons
+    RawReminderButtons, ReminderButtons
 };
 
 /// The lifespan of states, in days.
@@ -59,8 +59,8 @@ pub enum StateKey {
     Page,
     ListButtons,
 
-    ReminderNotifMessage,
-    ReminderNotifButtons,
+    ReminderMessage,
+    ReminderButtons,
     // Filter,
     // SelectedItem,
 }
@@ -469,18 +469,18 @@ pub async fn reminder_states_cleanup(ctx: Arc<super::BotContext>) -> anyhow::Res
 
     let messages_ids = ctx.db_ctx.reminders.cleanup_and_get_relations(&STATE_LIFETIME_DAYS, &STATE_EXPIRED_LIMIT).await?;
     if messages_ids.len() > 0 {
-        tracing::info!("{} ReminderNotifMessage have been successfully deleted", messages_ids.len());
+        tracing::info!("{} ReminderMessage have been successfully deleted", messages_ids.len());
     }
 
-    let raw_buttons = ctx.db_ctx.reminders.remove_and_get_notif_buttons(messages_ids).await?;
+    let raw_buttons = ctx.db_ctx.reminders.remove_and_get_buttons(messages_ids).await?;
     let raw_buttons_len = raw_buttons.len();
 
     // Assign buttons to rooms
-    let mut cleanup_buttons: HashMap<OwnedRoomId, Vec<ReminderNotifButtons>> = HashMap::new();
+    let mut cleanup_buttons: HashMap<OwnedRoomId, Vec<ReminderButtons>> = HashMap::new();
 
     for raw_button in raw_buttons {
         let room_id = RoomId::parse(&raw_button.room_id)?;
-        let reminder_buttons = serde_json::from_str::<ReminderNotifButtons>(&raw_button.value)?;
+        let reminder_buttons = serde_json::from_str::<ReminderButtons>(&raw_button.value)?;
 
         cleanup_buttons
             .entry(room_id.clone())
@@ -496,7 +496,7 @@ pub async fn reminder_states_cleanup(ctx: Arc<super::BotContext>) -> anyhow::Res
         let room = match ctx.client.get_room(&room_id) {
             Some(r) => r,
             None => {
-                tracing::error!("Error removing ReminderNotifButtons from messages. Can't load room with id: {:?}", room_id);
+                tracing::error!("Error removing ReminderButtons from messages. Can't load room with id: {:?}", room_id);
                 continue;
             }
         };
@@ -512,7 +512,7 @@ pub async fn reminder_states_cleanup(ctx: Arc<super::BotContext>) -> anyhow::Res
 
     // Stats
     if cleaned_rooms > 0 {
-        tracing::info!("{} ReminderNotifButtons from {} room(s) have been successfully redacted",
+        tracing::info!("{} ReminderButtons from {} room(s) have been successfully redacted",
             raw_buttons_len,
             cleaned_rooms
         );
@@ -524,11 +524,11 @@ pub async fn reminder_states_cleanup(ctx: Arc<super::BotContext>) -> anyhow::Res
 }
 
 /// Remove given buttons below reminders messages in the one given room.
-pub async fn room_reminder_notif_buttons_remove(raw_buttons: Vec<RawReminderNotifButtons>, room: &Room) {
-    let mut buttons: Vec<ReminderNotifButtons> = Vec::new();
+pub async fn room_reminder_buttons_remove(raw_buttons: Vec<RawReminderButtons>, room: &Room) {
+    let mut buttons: Vec<ReminderButtons> = Vec::new();
 
     for button in raw_buttons {
-        let reminder_buttons = match serde_json::from_str::<ReminderNotifButtons>(&button.value) {
+        let reminder_buttons = match serde_json::from_str::<ReminderButtons>(&button.value) {
             Ok(b) => b,
             Err(_) => continue
         };
