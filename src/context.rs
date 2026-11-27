@@ -14,7 +14,7 @@ use itertools::Itertools;
 
 // app crates
 use crate::db::{ReminderRepository, SettingRepository};
-use crate::reminder::{ReminderData, ReminderStatus};
+use crate::reminder::{Reminder, ReminderStatus};
 use crate::settings::{
     ActiveSettings,
 };
@@ -191,7 +191,7 @@ impl CommandContext {
     pub async fn send_reminder_success(
         &self,
         event: OriginalSyncRoomMessageEvent, 
-        reminder: ReminderData, 
+        reminder: &Reminder, 
         interval: bool
     ) {
         if self.bot_config().send_reactions {
@@ -199,9 +199,9 @@ impl CommandContext {
             // this setting is on, it is not an interval, it is not delegated.
             if self.bot_config().send_digits_reactions 
                 && !interval 
-                && &reminder.room_id == &self.settings.room.room_id 
+                && &reminder.data.room_id == &self.settings.room.room_id 
             {
-                let numbers = super::messaging::calculate_durations(reminder.utc_dt);
+                let numbers = super::messaging::calculate_durations(reminder.data.utc_dt);
                 let emojis = super::messaging::get_emojis_for_duration(numbers);
                 self.msng.react_bundle(event.event_id.clone(), emojis).await;
             }
@@ -209,11 +209,21 @@ impl CommandContext {
                 self.msng.react(event.event_id.clone(), MessageReaction::Timer).await;
             }
         } else {
-            let date = reminder.civil_dt.strftime("%d.%m.%Y").to_string();
-            let time = reminder.civil_dt.strftime("%H:%M").to_string();
+            let date = reminder.data.civil_dt.strftime("%d.%m.%Y").to_string();
+            let time = reminder.data.civil_dt.strftime("%H:%M").to_string();
             let msg = t!("reminder.saved", locale = &self.settings.room.room_lang, date = date, time = time);
             self.msng.text_plain(&msg).await;
         }
+
+        /*
+        // Set relation and buttons below the reminder's message.
+        // We would not delete the reminder if buttons are not added.
+        // Even if it is recurring reminder: The reminder will trigger once; 
+        // if it is not possible to add buttons again, it will be marked as missed and cancelled.
+        let _ = super::reminder::set_relation_and_buttons(cmd_ctx.clone(), &reminder, &event.event_id).await?;
+
+        Ok(())
+        */
     }
 
     //===== Messages for Settings =====
