@@ -29,7 +29,11 @@ use clap::Parser;
 
 // app crates
 use crate::context::CommandContext;
-use crate::reminder::{ReminderData, ReminderStatus, DelegationType, ScheduleType, ReminderError};
+use crate::reminder::{
+    ReminderData, ReminderStatus, DelegationType, ScheduleType,
+    ReminderError, 
+    ReminderNotifButtons,
+};
 use crate::list::{ListScopes, ListOrder, StateKey, PageState};
 use crate::settings_service::{SettingsService};
 use crate::settings::{
@@ -191,9 +195,16 @@ pub struct RemindArgs {
     #[arg(short, long)]
     pub interval: bool,
 
-    // CRON's style
-    // #[arg(short, long)]
-    // pub repeat: Option<String>,
+    /*
+    /// Parse Unix-style **Cron** expression within the text in the following format:
+    /// (cron: * * * * *)
+    #[arg(short, long)]
+    pub cron: bool,
+    */
+
+    /// Unix-style **Cron** expression.
+    #[arg(short, long)]
+    pub cron: Option<String>,
 }
 
 impl RemindArgs {
@@ -209,7 +220,7 @@ impl RemindArgs {
             self.min.as_ref(),
             self.time.as_ref(),
             self.room.as_ref(),
-            // self.repeat.as_ref(),
+            self.cron.as_ref(),
         ];
 
         options.iter().find(|opt| opt.is_some()).is_some()
@@ -326,7 +337,7 @@ pub async fn on_room_message(
             handle_settings(&args, event.clone(), cmd_ctx.clone()).await
         }
         BotCommand::Beep => {
-            cmd_ctx.msng.text_md("🪺").await;
+            cmd_ctx.msng.text_md("Boop. Hello from outarde-bot.").await;
             Ok(())
         }
     };
@@ -543,11 +554,20 @@ pub async fn process_cli_reminder(
         resolve_time(&args, &tz, default_time)?
     };
 
-    // Get times.
-    let (utc_dt, civil_dt) = resolve_target_dt(date, time, &tz)?;
+    // Get a schedule.
+    let schedule = match args.cron {
+        Some(ref cron) => {
+            let cron_all = super::natural::parse_cron(cron)?;
+            ScheduleType::Recurring(cron_all)
+        },
+        None => ScheduleType::Once
+    };
 
-    // Schedule.
-    let schedule = ScheduleType::Once;
+    // Get times.
+    let (utc_dt, civil_dt) = match schedule {
+        ScheduleType::Recurring(ref cron) => super::natural::build_cron_datetime(&cron, cmd_ctx.settings.room.room_tz.clone())?,
+        ScheduleType::Once => resolve_target_dt(date, time, &tz)?
+    };
 
     // Fill a structure.
     let reminder_data = ReminderData {
@@ -587,11 +607,13 @@ async fn handle_status_update(
 
     // Check errors.
     let reminder = match raw_reminder {
-        Ok(r) => match super::list::from_raw_reminders(cmd_ctx.ctx.clone(), vec![r]) {
-            Ok(rm) => rm[0].clone(),
-            Err(e) => {
-                tracing::warn!("Error parsing a reminder for the message {} when attempting to update its status: {}", message_id, e);
-                return Ok(())
+        Ok(r) => {
+            match super::list::from_raw_reminders(cmd_ctx.ctx.clone(), vec![r]) {
+                Ok(rm) => rm[0].clone(),
+                Err(e) => {
+                    tracing::warn!("Error parsing a reminder for the message {} when attempting to update its status: {}", message_id, e);
+                    return Ok(())
+                }
             }
         },
         // Mute this error: a reaction can be sent to a message that was never a reminder message.
@@ -600,7 +622,7 @@ async fn handle_status_update(
             return Ok(())
         },
         Err(ReminderError::StatusNotUpdated) => {
-            let msg = t!("status.not-updated.1"), locale = &cmd_ctx.settings.room.room_lang);
+            let msg = t!("status.not-updated.1", locale = &cmd_ctx.settings.room.room_lang);
             cmd_ctx.msng.text_plain(&msg).await;
             return Ok(())
         },
@@ -622,10 +644,15 @@ async fn handle_status_update(
     let _ = cmd_ctx.msng.reply_with_event_id(&msg, reply).await;
 
     // Strikethrough reminder's text
-    // TODO: add config option
-    let prev_msg = super::reminder::format_reminder_text(&reminder.data, &cmd_ctx.settings.room.room_lang).await;
+    // TODO: add to config option
+    let prev_msg = super::reminder::format_reminder_text(&reminder.data, &cmd_ctx.settings.room.room_lang);
     let new_msg = format!("~{}~", prev_msg);
     let _ = cmd_ctx.msng.edit_message(&message_id, &new_msg).await;
+
+    // Remove relations and buttons
+    let messages_ids = cmd_ctx.ctx.db_ctx.reminders.remove_and_get_relations_for_ids(vec![reminder.id.clone()]).await?;
+    let raw_buttons = cmd_ctx.ctx.db_ctx.reminders.remove_and_get_notif_buttons(messages_ids).await?;
+    super::list::room_reminder_notif_buttons_remove(raw_buttons, &cmd_ctx.room).await;
 
     Ok(())
 }
