@@ -18,7 +18,11 @@ use rust_i18n::t;
 
 use crate::context::CommandContext;
 use crate::db::{DbContext, ListRepository};
-use crate::reminder::{RawReminder, Reminder, ReminderData, ReminderStatus, ReminderError, DelegationType, ScheduleType};
+use crate::reminder::{RawReminder, Reminder, ReminderData, ReminderStatus, 
+    ReminderError, 
+    DelegationType, ScheduleType,
+    RawReminderNotifButtons, ReminderNotifButtons
+};
 
 /// The lifespan of states, in days.
 const STATE_LIFETIME_DAYS: i32 = 30;
@@ -48,13 +52,15 @@ pub enum ListOrder {
     Desc,
 }
 
-/// Keys for states.
+/// Keys for states of entities and buttons.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumString, Display)]
 #[strum(serialize_all = "snake_case")]
 pub enum StateKey {
     Page,
     ListButtons,
-    ReminderMessage,
+
+    ReminderNotifMessage,
+    ReminderNotifButtons,
     // Filter,
     // SelectedItem,
 }
@@ -68,7 +74,7 @@ pub struct PageState {
     pub order: ListOrder,
 }
 
-//
+/// State of buttons below the list message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListButtons {
     pub message: OwnedEventId,
@@ -76,7 +82,7 @@ pub struct ListButtons {
     pub next_button: OwnedEventId,   
 }
 
-//
+/// Raw state of ListButtons.
 #[derive(Debug, Clone)]
 pub struct RawListButtons {
     pub room_id: String,
@@ -275,6 +281,8 @@ fn get_list_section_for_date(reminders: Vec<Reminder>, date: &Date, locale: &str
     let items = reminders
         .iter()
         .map(|r| {
+            super::reminder::format_reminder_text(&r.data, locale)
+            /*
             match r.data.delegation {
                 DelegationType::Personal => {
                     let time = r.data.civil_dt.strftime("%H:%M").to_string();
@@ -310,7 +318,7 @@ fn get_list_section_for_date(reminders: Vec<Reminder>, date: &Date, locale: &str
                     item
                 }
             }
-            
+            */
         })
         .collect::<String>();
 
@@ -397,8 +405,10 @@ pub async fn set_list_buttons(cmd_ctx: &CommandContext, event_id: &EventId, page
     }
 }
 
+// ===== Cleanup =====
+// === List ===
 /// Clean-up task for old page and page_buttons.
-pub async fn states_cleanup(ctx: Arc<super::BotContext>) -> anyhow::Result<()> {
+pub async fn page_states_cleanup(ctx: Arc<super::BotContext>) -> anyhow::Result<()> {
     tracing::info!("Starting automatic page states cleanup...");
 
     let states_count = ctx.db_ctx.list.cleanup_page_states(&STATE_LIFETIME_DAYS, &STATE_EXPIRED_LIMIT).await?;
@@ -450,4 +460,86 @@ pub async fn states_cleanup(ctx: Arc<super::BotContext>) -> anyhow::Result<()> {
     tracing::info!("Automatic page states cleanup completed successfully!");
 
     Ok(())
+}
+
+// === Reminders ===
+/// Clean-up task for old reminder relations.
+pub async fn reminder_states_cleanup(ctx: Arc<super::BotContext>) -> anyhow::Result<()> {
+    tracing::info!("Starting automatic reminders states cleanup...");
+
+    let messages_ids = ctx.db_ctx.reminders.cleanup_and_get_relations(&STATE_LIFETIME_DAYS, &STATE_EXPIRED_LIMIT).await?;
+    if messages_ids.len() > 0 {
+        tracing::info!("{} ReminderNotifMessage have been successfully deleted", messages_ids.len());
+    }
+
+    let raw_buttons = ctx.db_ctx.reminders.remove_and_get_notif_buttons(messages_ids).await?;
+    let raw_buttons_len = raw_buttons.len();
+
+    // Assign buttons to rooms
+    let mut cleanup_buttons: HashMap<OwnedRoomId, Vec<ReminderNotifButtons>> = HashMap::new();
+
+    for raw_button in raw_buttons {
+        let room_id = RoomId::parse(&raw_button.room_id)?;
+        let reminder_buttons = serde_json::from_str::<ReminderNotifButtons>(&raw_button.value)?;
+
+        cleanup_buttons
+            .entry(room_id.clone())
+            .or_default()
+            .push(reminder_buttons);
+    }
+
+    let cleaned_rooms = cleanup_buttons.len();
+
+    // Redact buttons from room
+    for (room_id, reminder_buttons) in cleanup_buttons {
+        // Get room
+        let room = match ctx.client.get_room(&room_id) {
+            Some(r) => r,
+            None => {
+                tracing::error!("Error removing ReminderNotifButtons from messages. Can't load room with id: {:?}", room_id);
+                continue;
+            }
+        };
+        // Remove buttons *in this room* 
+        for button in reminder_buttons {
+            if let Some(sb) = button.sent_button {
+                let _ = room.redact(&sb, Some("The reminder has been marked as sent"), None).await;
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        }
+    }
+
+    // Stats
+    if cleaned_rooms > 0 {
+        tracing::info!("{} ReminderNotifButtons from {} room(s) have been successfully redacted",
+            raw_buttons_len,
+            cleaned_rooms
+        );
+    }
+
+    tracing::info!("Automatic reminders states cleanup completed successfully!");
+
+    Ok(())
+}
+
+/// Remove given buttons below reminders messages in the one given room.
+pub async fn room_reminder_notif_buttons_remove(raw_buttons: Vec<RawReminderNotifButtons>, room: &Room) {
+    let mut buttons: Vec<ReminderNotifButtons> = Vec::new();
+
+    for button in raw_buttons {
+        let reminder_buttons = match serde_json::from_str::<ReminderNotifButtons>(&button.value) {
+            Ok(b) => b,
+            Err(_) => continue
+        };
+        buttons.push(reminder_buttons);
+    }
+
+    for button in buttons {
+        if let Some(sb) = button.sent_button {
+            let _ = room.redact(&sb, Some("The reminder has been marked as sent"), None).await;
+        }
+
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    }
 }

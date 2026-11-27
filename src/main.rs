@@ -304,12 +304,16 @@ impl BotManager {
             // 03:00 a.m.
             Job::new_async("0 0 3 * * *", move |_uuid, mut _l| {
                 let context = context_for_cleanup.clone();
+                let context2 = context_for_cleanup.clone();
 
                 Box::pin(async move {
                     tracing::info!("Background cleanup task by scheduler is starting");
                     
-                    if let Err(e) = list::states_cleanup(context).await {
-                        tracing::error!("Failed to cleanup old states: {:?}", e);
+                    if let Err(e) = list::page_states_cleanup(context).await {
+                        tracing::error!("Failed to cleanup old page states: {:?}", e);
+                    }
+                    if let Err(e) = list::reminder_states_cleanup(context2).await {
+                        tracing::error!("Failed to cleanup relations for sent reminders: {:?}", e);
                     }
                 })
             })?
